@@ -1,0 +1,190 @@
+{
+  "_rules": "Edit ONLY the `passes` flags, and only after the steps have been run end-to-end. Never remove or weaken a feature or its steps. Order is the build order. `passes: true` means Built (automated + steps green); Verified is set by Christoffer in the Notion unit table, never here.",
+  "project": "Agent World — M1 Mirror (Bot Crossing fork with Compass adapter)",
+  "milestone": "M1 — Mirror: Bot Crossing fork with Compass adapter, filmed (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176)",
+  "features": [
+    {
+      "id": "U1",
+      "category": "harness",
+      "description": "Fork and harness: the repo exists with the upstream remote, the Compass adapter skeleton is the only registered harness, and the invariants test guards src/ and the zero-token rule",
+      "delivers": [
+        "ES-1.1",
+        "ES-1.2",
+        "ES-1.9"
+      ],
+      "steps": [
+        "git remote -v shows origin = Christoffer-Tellefsen/agent-world and upstream = jarrenrocks/bot-crossing; git diff upstream/main -- src/ prints nothing",
+        "server/harnesses/index.mjs exports HARNESSES = [compass]; claude-code.mjs is present and unmodified",
+        "With .env set: ./init.sh ends with 'smoke ok' and /api/harnesses returns {id:'compass', detected:true}; with SUPABASE_SERVICE_ROLE_KEY unset, detected is false",
+        "npm test is green: invariants (src unchanged, no model endpoints, adapter has no write calls, registry is [compass]); adapter tests are skipped until U3",
+        "CLAUDE.md, SPEC.md, FEATURES.md, feature_list.json, VERIFICATION.md, init.sh, claude-progress.txt, .env.example, .mcp.json are in the repo root; .env, .claude/run_id and .claude/.gate-open are gitignored"
+      ],
+      "passes": false,
+      "built_in_sandbox": "2026-09-06 — adapter skeleton, registry, tests and init.sh written and proven in the kickoff sandbox on a real clone (npm test 8/8, init.sh 'smoke ok' with a fake env). Remaining for the Mac: the fork itself, the upstream remote, .env, run ./init.sh, V-U1."
+    },
+    {
+      "id": "U2",
+      "category": "governed-build",
+      "description": "Every Claude Code session in this repo is a governed run: hooks post run_started, gate_waiting, gate_passed and run_completed to POST /events sharing run_id = session id, and the session writes its ops_skill_runs row at the end",
+      "delivers": [
+        "ES-3.1"
+      ],
+      "steps": [
+        "chmod +x .claude/hooks/ledger.sh; jq is installed; EVENTS_BEARER_TOKEN is in .env",
+        "Start a session, run one command that prompts for permission, approve it, then /exit",
+        "Compass list_records(ops_run_events, skill='agent-world-build') shows run_started, gate_waiting {surface:'class_b_gate'}, gate_passed {result:'approved'}, run_completed — all with the same run_id, none carrying command text or file contents",
+        "The session's ops_skill_runs row exists with id = that run_id, skill 'agent-world-build', run_class 'B_judge', trigger 'claude_code'",
+        "Resume the same session: no second run_started row (duplicate id ignored by the Worker)"
+      ],
+      "passes": true
+    },
+    {
+      "id": "U10",
+      "category": "seam",
+      "description": "Worker ledger-read proxy — in tellefsen-compass-mcp, not this fork: GET /ledger/scan?since= returns {events, rows} using the Worker's own already-configured SUPABASE_SERVICE_ROLE_KEY, behind the same bearer token /events uses. Added because the Compass Supabase project is provisioned through Lovable, which exposes no Supabase URL or service-role key outside itself — this is what lets U3 work without any Supabase access on the local machine.",
+      "delivers": [
+        "ES-1.12"
+      ],
+      "steps": [
+        "worker/ledger-read.mjs dropped into tellefsen-compass-mcp; one import + one router line added per worker/WIRING.md; wrangler deploy",
+        "curl with no Authorization header → 401; curl with a wrong Bearer token → 401; curl with the right token and no since → 400; curl with the right token and a valid since → 200 with a body starting {\"events\":[",
+        "The 200 response's events array matches what list_records(ops_run_events) shows for the same window (spot-check a handful of ids); rows contains exactly the ops_skill_runs rows for run_ids present in events, nothing else",
+        "The response never contains the string SUPABASE_SERVICE_ROLE_KEY or anything shaped like a Supabase key",
+        "A malformed since (not parseable as a date) → 400, not a 500 or a hang"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U3",
+      "category": "functional",
+      "description": "Ledger to agents and badges: events in the window fold into runs; each run is one thread on its client's plot (or Tellefsen HQ); badges follow the precedence table; running requires activity within the TTL; the viewer context defaults to Owner; the scan is cached 5 s (needs U10 deployed on the Worker first, since reads go through it, not Postgres directly).",
+      "delivers": [
+        "ES-1.3",
+        "ES-1.4"
+      ],
+      "steps": [
+        "scripts/zztest-seed.sh posts Alpha (run_started + gate_waiting pending_approval, client ZZTEST Client), Beta (run_started only, same client), Gamma (run_started + run_failed, client null), Delta (run_started + run_completed, at = 4 days ago, client ZZTEST Client) and prints their run_ids",
+        "node -e scan (README 'Checking your work' step 3) returns 4 compass threads with no undefined fields; Alpha.unread=true, Beta.running=true, Gamma.hasError=true, Delta.lastActivityAt older than 3 days; Alpha/Beta/Delta.project='ZZTEST Client', Gamma.project='Tellefsen HQ'",
+        "npm test: test/adapter.test.mjs is green against test/fixtures/events.zztest.json (the same four runs plus an unmatched gate_passed and a malformed payload that must be skipped)",
+        "In the browser: ZZTEST Client plot with Alpha holding ?, Beta hammering, Delta asleep; Gamma slumped with ! on Tellefsen HQ; HUD 'need you' = 1; two consecutive polls within 5 s issue one Supabase query burst (log)",
+        "Post run_completed for Beta: within one poll Beta stops hammering and shows idle, no badge"
+      ],
+      "passes": false,
+      "built_in_sandbox": "2026-09-06 — fold/threads/viewer/supabase written; fixture test green; real-data dry run over 23 live events / 9 runs green (correct zones, gate matching incl. a surface-less gate, no undefined fields). Remaining for the Mac: seed ZZTEST, open the world, V-U3."
+    },
+    {
+      "id": "U5",
+      "category": "functional",
+      "description": "Open goes to the surface and nothing writes back: Enter/Open opens the newest open gate's ref_url, else the newest artifact's Notion page, else the Claude Project for chat runs; a run with nothing to open is greyed; A, new-session and archive never touch the substrate or the ledger",
+      "delivers": [
+        "ES-1.5",
+        "ES-1.7"
+      ],
+      "steps": [
+        "Select Alpha, press Enter: the browser opens the ZZTEST Pending Approval row URL from its gate's ref_url",
+        "Post artifact_registered for Beta with a notion_url, select Beta, press Enter: that Notion page opens",
+        "Seed a run with trigger 'chat' and no gate or artifact: Enter opens CLAUDE_PROJECT_URL; a claude_code run with nothing to open shows the Open button greyed and the toast names why",
+        "Press A on any compass thread: nothing happens beyond the toast; data/colony.json 'archived' stays empty; no request other than GET reached Supabase, Notion or Airtable (adapter debug log)",
+        "Reload the page: every plot is where it was (data/colony.json plots persisted)"
+      ],
+      "passes": false,
+      "built_in_sandbox": "2026-09-06 — openThread/newSession/setArchived and the link-only Open resolution written; canArchive false. Remaining for the Mac: V-U5."
+    },
+    {
+      "id": "U11",
+      "category": "overlay",
+      "description": "Selection panel overlay (the first overlay module, per the seam Decision): when a figure is selected, a panel outside src/ shows the run's skill, zone, state, source, model, time — and for a pending gate, the gate's name and the full instruction of what the human must do. Blocks the A (hide) key on a waiting run. Pulled forward from M2 into M1 at Christoffer's request after V-U5 ('the info boxes cut the guidance text so build something better there').",
+      "delivers": [
+        "ES-1.13"
+      ],
+      "steps": [
+        "index.html mounts /overlay/main.js after /src/main.js; npm test still shows src/ byte-identical and no model endpoints; npm run build bundles the overlay",
+        "Select any figure: the panel appears bottom-left with skill, zone, status chip, source, model, 'ago', short run id, and an Open button labelled by destination (Airtable / Notion / Claude Project) or disabled",
+        "Select a ? figure: the panel shows 'What it wants from you', the gate name, and the full instruction (e.g. 'A Pending Approval row is waiting. Open it in Airtable and set its Status to Approved or Rejected.'); Bot Crossing's own card shows the short tag (e.g. 'approve in Airtable') untruncated",
+        "Select a non-? figure and press A: Bot Crossing's local hide still works (toast, figure walks to the ship)",
+        "Select a ? figure and press A: nothing is hidden; a toast says the run is waiting on you; the figure stays",
+        "Deselect (click empty ground): the panel disappears"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U4",
+      "category": "seam",
+      "description": "Milestone progress seam: the run card's bar equals Engagement Milestones Done ÷ total for the run's Notion project, read from Notion and cached 5 minutes; runs without a project show the floor",
+      "delivers": [
+        "ES-1.6"
+      ],
+      "steps": [
+        "surfaces.mjs: progress(projectId) normalises dashed/undashed, GETs the project page's Milestones relation (follows has_more), GETs each milestone's Status; done = Delivered/Done/Accepted/Complete ÷ total; floor 0.05; 5-min cache; a 404 (Projects DB not shared) degrades to the floor with a warning naming the fix",
+        "test/surfaces.test.mjs green: 1 of 4 → 0.25 from an undashed id; the dashed id hits the cache; null → floor; unshared → floor without throwing; all GETs",
+        "On the Mac with the Projects DB shared: an agent-world-build run's bar reads 25 %; Gamma's reads 5 %"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U6",
+      "category": "seam",
+      "description": "Surface cross-check: an open gate whose Pending Approval row is Approved/Sent/Rejected, or whose Decision is Active/Superseded, stops rendering ? within one poll — before the daily sweep writes gate_passed — and the world writes nothing Content rows (content_status) added 2026-09-06 after Christoffer signed a draft and the ? stayed: the poller owns the write, the world may read.",
+      "delivers": [
+        "ES-1.8"
+      ],
+      "steps": [
+        "surfaces.mjs: gateResolved reads Airtable (pending_approval), the Notion Decision (decision), the Notion Content row (content_status); class_b_gate/client_gate never; every request a GET; resolved cached, open re-read each scan; failures warn once a minute and leave the ?",
+        "test/surfaces.test.mjs green: each surface resolves on its own moved-on state; the negative answers come from a real read; no request for class_b_gate/client_gate; a thrown read returns false; resolved is cached",
+        "Real-surface proof: a signed Content row → true; ZZTEST Alpha (Pending Approval) → false; an Active Decision → true"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U7",
+      "category": "seam",
+      "description": "Realtime nudge: the adapter subscribes to postgres_changes on ops_run_events and drops its scan cache on insert, so the next poll reflects an event that landed seconds ago; this demonstrates Realtime delivery to a subscriber (M0's open check)",
+      "delivers": [
+        "ES-1.10"
+      ],
+      "steps": [
+        "Server log shows 'realtime: subscribed ops_run_events' within 5 s of start and reconnects after a forced disconnect",
+        "Post an event via /events: the log shows the insert received within 2 s and 'scan cache invalidated'",
+        "The next /api/threads (poll) reflects the event without waiting for the 5 s cache to expire",
+        "With Realtime unreachable (bad URL) the world still works on the 5 s cache and logs once"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U9",
+      "category": "seam",
+      "description": "Worker write-gate (tellefsen-compass-mcp, not this fork): a Pending Approval status change made through airtable_update_record writes gate_passed for its open gates within seconds and patches the ledger row, so the ledger learns of MCP taps without the daily sweep; Airtable-UI taps stay with the sweep",
+      "delivers": [
+        "ES-1.11"
+      ],
+      "steps": [
+        "RUN_GOVERNANCE_RULES.late_tap_mapping.gate_passed_at lists at_source 'worker' (Compass key first, then code)",
+        "In tellefsen-compass-mcp: airtable_update_record on table_key pending_approval with merged Status in (Approved, Rejected, Sent) inserts gate_passed {result approved|rejected, at_source 'worker'} for every open gate_waiting whose ref_url contains the record id, then patches ops_skill_runs per late_tap_mapping.ledger_patch",
+        "Approve the ZZTEST Alpha row via the Compass MCP: within 5 s list_records(ops_run_events, run_id=Alpha) shows exactly one gate_passed with at_source 'worker'; Alpha's ledger row has gates_hit 1 and gates_detail filled",
+        "Run the same update again (idempotent): no second gate_passed; the next gate-reconciliation sweep leaves the gate alone",
+        "A pending_approval update whose Status stays Pending Approval writes nothing; an update on any other table_key writes nothing",
+        "Worker deploy + a smoke run recorded in the PR; the Worker's own tests green"
+      ],
+      "passes": false
+    },
+    {
+      "id": "U8",
+      "category": "film",
+      "description": "The first film: a 30–60 s screen recording of the local world with real runs — rest, a run arriving, a ?, N flying to it, Open landing on the surface, the ? clearing — filed to Drive and linked from the Project page's Sent Documents table",
+      "delivers": [
+        "ES-2.1"
+      ],
+      "steps": [
+        "All of U3–U7 and U9 are Verified in the Notion unit table (not just Built)",
+        "Record with the Mac screen recorder at 1080p while a real Cowork run (or a seeded run) arrives and a real ? is tapped on its surface",
+        "The file is 30–60 s, shows the six beats, and contains no client name that is not already public in Tellefsen's own materials",
+        "Uploaded to the Agent World Drive folder; the Project page's Sent Documents table links it as 'M1 film v1'"
+      ],
+      "passes": false
+    }
+  ],
+  "placeholders_not_cut": {
+    "M2": "Ontology skin via the agent-session-world skill; artifact bubbles and cards; in-tray as a plain list; Approve from the world (write path to settle); PA panel via Worker /ask (overlay/); sound; voice; suit colours; hand-raise; System Health !; ✓ on milestone close; sub-agent avatars; Steering Room panels as substrate reads; prospect plots rendering decay. Cut into units at the M1 acceptance refresh.",
+    "M3": "Hosting on the Sovereign pattern; Supabase Auth; RLS policies; ops_world_grants; Worker /actions; client projection; multiplayer; first client town. Cut at the M2 acceptance refresh."
+  }
+}

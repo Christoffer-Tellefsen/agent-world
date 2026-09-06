@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh run_started" } ] }
+    ],
+    "PermissionRequest": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh gate_waiting" } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh gate_passed" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh run_completed" } ] }
+    ]
+  }
+}

@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "agent-world",
+      "runtimeExecutable": "./dev.sh",
+      "runtimeArgs": [],
+      "port": 5274
+    },
+    {
       "name": "bot-crossing",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
