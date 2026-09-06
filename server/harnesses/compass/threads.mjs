@@ -1,0 +1,147 @@
+/**
+ * Run → Thread. The one place Tellefsen's ontology meets Bot Crossing's thread shape
+ * (server/harnesses/README.md is the contract). Pure apart from the two awaited surface reads.
+ */
+import { openGates } from './fold.mjs'
+import { CAMPUS } from './config.mjs'
+
+const STALE_MS = 3 * 24 * 60 * 60 * 1000 // the renderer's own sleep threshold, for reference only
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
+
+/**
+ * The exact inverse of the renderer's transcriptProgress:
+ *   progress = clamp((log10(sizeBytes) - 3) / 3.5, 0.05, 1)
+ * so the card's bar reads done ÷ total. Nothing else in the renderer reads sizeBytes for size.
+ */
+export const sizeBytesForProgress = (p) => Math.round(10 ** (3 + 3.5 * clamp(Number(p) || 0, 0.05, 1)))
+export const sizeBytesFor = (done, total) => sizeBytesForProgress(total > 0 ? clamp(done / total, 0.05, 1) : 0.05)
+
+const newest = (list) => (list.length ? list.reduce((a, b) => (b.at >= a.at ? b : a)) : null)
+
+/**
+ * What the human has to do to clear a gate, by surface. Rendered on the card as a tag
+ * (Bot Crossing shows `gitBranch` as a plain tag and never renders `preview`), so the card
+ * answers "what does it want me to do?" instead of just "waiting on you". M2's in-tray
+ * replaces this with a real card; at M1 this is the whole affordance.
+ */
+const WHAT_TO_DO = {
+  // short: fits Bot Crossing's own card tag (it truncates past ~20 chars)
+  // long: the overlay panel (overlay/main.js) renders this in full via `preview`
+  pending_approval: ['approve in Airtable', 'A Pending Approval row is waiting. Open it in Airtable and set its Status to Approved or Rejected.'],
+  decision: ['ratify in Notion', 'A proposed Decision is waiting. Open it in Notion and set Status to Active (ratify) or Superseded (reject).'],
+  content_status: ['sign in Notion', 'A content draft is waiting for your signature. Open it in Notion, read it, and if it is right move Status from In Review to Scheduled. The ? clears within a poll.'],
+  class_b_gate: ['answer in session', 'This run stopped to ask you something in the session that opened it. Open takes you to that session — answer there.'],
+  client_gate: ["client's to tap", 'This acceptance is addressed to the client; it is theirs to tap, not yours.'],
+}
+/**
+ * A class_b_gate is answered where the run lives, and that depends on what started it. Seen live
+ * 2026-09-06: a build session's gate pointed at a Notion page and the human didn't know what to do
+ * there — the answer belonged in the Claude Project chat.
+ */
+const SESSION_GATE = {
+  claude_project: ['answer in the Claude Project', 'A Claude session in the Claude Project is waiting for your answer. Open it and reply with what you found — a sentence is enough. Nothing to change on a surface.'],
+  chat: ['answer in the chat', 'The chat that started this run is waiting for your reply. Open it and answer there.'],
+  claude_code: ['answer in the terminal', 'A Claude Code session stopped for a permission or a decision. Answer in the terminal where it is running.'],
+  session_hook: ['answer in the terminal', 'A Claude Code session stopped for a permission or a decision. Answer in the terminal where it is running.'],
+}
+const pick = (gate, run) => {
+  if (!gate) return ['', '']
+  if (gate.surface === 'class_b_gate' && SESSION_GATE[run?.trigger]) return SESSION_GATE[run.trigger]
+  return WHAT_TO_DO[gate.surface] || [`resolve: ${gate.gate}`, `Resolve the gate "${gate.gate}" on its surface.`]
+}
+export const whatToDo = (gate, run) => pick(gate, run)[0]
+export const whatToDoLong = (gate, run) => pick(gate, run)[1]
+
+/** What a failed run should say. Nothing waits on a human here; say so, and say where to retry. */
+export function failedText(run, row) {
+  const reason = run.failReason ? `: ${run.failReason}` : ' (no reason recorded)'
+  const note = typeof row?.notes === 'string' ? row.notes.trim() : ''
+  const notes = note && note !== run.failReason ? ` ${note}` : ''  // don't say the reason twice
+  const where = { claude_project: 'the Claude Project', chat: 'the chat', claude_code: 'Claude Code', session_hook: 'Claude Code', cowork_scheduled: 'Cowork', cowork_manual: 'Cowork' }[run.trigger] || 'where it ran'
+  return `Failed${reason}.${notes} Nothing in a surface is waiting on you — the Run Governance sweep records failures. To retry, start ${run.skill || 'the skill'} again from ${where}.`
+}
+
+/** Where Open should land, first match wins (SPEC.md §4.4). */
+const isLink = (u) => typeof u === 'string' && /^https?:\/\//i.test(u)
+
+export function openUrlFor(run, row, gatesOpen, { claudeProjectUrl = '' } = {}) {
+  // A class_b_gate on a run that lives in a Claude session opens that session — the answer goes
+  // there, not on the page the gate happens to reference (that page becomes ref.context).
+  const g0 = newest(gatesOpen)
+  if (g0 && g0.surface === 'class_b_gate' && (run.trigger === 'claude_project' || run.trigger === 'chat') && isLink(claudeProjectUrl)) return claudeProjectUrl
+  const gate = newest(gatesOpen)
+  if (isLink(gate?.ref_url)) return gate.ref_url
+  const art = newest(run.artifacts.filter((a) => isLink(a.notion_url)))
+  if (art) return art.notion_url
+  // Ledger artifacts may be Compass references (ops_config:KEY) — only a real link can be opened.
+  const rowArts = Array.isArray(row?.artifacts) ? row.artifacts : []
+  const first = rowArts.find((a) => a && isLink(a.url))
+  if (first) return first.url
+  if ((run.trigger === 'chat' || run.trigger === 'claude_project') && isLink(claudeProjectUrl)) return claudeProjectUrl
+  return null
+}
+
+export async function toThread(run, row, viewer, surfaces, now = Date.now(), opts = {}) {
+  const runningTtlMs = opts.runningTtlMs ?? 2 * 3600 * 1000
+  // Gates still open on their surface. A gate the surface already resolved (U6) is not pending.
+  const open = openGates(run)
+  const pending = []
+  let unread = false
+  for (const g of open) {
+    if (await surfaces.gateResolved(g)) continue
+    pending.push(g)
+    // A ? only for a gate the viewer can resolve (D2, 2026-09-05); others see a quiet pose.
+    if (viewer.canTap(g)) unread = true
+  }
+
+  const progress = run.project ? await surfaces.progress(run.project) : 0.05
+  const gate = newest(pending)
+  const contextUrl = gate && isLink(gate.ref_url) ? gate.ref_url : ''
+  // A run can leave several gates (a content run leaves one per draft). Say so, or the human signs
+  // one and wonders why the ? is still there — seen live 2026-09-06. Open goes to the next pending one.
+  const gateLabel = gate ? (open.length > 1 ? `${gate.gate} (${pending.length} of ${open.length} left)` : gate.gate) : ''
+  const art = newest(run.artifacts)
+  const openUrl = openUrlFor(run, row, pending, opts)
+
+  // Bot Crossing never renders `preview`; the overlay panel (U11) does. For a pending gate it carries
+  // the full instruction; otherwise the run's own notes, so the panel has something to say.
+  const preview = gate
+    ? `${gateLabel} — ${whatToDoLong(gate, run)}${open.length > 1 ? ` This run left ${open.length} of these; ${open.length - pending.length} already done, ${pending.length} still waiting — Open takes you to the next one.` : ''}`
+    : run.terminal === 'run_failed'
+      ? failedText(run, row)
+      : (typeof row?.notes === 'string' && row.notes.trim()) || art?.title || `${run.trigger || 'unknown'} run`
+
+  return {
+    id: run.id,
+    title: run.skill ? (gate ? `${run.skill} · ${gateLabel}` : run.skill) : 'Untitled run',
+    preview,
+    project: run.client || CAMPUS,
+    projectPath: '',
+    worktree: '',
+    cwd: '',
+    // the card's tag: what to do for a pending gate, the reason for a failed run, '' otherwise
+    gitBranch: gate ? whatToDo(gate, run) : run.terminal === 'run_failed' ? `failed: ${run.failReason || 'no reason'}`.slice(0, 40) : '',
+    model: (typeof row?.model === 'string' && row.model) || '',
+    effort: '',
+    createdAt: run.startedAt || run.lastAt,
+    lastActivityAt: run.lastAt,
+    lastFocusedAt: 0,
+    // A run blocked on a human is waiting, not working: an open gate suspends ⚒ so the
+    // renderer's precedence (⚒ before ?) never hides the one badge that wants you. Seen live
+    // 2026-09-06: a live run with an open Pending Approval gate rendered as hammering.
+    running: run.terminal == null && now - run.lastAt < runningTtlMs && pending.length === 0,
+    unread,
+    hasError: run.terminal === 'run_failed',
+    starred: false,
+    routine: false,
+    archived: false,
+    sizeBytes: sizeBytesForProgress(progress),
+    hasTranscript: false,
+    source: run.trigger || '',
+    canOpen: openUrl != null,
+    canArchive: false,
+    ref: { run_id: run.id, url: openUrl, context: contextUrl && contextUrl !== openUrl ? contextUrl : '' },
+  }
+}
+
+export { STALE_MS }

@@ -1,20 +1,19 @@
 /**
- * The harness registry.
+ * The harness registry — Agent World fork.
  *
- * Adding support for another agent harness means writing one module next to this file and
- * adding it to the list below. Nothing else in the codebase needs to change — the scanner,
- * the API and the browser all talk to harnesses only through the interface documented in
- * `server/harnesses/README.md`.
+ * Bot Crossing's own rule: one adapter file per harness, one line here, nothing else changes.
+ * The Claude Code adapter stays in this directory unregistered — runs from Claude Code reach the
+ * world through the Run Ledger (Compass), never through local session files.
  */
-import claudeCode from './claude-code.mjs'
+import compass from './compass.mjs'
 
-export const HARNESSES = [claudeCode]
+export const HARNESSES = [compass]
 
 export const harnessById = (id) => HARNESSES.find((h) => h.id === id) || null
 
 /**
  * Which harnesses have data on this machine. Detection is per-scan rather than cached at
- * boot so that installing one while the colony is running is picked up on the next poll.
+ * boot so that a change of environment while the world is running is picked up on the next poll.
  */
 export async function detectedHarnesses() {
   const flags = await Promise.all(

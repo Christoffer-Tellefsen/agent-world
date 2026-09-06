@@ -18,3 +18,7 @@ assets-src
 
 # Local capture output — not part of the project.
 recordings
+# Append these lines to the fork's .gitignore (U1)
+.env
+.claude/run_id
+.claude/.gate-open

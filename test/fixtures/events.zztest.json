@@ -1,0 +1,500 @@
+{
+  "_note": "The standing ZZTEST set as raw ops_run_events rows, plus two traps: an unmatched gate_passed (must be ignored) and a malformed payload (must be skipped, not thrown). Times are relative: 'now' is 2026-09-06T08:00:00Z. Two regressions from the first live run (2026-09-06): Epsilon — a gate pair written in one batch shares one timestamp and the stream returns gate_passed FIRST (so the array order below is deliberately close-before-open; the fold must still close it). Zeta — a real content-agent draft awaiting signature: surface content_status must render ? for the Owner. Eta — a live (non-terminal) run blocked on a gate, the Class B pattern (e.g. a Claude Code permission prompt): must render ? and NOT hammer; seen live 2026-09-06 when the seeded Alpha showed a hammer. Theta — a content run that left two drafts; the test's fake surface reports the blog signed and the mirror still In Review, so the title must read '(1 of 2 left)' and Open must go to the mirror (seen live 2026-09-06). Iota — a build session's own gate (trigger claude_project, class_b_gate, ref_url a Notion page): Open must go to the Claude Project and the Notion page must surface as ref.context (seen live 2026-09-06: Open landed on the Build Pack and the human didn't know what to do there).",
+  "now": "2026-09-06T08:00:00Z",
+  "events": [
+    {
+      "id": "e1",
+      "run_id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "at": "2026-09-06T07:54:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "e2",
+      "run_id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "at": "2026-09-06T07:55:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "gate": "ZZTEST gate",
+        "surface": "pending_approval",
+        "ref_url": "https://airtable.com/appixWl8C3bogLsvp/tblZZTEST/recZZTESTALPHA00"
+      }
+    },
+    {
+      "id": "e3",
+      "run_id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "at": "2026-09-06T07:56:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "id": "e4",
+      "run_id": "bbbbbbbb-0000-4000-8000-000000000002",
+      "at": "2026-09-06T07:57:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-builder",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+      "actor": "zztest",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "id": "e5",
+      "run_id": "cccccccc-0000-4000-8000-000000000003",
+      "at": "2026-09-06T07:48:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "e6",
+      "run_id": "cccccccc-0000-4000-8000-000000000003",
+      "at": "2026-09-06T07:49:00Z",
+      "event_type": "run_failed",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "reason": "ZZTEST fault"
+      }
+    },
+    {
+      "id": "e7",
+      "run_id": "dddddddd-0000-4000-8000-000000000004",
+      "at": "2026-09-02T08:00:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-sleeper",
+      "trigger": "chat",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "e8",
+      "run_id": "dddddddd-0000-4000-8000-000000000004",
+      "at": "2026-09-02T08:05:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-sleeper",
+      "trigger": "chat",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "id": "e9",
+      "run_id": "eeeeeeee-0000-4000-8000-000000000005",
+      "at": "2026-09-06T07:58:00Z",
+      "event_type": "gate_passed",
+      "skill": "zztest-orphan",
+      "trigger": "chat",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "gate": "never opened",
+        "surface": "decision",
+        "result": "approved"
+      }
+    },
+    {
+      "id": "e10",
+      "run_id": "bbbbbbbb-0000-4000-8000-000000000002",
+      "at": "2026-09-06T07:58:30Z",
+      "event_type": "artifact_registered",
+      "skill": "zztest-builder",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+      "actor": "zztest",
+      "payload": "not-an-object"
+    },
+    {
+      "id": "e11",
+      "run_id": "ffffffff-0000-4000-8000-000000000006",
+      "at": "2026-09-06T07:50:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-batchgate",
+      "trigger": "claude_code",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "id": "e12",
+      "run_id": "ffffffff-0000-4000-8000-000000000006",
+      "at": "2026-09-06T07:51:00Z",
+      "event_type": "gate_passed",
+      "skill": "zztest-batchgate",
+      "trigger": "claude_code",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "gate": "plan"
+      }
+    },
+    {
+      "id": "e13",
+      "run_id": "ffffffff-0000-4000-8000-000000000006",
+      "at": "2026-09-06T07:51:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-batchgate",
+      "trigger": "claude_code",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "gate": "plan"
+      }
+    },
+    {
+      "id": "e14",
+      "run_id": "ffffffff-0000-4000-8000-000000000006",
+      "at": "2026-09-06T07:52:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-batchgate",
+      "trigger": "claude_code",
+      "client": null,
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "id": "e15",
+      "run_id": "99999999-0000-4000-8000-000000000007",
+      "at": "2026-09-06T07:55:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-content",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "e16",
+      "run_id": "99999999-0000-4000-8000-000000000007",
+      "at": "2026-09-06T07:56:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-content",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "gate": "signature",
+        "surface": "content_status",
+        "ref_url": "https://app.notion.com/p/zztest-content-row"
+      }
+    },
+    {
+      "id": "e17",
+      "run_id": "99999999-0000-4000-8000-000000000007",
+      "at": "2026-09-06T07:57:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-content",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "id": "e18",
+      "run_id": "77777777-0000-4000-8000-000000000008",
+      "at": "2026-09-06T07:58:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-blocked",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "id": "e19",
+      "run_id": "77777777-0000-4000-8000-000000000008",
+      "at": "2026-09-06T07:59:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-blocked",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "payload": {
+        "gate": "permission:Bash",
+        "surface": "class_b_gate",
+        "ref_url": "https://github.com/Christoffer-Tellefsen/agent-world"
+      }
+    },
+    {
+      "id": "e20",
+      "run_id": "66666666-0000-4000-8000-000000000009",
+      "at": "2026-09-06T08:00:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-twodrafts",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "e21",
+      "run_id": "66666666-0000-4000-8000-000000000009",
+      "at": "2026-09-06T08:01:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-twodrafts",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "gate": "signature",
+        "surface": "content_status",
+        "ref_url": "https://app.notion.com/p/zztest-mirror-still-in-review"
+      }
+    },
+    {
+      "id": "e22",
+      "run_id": "66666666-0000-4000-8000-000000000009",
+      "at": "2026-09-06T08:01:01Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-twodrafts",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "gate": "signature",
+        "surface": "content_status",
+        "ref_url": "https://app.notion.com/p/zztest-blog-signed"
+      }
+    },
+    {
+      "id": "e23",
+      "run_id": "66666666-0000-4000-8000-000000000009",
+      "at": "2026-09-06T08:02:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-twodrafts",
+      "trigger": "cowork_scheduled",
+      "client": null,
+      "project": null,
+      "actor": "cowork",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "id": "e24",
+      "run_id": "55555555-0000-4000-8000-000000000010",
+      "at": "2026-09-06T08:10:00Z",
+      "event_type": "run_started",
+      "skill": "zztest-session",
+      "trigger": "claude_project",
+      "client": null,
+      "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+      "actor": "christoffer",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "id": "e25",
+      "run_id": "55555555-0000-4000-8000-000000000010",
+      "at": "2026-09-06T08:11:00Z",
+      "event_type": "gate_waiting",
+      "skill": "zztest-session",
+      "trigger": "claude_project",
+      "client": null,
+      "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+      "actor": "christoffer",
+      "payload": {
+        "gate": "V-Uxx: confirm the thing",
+        "surface": "class_b_gate",
+        "ref_url": "https://app.notion.com/p/zztest-build-pack"
+      }
+    },
+    {
+      "id": "e26",
+      "run_id": "55555555-0000-4000-8000-000000000010",
+      "at": "2026-09-06T08:12:00Z",
+      "event_type": "run_completed",
+      "skill": "zztest-session",
+      "trigger": "claude_project",
+      "client": null,
+      "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+      "actor": "christoffer",
+      "payload": {
+        "outcome": "partial"
+      }
+    }
+  ],
+  "ledger": [
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "model": "claude-haiku-4-5",
+      "outcome": "success",
+      "notes": "ZZTEST proposal left for a human",
+      "artifacts": [],
+      "duration_s": 12
+    },
+    {
+      "id": "cccccccc-0000-4000-8000-000000000003",
+      "model": "claude-sonnet-5",
+      "outcome": "failed",
+      "notes": "ZZTEST fault",
+      "artifacts": [],
+      "duration_s": 3
+    }
+  ],
+  "expect": {
+    "aaaaaaaa-0000-4000-8000-000000000001": {
+      "project": "ZZTEST Client",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-approver · ZZTEST gate",
+      "openUrl": "https://airtable.com/appixWl8C3bogLsvp/tblZZTEST/recZZTESTALPHA00",
+      "model": "claude-haiku-4-5",
+      "gitBranch": "approve in Airtable",
+      "previewStartsWith": "ZZTEST gate — A Pending Approval row is waiting."
+    },
+    "bbbbbbbb-0000-4000-8000-000000000002": {
+      "project": "ZZTEST Client",
+      "unread": false,
+      "running": true,
+      "hasError": false,
+      "artifactsIgnoredMalformed": true,
+      "gitBranch": ""
+    },
+    "cccccccc-0000-4000-8000-000000000003": {
+      "project": "Tellefsen HQ",
+      "unread": false,
+      "running": false,
+      "hasError": true,
+      "gitBranch": "failed: ZZTEST fault",
+      "previewStartsWith": "Failed: ZZTEST fault. Nothing in a surface is waiting on you"
+    },
+    "dddddddd-0000-4000-8000-000000000004": {
+      "project": "ZZTEST Client",
+      "unread": false,
+      "running": false,
+      "hasError": false,
+      "asleep": true
+    },
+    "eeeeeeee-0000-4000-8000-000000000005": {
+      "absent": true
+    },
+    "ffffffff-0000-4000-8000-000000000006": {
+      "project": "Tellefsen HQ",
+      "unread": false,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-batchgate"
+    },
+    "99999999-0000-4000-8000-000000000007": {
+      "project": "Tellefsen HQ",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-content · signature",
+      "openUrl": "https://app.notion.com/p/zztest-content-row",
+      "gitBranch": "sign in Notion"
+    },
+    "77777777-0000-4000-8000-000000000008": {
+      "project": "ZZTEST Client",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-blocked · permission:Bash",
+      "gitBranch": "answer in the terminal"
+    },
+    "66666666-0000-4000-8000-000000000009": {
+      "project": "Tellefsen HQ",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-twodrafts · signature (1 of 2 left)",
+      "openUrl": "https://app.notion.com/p/zztest-mirror-still-in-review",
+      "previewStartsWith": "signature (1 of 2 left) — A content draft is waiting"
+    },
+    "55555555-0000-4000-8000-000000000010": {
+      "project": "Tellefsen HQ",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-session · V-Uxx: confirm the thing",
+      "openUrl": "https://claude.ai/project/zztest",
+      "context": "https://app.notion.com/p/zztest-build-pack",
+      "gitBranch": "answer in the Claude Project",
+      "previewStartsWith": "V-Uxx: confirm the thing — A Claude session in the Claude Project is waiting for your answer"
+    }
+  },
+  "progress": [
+    {
+      "done": 1,
+      "total": 4,
+      "expectProgress": 0.25
+    },
+    {
+      "done": 0,
+      "total": 0,
+      "expectProgress": 0.05
+    },
+    {
+      "done": 4,
+      "total": 4,
+      "expectProgress": 1
+    }
+  ]
+}

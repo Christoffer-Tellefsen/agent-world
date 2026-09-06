@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tellefsen-compass": {
+      "type": "http",
+      "url": "https://tellefsen-compass-mcp.christoffer-7e3.workers.dev"
+    }
+  }
+}
