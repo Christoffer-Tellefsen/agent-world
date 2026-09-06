@@ -1,0 +1,2 @@
+# Per-session gate ledgers written by .claude/hooks/ledger.sh — transient, never committed.
+*.gates

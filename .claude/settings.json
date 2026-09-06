@@ -9,8 +9,11 @@
     "PostToolUse": [
       { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh gate_passed" } ] }
     ],
+    "PostToolUseFailure": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh gate_passed" } ] }
+    ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh run_completed" } ] }
+      { "matcher": "*", "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh run_completed", "timeout": 10 } ] }
     ]
   }
 }
