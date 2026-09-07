@@ -186,7 +186,7 @@
       "id": "U12",
       "category": "skin",
       "milestone": "M2",
-      "description": "World Packs and the ontology skin — campus, one town per Active client, one planet per company",
+      "description": "U12 — World Packs and the ontology skin. A pack is presentation config: overlay/packs/<id>/pack.json declares the skin (palette, KayKit asset set, lighting, sky, sound set, badge glyph art), the rooms (each building and the substrate surface it mirrors, per the RA's Spatial grammar table), the names (the nouns for world, town, building, studio, agent) and the layout file it uses. Two packs ship: tellefsen-campus (the Spatial grammar table — campus with solution studio, research lab, content studio, finance office, integration yard, board room, corner office; nouns campus / town / building / studio / agent) and neutral (grayscale, generic nouns, no Tellefsen name anywhere). Selection is read live, never stored: a planet wears WORLD_COMPANIES.companies[].world_pack (absent → tellefsen-campus); a town wears ops_clients.world_branding.pack when that column exists and is set, else its company's pack. pack rides in the viewer context beside tenant, preset, scope and capabilities. Zones are derived at scan time: one planet per company (its own colony file, created on first render), one town per Active ops_clients row on the company whose clients list names it, else the home planet; substrate null → an empty planet with its name and 'no substrate yet' and no reads. A pack names rooms, never clients; the client-name grep covers overlay/packs/** too. Badge precedence, the surface each room mirrors, Annex III and the viewer presets are identical under every pack.",
       "delivers": [
         "ES-4.1",
         "ES-4.2"
@@ -211,7 +211,8 @@
       ],
       "check": "V-U12",
       "passes": false,
-      "verified": null
+      "verified": null,
+      "recut": "2026-09-07 — pack-driven (World Packs, RA Component 10, Decision 2026-09-06 🟡 Working; WORLD_COMPANIES v0.3 carries world_pack)"
     },
     {
       "id": "U13",

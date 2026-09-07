@@ -107,6 +107,7 @@ Cleanup: none.
 - **Setup:** `./dev.sh`; seed run; `WORLD_COMPANIES` v0.3 in Compass (Tellefsen + two placeholder planets, `world_pack` on each).
 - **Do:** open the world. Open the planet switcher. Add a second ZZTEST client to `ops_clients` through the Compass MCP, restart `dev.sh`. Then, in chat, set the home company's `world_pack` to `neutral`, restart `dev.sh`; set it back, restart.
 - **See:** every Active client is a named town; Tellefsen HQ is the centre; the switcher lists the companies from Compass and each planet opens (the placeholders empty, named, "no substrate yet"); the new ZZTEST client is a town after restart; drag a plot, reload — it stays. On `neutral`: skin, rooms and nouns swap with no code change and no client or company name is in any pack file; on the way back the campus returns.
+- **Also (re-cut 2026-09-07):** set the home company's world_pack to neutral in Compass (chat does it), restart ./dev.sh → skin, rooms and nouns swap with no code change and no client name appears anywhere; set it back → the campus returns.
 - **Fail looks like:** a client with no town; a town whose name is in code or in a pack; a planet that shows another planet's runs; a plot that snaps back on reload; a swap that needs a commit.
 - **Cleanup:** remove the second ZZTEST client row; `world_pack` back to `tellefsen-campus`.
 
