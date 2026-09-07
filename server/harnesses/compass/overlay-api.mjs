@@ -8,7 +8,10 @@
  *
  *   OPTIONS *                      CORS preflight (local origins only)
  *   GET  /world                    { at, viewer, home, planets, towns, campus, signals }
- *   GET  /steering                 { at, pipeline, milestones, decisions } — the Steering Room's three panels (U19), 5-min caches
+ *   GET  /steering                 { at, pipeline, milestones, decisions } — U19's three panels (kept for the readers; re-homed in /rooms)
+ *   GET  /rooms                    { at, rooms: { <room id>: panel }, missingEnv } — the room panels (U31), 5-min caches
+ *   GET  /rooms/<id>               one room's panel
+ *   GET  /archive                  { at, shelves, byProject, missing } — the archive shelves (U32), 5-min caches
  *   GET  /planets/<key>/state      that planet's data/colony.<key>.json — created empty on first read
  *   PUT  /planets/<key>/state      write it (same field whitelist as api.mjs; the browser is the one writer)
  *
@@ -80,7 +83,7 @@ function readJsonBody(req, limit = 4 * 1024 * 1024) {
  * @param descriptor () => the JSON for GET /world (may be async)
  * @param dataDir   where colony.<key>.json files live
  */
-export function createOverlayApi({ getWorld, descriptor, steering = null, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
+export function createOverlayApi({ getWorld, descriptor, steering = null, rooms = null, archive = null, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
   const fileFor = (key) => path.join(dataDir, `colony.${key}.json`)
 
   async function readState(key) {
@@ -135,6 +138,14 @@ export function createOverlayApi({ getWorld, descriptor, steering = null, dataDi
     try {
       if (url.pathname === '/world' && req.method === 'GET') return send(200, await descriptor())
       if (url.pathname === '/steering' && req.method === 'GET') return steering ? send(200, await steering()) : send(404, { error: 'No steering room on this adapter' })
+      if (url.pathname === '/rooms' && req.method === 'GET') return rooms ? send(200, await rooms.all()) : send(404, { error: 'No room panels on this adapter' })
+      const room = url.pathname.match(/^\/rooms\/([a-z0-9-]+)$/)
+      if (room && req.method === 'GET') {
+        if (!rooms) return send(404, { error: 'No room panels on this adapter' })
+        const panel = await rooms.one(room[1])
+        return panel ? send(200, panel) : send(404, { error: 'No such room' })
+      }
+      if (url.pathname === '/archive' && req.method === 'GET') return archive ? send(200, await archive.shelf()) : send(404, { error: 'No archive on this adapter' })
 
       const m = url.pathname.match(/^\/planets\/([^/]+)\/state$/)
       if (m) {
@@ -165,7 +176,17 @@ export function createOverlayApi({ getWorld, descriptor, steering = null, dataDi
  * world's own process never waits on this. A port already taken — a second copy of the world —
  * is warned once and skipped; the overlay then falls back to the home planet only.
  */
-export function startOverlayApi(handle, { port, log = () => {} } = {}) {
+export async function startOverlayApi(handle, { port, log = () => {} } = {}) {
+  // Vite restarts the dev server in-process when a server file changes (the adapter is re-imported); the previous
+  // instance's listeners would keep the port and answer with the old module's closures. Close them first.
+  const prev = globalThis.__awOverlayApi
+  if (prev?.close) {
+    try {
+      await prev.close()
+      log('overlay api: previous instance closed')
+    } catch { /* already gone */ }
+    globalThis.__awOverlayApi = null
+  }
   const servers = []
   const listen = (host) =>
     new Promise((resolve) => {
@@ -183,10 +204,12 @@ export function startOverlayApi(handle, { port, log = () => {} } = {}) {
   return Promise.all([listen('127.0.0.1'), listen('::1')]).then((list) => {
     const up = list.filter(Boolean)
     if (up.length) log(`overlay api listening on ${up.map((s) => `${s.address().address}:${s.address().port}`).join(' and ')}`)
-    return {
+    const api = {
       port: up[0]?.address().port || 0,
       servers: up,
       close: () => Promise.all(up.map((s) => new Promise((r) => s.close(r)))),
     }
+    globalThis.__awOverlayApi = api
+    return api
   })
 }

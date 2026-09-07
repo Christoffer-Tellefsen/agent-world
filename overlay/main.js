@@ -34,11 +34,11 @@
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
 import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate, prospectRows } from './zones.mjs'
-import { prospects as prospectsOf, edgeRing, decayLabel } from './prospects.mjs'
+import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
 import { pipelineRows, milestoneRows, decisionRows, panelNote } from './steering.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
-import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
+import { createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
 import { intrayRows, nextRow } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
@@ -470,69 +470,8 @@ window.addEventListener(
 )
 setInterval(() => roomOpen && refreshRoom(), 60_000)
 
-// ── U20: prospect plots ──────────────────────────────────────────────────────────────────────
-const prospectPlots = new Map() // row id → { plot, label, signature }
-let prospectGroup = null
-function fadePlot(plot, opacity) {
-  plot.group.traverse((o) => {
-    if (!o.isMesh || !o.material) return
-    o.material.transparent = true
-    o.material.opacity = opacity
-    o.material.depthWrite = opacity >= 0.99
-    o.material.needsUpdate = true
-  })
-}
-function syncProspects() {
-  const bc = window.botCrossing
-  const colony = bc?.colony
-  if (!colony?.scene || !colony.plotCells || !isHome()) return
-  const THREE_GROUP = colony.plotGroup?.constructor
-  if (!THREE_GROUP) return
-  if (!prospectGroup) {
-    prospectGroup = new THREE_GROUP()
-    prospectGroup.name = 'aw:prospects'
-    colony.scene.add(prospectGroup)
-  }
-  const list = prospectsOf(prospectRows().rows)
-  const wanted = new Set(list.map((p) => p.id))
-  for (const [id, entry] of prospectPlots) {
-    if (wanted.has(id)) continue
-    prospectGroup.remove(entry.plot.group, entry.label)
-    entry.label.userData?.dispose?.()
-    entry.plot.dispose?.()
-    prospectPlots.delete(id)
-  }
-  if (!list.length) return
-  // the ring sits outside every cell the map holds — real plots and quiet towns alike
-  const used = []
-  for (const cells of colony.plotCells.values()) for (const c of cells) used.push(c)
-  const ring = edgeRing(used, list.length)
-  list.forEach((p, i) => {
-    const cell = ring[i]
-    const signature = `${cell.q},${cell.r}|${p.opacity}|${p.name}|${p.stage}|${p.days}`
-    const have = prospectPlots.get(p.id)
-    if (have?.signature === signature) return
-    if (have) {
-      prospectGroup.remove(have.plot.group, have.label)
-      have.label.userData?.dispose?.()
-      have.plot.dispose?.()
-    }
-    try {
-      const accent = PLOT_PALETTE[hashString(p.id) % PLOT_PALETTE.length]
-      const plot = new Plot({ id: `prospect:${p.id}`, name: p.name, index: 90 + i, cells: [cell], accent })
-      fadePlot(plot, p.opacity)
-      const label = createLabel(`${noun('prospect')} · ${p.name} · ${p.stage} · ${p.days == null ? 'never touched' : p.days + ' d'} · ${decayLabel(p.opacity)}`, accent)
-      label.position.set(plot.labelAnchor.x, 3.2, plot.labelAnchor.z)
-      label.visible = true
-      label.material.opacity = Math.max(0.35, p.opacity)
-      prospectGroup.add(plot.group, label)
-      prospectPlots.set(p.id, { plot, label, signature })
-    } catch (err) {
-      console.warn('[world] prospect plot not drawn:', p.name, err?.message || err)
-    }
-  })
-}
-setInterval(syncProspects, 3000)
+// ── U20 → U29: prospect plots are retired (ES-6.4). Prospects are rows with a warmth column in the strategy
+// room panel; the Pipeline rows still ride with GET /world for that panel. Nothing stands on the campus edge.
 
 // ── U17: signals ─────────────────────────────────────────────────────────────────────────────
 
@@ -985,11 +924,23 @@ function syncQuietTowns() {
   // allocator turns into cells — so every real plot keeps exactly its cells and the quiet towns
   // take the innermost ground that is genuinely free. (Passing cell counts here made the campus
   // look smaller than it is and put a quiet deck on a cell it already held.)
-  const perProject = new Map()
-  for (const t of colony.threads?.values?.() || []) perProject.set(t.project, (perProject.get(t.project) || 0) + 1)
-  const projects = [...colony.plots.values()].map((p) => ({ id: p.name, size: Math.max(1, perProject.get(p.name) || 1) }))
-  for (const name of towns) projects.push({ id: name, size: 1 })
-  const layout = allocateCells(projects, colony.plotCells)
+  // U29: a quiet town stands on the cells the generated layout gave it (the colony's layout memory carries the file's
+  // plots); a town the file does not know yet takes the next free spoke slot — the same slot the generator would give
+  // it at the next restart — never the innermost free cell (ring 3 stays empty). Bot Crossing's own allocator is not asked.
+  const known = {}
+  for (const [name, cells] of colony.plotCells) known[name] = cells.map((c) => [c.q, c.r])
+  const layout = new Map()
+  for (const name of towns) {
+    const have = colony.plotCells.get(name)
+    if (have?.length) {
+      layout.set(name, have.map((c) => ({ q: c.q, r: c.r })))
+      continue
+    }
+    const slot = nextTownSlot(pack(), known)
+    if (!slot) continue
+    known[name] = [[slot.q, slot.r]]
+    layout.set(name, [slot])
+  }
   for (const name of towns) {
     const cells = layout.get(name)
     if (!cells?.length) continue

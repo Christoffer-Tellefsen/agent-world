@@ -12,6 +12,10 @@ import { fold } from './compass/fold.mjs'
 import { toThread } from './compass/threads.mjs'
 import { buildStill } from './compass/still.mjs'
 import { loadPack, roomsOf, lodOf } from './compass/pack.mjs'
+import { generateLayout } from './compass/layout.mjs'
+import fsp from 'node:fs/promises'
+import path from 'node:path'
+import { DEFAULT_DATA_DIR, emptyState } from './compass/overlay-api.mjs'
 import { trustOf, staleSkills, ranSkillsOf, campusAlert, projectsByClient, STALE_DAYS } from './compass/signals.mjs'
 import { makeViewer } from './compass/viewer.mjs'
 import { createSurfaces } from './compass/surfaces.mjs'
@@ -44,7 +48,47 @@ const homePack = () => loadPack(world?.planets.find((p) => p.home)?.pack || '')
 async function currentWorld() {
   world = deriveWorld(await substrate.read(), { campus: CAMPUS, tenant: cfg.tenant })
   viewer.pack = world.planets.find((p) => p.home)?.pack || ''
+  await ensureLayouts(world)
   return world
+}
+
+/**
+ * U29 — the layout, generated once per planet per process from the pack and the planet's towns (compass/layout.mjs):
+ * rooms on rings 0–2, ring 3 empty, towns on spoke cells from ring 4. Sticky: an existing plot never moves; a new
+ * town takes the next free slot. data/colony*.json is the world's only write; the file's other fields are kept as
+ * they are. A planet with no substrate has no towns and gets nothing. Never in tests (no overlay port → no sidecar,
+ * and this only runs behind the same gate).
+ */
+const laidOut = new Set()
+async function ensureLayouts(w) {
+  if (!cfg.overlayPort || process.env.NODE_TEST_CONTEXT) return
+  for (const planet of w.planets) {
+    if (laidOut.has(planet.key) || !planet.hasSubstrate) continue
+    laidOut.add(planet.key)
+    const file = path.join(DEFAULT_DATA_DIR, planet.home ? 'colony.json' : `colony.${planet.key}.json`)
+    try {
+      let state
+      try {
+        state = JSON.parse(await fsp.readFile(file, 'utf8'))
+      } catch (err) {
+        if (err?.code === 'ENOENT') state = emptyState()
+        else throw new Error(`${path.relative(process.cwd(), file)} is not readable JSON — left as it is (${err.message})`)
+      }
+      const towns = w.towns.filter((t) => t.planet === planet.key).map((t) => t.name)
+      const out = generateLayout({ pack: loadPack(planet.pack), towns, existing: state.plots || {} })
+      if (!out.changed) {
+        log(`layout ${planet.key}: unchanged (${Object.keys(out.plots).length} plots)`)
+        continue
+      }
+      const next = { ...state, plots: out.plots, updatedAt: Date.now() }
+      await fsp.mkdir(path.dirname(file), { recursive: true })
+      await fsp.writeFile(file + '.tmp', JSON.stringify(next, null, 2))
+      await fsp.rename(file + '.tmp', file)
+      console.warn(`bot-crossing: compass — layout ${planet.key}: ${out.placed.length} town(s) placed [${out.placed.join(', ')}], ${out.kept.length} kept, ${out.dropped.length} dropped [${out.dropped.join(', ')}] → ${path.relative(process.cwd(), file)}`)
+    } catch (err) {
+      console.warn(`bot-crossing: compass — layout ${planet.key} not written —`, err?.message || err)
+    }
+  }
 }
 
 /** The overlay sidecar (overlay-api.mjs), started once the harness is detected; never in tests. */
@@ -72,6 +116,10 @@ const detect = async () => {
   if (on) ensureOverlayApi()
   return on
 }
+// U29: the sidecar is up from the moment the adapter loads, not from the first poll — the overlay's fetch seam holds the
+// page's own state read until GET /world has answered (the layout is generated inside that answer), and the page's
+// first poll comes after its state read; a sidecar that waited for the poll would never start. Never under npm test.
+if (cfg.ledgerUrl && cfg.eventsBearerToken && cfg.overlayPort && !process.env.NODE_TEST_CONTEXT) ensureOverlayApi()
 
 /**
  * The skills with any event in the last STALE_DAYS days (U17 hand-raise). The Worker takes 6–9 s per scan

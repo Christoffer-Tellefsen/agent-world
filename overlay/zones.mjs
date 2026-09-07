@@ -10,6 +10,8 @@
 //   - residents (U17: skills silent 30 days, sent by the adapter as sleeping figures) never take a
 //     figure slot from a run: they fill what is left under Bot Crossing's maxAgents, and go last.
 import { benchResidents } from './signals.mjs'
+import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
+import { packFor } from './packs/index.mjs'
 
 const PORT = Number(window.AW_OVERLAY_PORT) || 5275
 export const SIDECAR = `${location.protocol}//${location.hostname}:${PORT}`
@@ -46,8 +48,25 @@ async function loadWorld() {
   return world
 }
 
-/** Resolves once the world is known (or known to be unavailable); the fetch seam waits on it. */
-export const ready = loadWorld()
+/**
+ * Resolves once the world is known — or, after a minute of asking, known to be unavailable; the fetch seam waits on it.
+ * U29: the adapter lays the map (data/colony.json) inside its first world derivation, which the sidecar's GET /world
+ * awaits — so the page's own /api/state read must come after that answer, or Bot Crossing boots on the file as it
+ * was, keeps those cells in its layout memory and saves them back over the generated ones (found at the U29 review).
+ * A page opening in the seconds after ./dev.sh starts therefore waits for the sidecar rather than passing through.
+ */
+export const ready = (async () => {
+  const deadline = Date.now() + 60_000
+  let got = await loadWorld()
+  while (!got && Date.now() < deadline) {
+    // a nudge: the API's harness detection starts the sidecar if the adapter has not (an older adapter, a slow boot)
+    try { await fetch('/api/harnesses', { signal: AbortSignal.timeout(2000) }) } catch { /* the API itself is not up yet */ }
+    await new Promise((r) => setTimeout(r, 2000))
+    got = await loadWorld()
+  }
+  if (!got) console.warn('[world] no sidecar after a minute — home planet only, layout as the file has it')
+  return got
+})()
 
 // A page that loads in the seconds after ./dev.sh starts finds the sidecar not listening yet (it starts on
 // the adapter's first detect). Keep asking for a minute; the first answer lights up the switcher, the
@@ -126,6 +145,29 @@ export function switchTo(key) {
   location.reload()
 }
 
+/**
+ * U29: a zone the layout memory does not know yet — a town that gained its first request between restarts — would be
+ * seeded by Bot Crossing at the innermost free cell (ring 3, beside the rooms). Before the roster reaches the page its
+ * cells are written into the colony's layout memory on the next free spoke slot, the same slot the generator gives it
+ * at the next restart. Rooms are the pack's and towns are the sidecar's; anything else (an unknown client) is left alone.
+ */
+function seatNewTowns(threads) {
+  const colony = window.botCrossing?.colony
+  if (!colony?.plotCells || !world) return
+  const towns = new Set(world.towns.filter((t) => t.planet === current).map((t) => t.name))
+  const pack = packFor(currentPlanet()?.pack || '')
+  for (const t of threads) {
+    const name = t?.project
+    if (!name || !towns.has(name) || colony.plotCells.has(name)) continue
+    const known = {}
+    for (const [n, cells] of colony.plotCells) known[n] = cells.map((c) => [c.q, c.r])
+    const slot = nextTownSlot(pack, known)
+    if (!slot) continue
+    colony.plotCells.set(name, [{ q: slot.q, r: slot.r }])
+    console.info(`[world] new town ${name} seated on spoke cell (${slot.q}, ${slot.r})`)
+  }
+}
+
 // ── the fetch seam ───────────────────────────────────────────────────────────────────────────
 
 const realFetch = window.fetch.bind(window)
@@ -155,6 +197,7 @@ window.fetch = async function awFetch(input, init) {
     const list = Array.isArray(body.threads) ? body.threads : []
     // Placed by the adapter; a thread with no planet (an older adapter) belongs to the home planet.
     const here = list.filter((t) => (t.planet || world.home) === current)
+    seatNewTowns(here)
     const benched = benchResidents(here, maxAgents())
     bench = { shown: benched.shown, total: benched.total }
     body.threads = benched.threads
