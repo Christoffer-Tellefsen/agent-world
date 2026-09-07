@@ -1,0 +1,952 @@
+{
+ "captured_at": "2026-09-07T10:45:41.895Z",
+ "note": "GET /ledger/scan sample captured 2026-09-07 for the contract test (U34): the ZZTEST runs plus ten others; actors scrubbed, notes trimmed. Re-capture with scripts/capture-contract.sh.",
+ "events": [
+  {
+   "id": "8eac77f3-962f-4802-8c4f-f5c2d38ae094",
+   "run_id": "8eac77f3-962f-4802-8c4f-f5c2d38ae094",
+   "at": "2026-09-03T09:19:15.268+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-sleeper",
+   "trigger": "chat",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "fc6b2ff6-9409-40dc-8ade-d77a3d08071c",
+   "run_id": "8eac77f3-962f-4802-8c4f-f5c2d38ae094",
+   "at": "2026-09-03T09:19:16.268+00:00",
+   "event_type": "run_completed",
+   "skill": "zztest-sleeper",
+   "trigger": "chat",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "b53e43b8-2bf8-474f-bbf7-63f8801d31b9",
+   "run_id": "a2f427f1-84a7-4579-903e-5377bbe16930",
+   "at": "2026-09-06T04:26:23.541352+00:00",
+   "event_type": "run_started",
+   "skill": "compass",
+   "trigger": "claude_code",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": null,
+   "parent_run_id": null
+  },
+  {
+   "id": "1273f9fb-289f-4e86-b12d-f9720b0cf62e",
+   "run_id": "a2f427f1-84a7-4579-903e-5377bbe16930",
+   "at": "2026-09-06T04:26:24.211259+00:00",
+   "event_type": "gate_passed",
+   "skill": "compass",
+   "trigger": null,
+   "client": null,
+   "project": null,
+   "actor": null,
+   "payload": {
+    "gate": "plan"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "64aa8c48-08df-4cbb-80b7-dd23a6129ab1",
+   "run_id": "a2f427f1-84a7-4579-903e-5377bbe16930",
+   "at": "2026-09-06T04:26:24.211259+00:00",
+   "event_type": "gate_waiting",
+   "skill": "compass",
+   "trigger": null,
+   "client": null,
+   "project": null,
+   "actor": null,
+   "payload": {
+    "gate": "plan"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "f5af945f-dfce-464e-977b-e5140f85c484",
+   "run_id": "a2f427f1-84a7-4579-903e-5377bbe16930",
+   "at": "2026-09-06T04:27:18.59038+00:00",
+   "event_type": "run_completed",
+   "skill": "compass",
+   "trigger": "claude_code",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": {
+    "via": "mcp create_record"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "38d03050-0961-4f95-9834-61ecbf56b13f",
+   "run_id": "38d03050-0961-4f95-9834-61ecbf56b13f",
+   "at": "2026-09-06T05:00:17.384933+00:00",
+   "event_type": "run_started",
+   "skill": "project-log",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World Claude Project — M0 close-out after Worker deploy",
+    "run_class": "A_gather_sync_check_propose"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "b2a54b40-7eef-498c-94cf-56bbb68ae473",
+   "run_id": "38d03050-0961-4f95-9834-61ecbf56b13f",
+   "at": "2026-09-06T05:04:14.192364+00:00",
+   "event_type": "run_completed",
+   "skill": "project-log",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "4c5e6001-d64a-4416-b58e-ca677080ca95",
+   "run_id": "4c5e6001-d64a-4416-b58e-ca677080ca95",
+   "at": "2026-09-06T05:13:41.539933+00:00",
+   "event_type": "run_started",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World — Cowork task set rebuilt from empty; registry corrected",
+    "run_class": "A_gather_sync_check_propose"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "ae92b6a3-4975-4e11-b6bf-a74363dbd11c",
+   "run_id": "ae92b6a3-4975-4e11-b6bf-a74363dbd11c",
+   "at": "2026-09-06T05:17:15.881861+00:00",
+   "event_type": "run_started",
+   "skill": "notion",
+   "trigger": "chat",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": {
+    "step": "content-automation spec + decision + AUTO_RUN_POLICY amendment",
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "chat-2026-09"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "18e22615-6ec9-4676-bef6-b0e05a7649c8",
+   "run_id": "4c5e6001-d64a-4416-b58e-ca677080ca95",
+   "at": "2026-09-06T05:19:51.001399+00:00",
+   "event_type": "run_completed",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "47d84db2-a71c-46f3-b87e-f2d94d724527",
+   "run_id": "ae92b6a3-4975-4e11-b6bf-a74363dbd11c",
+   "at": "2026-09-06T05:20:06.984047+00:00",
+   "event_type": "run_completed",
+   "skill": "notion",
+   "trigger": "chat",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "f5b911e1-0a1c-4077-b401-4c95502a163e",
+   "run_id": "f5b911e1-0a1c-4077-b401-4c95502a163e",
+   "at": "2026-09-06T05:49:30.602553+00:00",
+   "event_type": "run_started",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World — gate-reconciliation schedule simplified to one daily run; tap-time backdating; model recommendations",
+    "run_class": "A_gather_sync_check_propose"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "bcffce2c-02e0-495c-9c11-5be47f595de6",
+   "run_id": "f5b911e1-0a1c-4077-b401-4c95502a163e",
+   "at": "2026-09-06T05:51:59.469885+00:00",
+   "event_type": "run_completed",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "5fbf31c5-3139-48af-afea-adbacbbba814",
+   "run_id": "5fbf31c5-3139-48af-afea-adbacbbba814",
+   "at": "2026-09-06T05:57:52.640451+00:00",
+   "event_type": "run_started",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World — Cowork tasks created; registry moved from PLANNED to created; M0 acceptance list",
+    "run_class": "A_gather_sync_check_propose"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "87614031-18ee-4244-80dd-41f59ee19055",
+   "run_id": "5fbf31c5-3139-48af-afea-adbacbbba814",
+   "at": "2026-09-06T06:00:18.560302+00:00",
+   "event_type": "run_completed",
+   "skill": "compass",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "479be9dd-0baf-40f3-8318-d7bc9331436a",
+   "run_id": "479be9dd-0baf-40f3-8318-d7bc9331436a",
+   "at": "2026-09-06T06:05:45.747605+00:00",
+   "event_type": "run_started",
+   "skill": "gate-reconciliation",
+   "trigger": "cowork_scheduled",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "5a07d216-4073-46d1-9687-98f60c26155d",
+   "run_id": "479be9dd-0baf-40f3-8318-d7bc9331436a",
+   "at": "2026-09-06T06:06:02.726691+00:00",
+   "event_type": "run_completed",
+   "skill": "gate-reconciliation",
+   "trigger": "cowork_scheduled",
+   "client": null,
+   "project": null,
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "run_id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "at": "2026-09-06T06:08:05.793788+00:00",
+   "event_type": "run_started",
+   "skill": "milestone-close",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World — M0 acceptance (milestone-close, light: no Build Pack for Phase 0; acceptance criteria stand in for the unit table)",
+    "run_class": "B_judge"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "af28895e-fe30-4095-871e-4ec2e7dd3ab1",
+   "run_id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "at": "2026-09-06T06:08:23.724273+00:00",
+   "event_type": "gate_waiting",
+   "skill": "milestone-close",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "M0 sign-off",
+    "ref_url": "https://app.notion.com/p/3d1c0af9c974817caa99cb692db12a85",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "72a33f71-3841-48db-89d5-21293894b873",
+   "run_id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "at": "2026-09-06T06:16:45.241043+00:00",
+   "event_type": "gate_passed",
+   "skill": "milestone-close",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "M0 sign-off",
+    "result": "approved",
+    "ref_url": "https://app.notion.com/p/3d1c0af9c974817caa99cb692db12a85",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "d29548c0-83a7-4990-8202-9aab7a43c06e",
+   "run_id": "d29548c0-83a7-4990-8202-9aab7a43c06e",
+   "at": "2026-09-06T06:23:00+00:00",
+   "event_type": "run_started",
+   "skill": "build-kickoff",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "note": "run_started written late (after Phase 0 reads); at = true session start",
+    "run_class": "B_judge",
+    "skill_version": "v1.3"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "3ff22271-df2c-41ae-81a2-fefb72906d46",
+   "run_id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "at": "2026-09-06T06:25:09.464237+00:00",
+   "event_type": "run_completed",
+   "skill": "milestone-close",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9c97481ce8a25f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "2e2e6e5a-d8c6-476a-aa1a-2a26fff3015a",
+   "run_id": "d29548c0-83a7-4990-8202-9aab7a43c06e",
+   "at": "2026-09-06T06:39:50.538322+00:00",
+   "event_type": "gate_passed",
+   "skill": "build-kickoff",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "Phase 6 — plan approval (units, sequence, three design decisions, CO backfill)",
+    "result": "approved",
+    "ref_url": "https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "a619653c-a78a-49fb-bb55-7986fdd2df0d",
+   "run_id": "d29548c0-83a7-4990-8202-9aab7a43c06e",
+   "at": "2026-09-06T07:06:40.704645+00:00",
+   "event_type": "run_completed",
+   "skill": "build-kickoff",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "run_id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "at": "2026-09-06T07:08:00+00:00",
+   "event_type": "run_started",
+   "skill": "agent-world-build",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "session": "Agent World — first build session in the kickoff sandbox: U1 skeleton + U3 + U5 written and proven on a real clone",
+    "run_class": "B_judge",
+    "skill_version": "m1"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "16ee2062-a86f-4837-8adc-7f103c4907aa",
+   "run_id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "at": "2026-09-06T07:17:14.388336+00:00",
+   "event_type": "gate_waiting",
+   "skill": "agent-world-build",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "Verify U1, U3, U5 on the Mac (V-U1, V-U3, V-U5)",
+    "ref_url": "https://app.notion.com/p/3d3c0af9c97481ac9973c630909908bb",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "5dfc68ad-9c78-432f-a240-b00f07ba8c81",
+   "run_id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "at": "2026-09-06T07:17:17.963497+00:00",
+   "event_type": "run_completed",
+   "skill": "agent-world-build",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "partial"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "08153839-add7-43f1-a3e2-c18b1466ca83",
+   "run_id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "at": "2026-09-06T10:16:40.239188+00:00",
+   "event_type": "gate_passed",
+   "skill": "agent-world-build",
+   "trigger": "claude_project",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "Verify U1, U3, U5 on the Mac (V-U1, V-U3, V-U5)",
+    "result": "approved",
+    "ref_url": "https://app.notion.com/p/3d3c0af9c97481ac9973c630909908bb",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "82a96bde-57b9-4e3b-adf7-605e71a4fd6f",
+   "run_id": "82a96bde-57b9-4e3b-adf7-605e71a4fd6f",
+   "at": "2026-09-07T09:07:14.607+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-faulty",
+   "trigger": "cowork_manual",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "2847a345-a002-4679-8eed-6917269c4dc5",
+   "run_id": "82a96bde-57b9-4e3b-adf7-605e71a4fd6f",
+   "at": "2026-09-07T09:07:15.607+00:00",
+   "event_type": "run_failed",
+   "skill": "zztest-faulty",
+   "trigger": "cowork_manual",
+   "client": null,
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "reason": "ZZTEST fault"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "5170efa6-270e-4962-94e1-85916ef60711",
+   "run_id": "5170efa6-270e-4962-94e1-85916ef60711",
+   "at": "2026-09-07T09:13:07.133+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-approver",
+   "trigger": "cowork_scheduled",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "aef4a111-959b-499a-9ca7-6d701f93eb56",
+   "run_id": "5170efa6-270e-4962-94e1-85916ef60711",
+   "at": "2026-09-07T09:13:08.133+00:00",
+   "event_type": "gate_waiting",
+   "skill": "zztest-approver",
+   "trigger": "cowork_scheduled",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "ZZTEST gate",
+    "ref_url": "https://airtable.com/appixWl8C3bogLsvp/tbleRnuppbr0wpsaM/recpYloZWYijWCO2T",
+    "surface": "pending_approval"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "3bbb8392-6b2e-407c-8196-a2635eb4c972",
+   "run_id": "5170efa6-270e-4962-94e1-85916ef60711",
+   "at": "2026-09-07T09:13:09.133+00:00",
+   "event_type": "run_completed",
+   "skill": "zztest-approver",
+   "trigger": "cowork_scheduled",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb",
+   "run_id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb",
+   "at": "2026-09-07T09:14:29.27+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-lead",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "7c1f80bc-8705-454f-89d4-326b193e7bf7",
+   "run_id": "7c1f80bc-8705-454f-89d4-326b193e7bf7",
+   "at": "2026-09-07T09:15:42.609+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-child",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb"
+  },
+  {
+   "id": "72e033e5-e07f-411e-8c4f-29cd751c60d9",
+   "run_id": "7c1f80bc-8705-454f-89d4-326b193e7bf7",
+   "at": "2026-09-07T09:15:43.609+00:00",
+   "event_type": "gate_waiting",
+   "skill": "zztest-child",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "gate": "child needs a yes",
+    "surface": "class_b_gate"
+   },
+   "parent_run_id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb"
+  },
+  {
+   "id": "bae49bfc-331c-4472-8915-4d15845af21e",
+   "run_id": "bae49bfc-331c-4472-8915-4d15845af21e",
+   "at": "2026-09-07T09:16:13.257+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-builder",
+   "trigger": "claude_code",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "562d328c-3ce2-49d6-a347-82666cd9d132",
+   "run_id": "562d328c-3ce2-49d6-a347-82666cd9d132",
+   "at": "2026-09-07T09:16:19.295+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-child",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb"
+  },
+  {
+   "id": "0668e697-e400-4d4e-b13d-89ed18e68a47",
+   "run_id": "562d328c-3ce2-49d6-a347-82666cd9d132",
+   "at": "2026-09-07T09:16:20.295+00:00",
+   "event_type": "run_completed",
+   "skill": "zztest-child",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success"
+   },
+   "parent_run_id": "107c747a-bbb8-4df3-bf08-4b36f11fcffb"
+  },
+  {
+   "id": "70cb76b7-d6af-4422-a75b-63ccd7ef82b0",
+   "run_id": "70cb76b7-d6af-4422-a75b-63ccd7ef82b0",
+   "at": "2026-09-07T09:19:15.934+00:00",
+   "event_type": "run_started",
+   "skill": "zztest-artist",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "run_class": "A_gather_sync_check_propose",
+    "skill_version": "zztest"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "1f9c1e5e-8c50-4cb8-9c29-328f3501edc0",
+   "run_id": "70cb76b7-d6af-4422-a75b-63ccd7ef82b0",
+   "at": "2026-09-07T09:19:16.934+00:00",
+   "event_type": "artifact_registered",
+   "skill": "zztest-artist",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "type": "notion_page",
+    "title": "ZZTEST artifact page",
+    "notion_url": "https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab"
+   },
+   "parent_run_id": null
+  },
+  {
+   "id": "2796316c-47bc-4d56-ad3a-34ac84020518",
+   "run_id": "70cb76b7-d6af-4422-a75b-63ccd7ef82b0",
+   "at": "2026-09-07T09:19:17.934+00:00",
+   "event_type": "run_completed",
+   "skill": "zztest-artist",
+   "trigger": "cowork_manual",
+   "client": "ZZTEST Client",
+   "project": "3d1c0af9-c974-81ce-8a25-f4bdeadd54ab",
+   "actor": "actor",
+   "payload": {
+    "outcome": "success",
+    "artifacts": [
+     {
+      "url": "ops_config:ZZTEST_REF",
+      "title": "ZZTEST config reference",
+      "system": "compass"
+     }
+    ]
+   },
+   "parent_run_id": null
+  }
+ ],
+ "rows": [
+  {
+   "id": "a2f427f1-84a7-4579-903e-5377bbe16930",
+   "model": null,
+   "outcome": "success",
+   "notes": "Phase 0 M0 smoke test: POST /events deployed and MCP allowlist verified (4 curls",
+   "artifacts": [
+    {
+     "url": "https://github.com/Christoffer-Tellefsen/tellefsen-compass-mcp/pull/5",
+     "system": "github"
+    }
+   ],
+   "duration_s": 55,
+   "run_class": "B_judge",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "38d03050-0961-4f95-9834-61ecbf56b13f",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "M0 close-out after Worker deploy: verified allowlist + smoke run a2f427f1, flipp",
+   "artifacts": [
+    {
+     "url": "ops_config:SKILL_RUN_LEDGER",
+     "system": "compass"
+    },
+    {
+     "url": "ops_mcp_connectors:3eeb86cd-d85f-4e4c-b7e0-c1b1e45dc2c6",
+     "system": "compass"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481ce80fef6bc4fae09db",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 237,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "4c5e6001-d64a-4416-b58e-ca677080ca95",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "Cowork found empty vs registry claiming four live jobs. Corrected: Daily Context",
+   "artifacts": [
+    {
+     "url": "ops_automations:b4f25ad0-6bd1-435c-86a7-fabd321a0dd7",
+     "system": "compass"
+    },
+    {
+     "url": "ops_automations:262ac838-e1e1-4249-acaf-2a7a15bbd403",
+     "system": "compass"
+    },
+    {
+     "url": "ops_automations:51df65bb-4535-4318-8c7d-b14149cca2bc",
+     "system": "compass"
+    },
+    {
+     "url": "ops_skills:c9ceb389-92bc-4a38-b3a3-9fe1320b6b34",
+     "system": "compass"
+    },
+    {
+     "url": "ops_config:RUN_GOVERNANCE_RULES",
+     "system": "compass"
+    },
+    {
+     "url": "https://app.notion.com/p/3d2c0af9c97481689ed7de0c7dbeeff2",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481439428da1b8c0a4a70",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 370,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "ae92b6a3-4975-4e11-b6bf-a74363dbd11c",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "step: content-automation spec + Decision + AUTO_RUN_POLICY v1.1. Spec page with ",
+   "artifacts": [
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481948a10d56283a8f4ab",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481d980d1e57824308d2d",
+     "system": "notion"
+    },
+    {
+     "url": "ops_config:AUTO_RUN_POLICY",
+     "system": "compass"
+    }
+   ],
+   "duration_s": 180,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "n/a"
+  },
+  {
+   "id": "f5b911e1-0a1c-4077-b401-4c95502a163e",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "Gate Reconciliation Sweep simplified to one daily Cowork task at 13:30 (schedule",
+   "artifacts": [
+    {
+     "url": "ops_config:RUN_GOVERNANCE_RULES",
+     "system": "compass"
+    },
+    {
+     "url": "ops_automations:4fd27266-c518-4194-8113-ea171495c703",
+     "system": "compass"
+    },
+    {
+     "url": "ops_skills:c473b49e-9304-44ac-bf01-19c1a1606b4e",
+     "system": "compass"
+    },
+    {
+     "url": "https://app.notion.com/p/3d2c0af9c97481689ed7de0c7dbeeff2",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 149,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "5fbf31c5-3139-48af-afea-adbacbbba814",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "Cowork tasks created by Christoffer; ledger checked — no gate-reconciliation row",
+   "artifacts": [
+    {
+     "url": "ops_automations:4fd27266-c518-4194-8113-ea171495c703",
+     "system": "compass"
+    },
+    {
+     "url": "ops_automations:5622f092-7734-4446-ac07-a209537977ce",
+     "system": "compass"
+    },
+    {
+     "url": "ops_automations:262ac838-e1e1-4249-acaf-2a7a15bbd403",
+     "system": "compass"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481b28adfc0f7750ee873",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 146,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "479be9dd-0baf-40f3-8318-d7bc9331436a",
+   "model": "claude-haiku-4-5-20251001",
+   "outcome": "success",
+   "notes": "0 checked · 0 resolved · 0 open",
+   "artifacts": null,
+   "duration_s": 5,
+   "run_class": "A_gather_sync_check_propose",
+   "human_edit_level": "n/a"
+  },
+  {
+   "id": "651aac5e-6c32-4d48-b585-81fd120f9ff8",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "M0 accepted 12 days early. Light milestone-close (no Build Pack for Phase 0 — ac",
+   "artifacts": [
+    {
+     "url": "https://app.notion.com/p/3d1c0af9c974817caa99cb692db12a85",
+     "system": "notion"
+    },
+    {
+     "url": "ops_config:AUTO_RUN_POLICY",
+     "system": "compass"
+    },
+    {
+     "url": "ops_config:DATA_HYGIENE_RULES",
+     "system": "compass"
+    },
+    {
+     "url": "ops_config:RUN_GOVERNANCE_RULES",
+     "system": "compass"
+    },
+    {
+     "url": "ops_config:SKILL_RUN_LEDGER",
+     "system": "compass"
+    },
+    {
+     "url": "https://airtable.com/appixWl8C3bogLsvp/tbleRnuppbr0wpsaM (field Approved At, fldY0BOqOYcSbVmhg)",
+     "system": "airtable"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481bc9e9fc563dda0c58b",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 1024,
+   "run_class": "B_judge",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "d29548c0-83a7-4990-8202-9aab7a43c06e",
+   "model": "claude-fable-5-1",
+   "outcome": "success",
+   "notes": "Agent World M1 kickoff, fresh mode. Gates: signature fallback (internal; Decisio",
+   "artifacts": [
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481ac9973c630909908bb",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481bea7d9eb5bfd9723c2",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481d89b89d0eb447d24e2",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481909d27d982a4e954f9",
+     "system": "notion"
+    },
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c974812c9166d2269be83215",
+     "system": "notion"
+    }
+   ],
+   "duration_s": 2620,
+   "run_class": "B_judge",
+   "human_edit_level": "none"
+  },
+  {
+   "id": "126de3f8-1fd7-487e-b623-8ccf5be8e8f0",
+   "model": "claude-fable-5-1",
+   "outcome": "partial",
+   "notes": "First build session, run in the kickoff sandbox (no repo yet — fork is Christoff",
+   "artifacts": [
+    {
+     "url": "https://app.notion.com/p/3d3c0af9c97481ac9973c630909908bb",
+     "system": "notion"
+    },
+    {
+     "url": "https://airtable.com/appixWl8C3bogLsvp/tbleRnuppbr0wpsaM/recpYloZWYijWCO2T",
+     "system": "airtable"
+    }
+   ],
+   "duration_s": 550,
+   "run_class": "B_judge",
+   "human_edit_level": "light"
+  }
+ ]
+}

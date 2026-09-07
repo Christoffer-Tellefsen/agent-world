@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tellefsen.om/agent-world/spec/ledger-scan.v1.json",
+  "title": "GET /ledger/scan?since= — v1",
+  "description": "The Run Ledger as the adapter reads it (U10): every ops_run_events row at or after `since`, oldest first, plus the ops_skill_runs rows for exactly those runs. Read only, bearer-authenticated. Payloads carry references only — never command text, prompt text or file contents.",
+  "type": "object",
+  "required": ["events", "rows"],
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "run_id", "at", "event_type", "skill"],
+        "properties": {
+          "id": { "type": "string" },
+          "run_id": { "type": "string" },
+          "at": { "type": "string" },
+          "event_type": { "type": "string", "enum": ["run_started", "gate_waiting", "gate_passed", "subagent_spawned", "artifact_registered", "run_completed", "run_failed"] },
+          "skill": { "type": "string" },
+          "trigger": { "type": ["string", "null"] },
+          "client": { "type": ["string", "null"] },
+          "project": { "type": ["string", "null"] },
+          "actor": { "type": ["string", "null"], "description": "draws an avatar and nothing else (Annex III)" },
+          "parent_run_id": { "type": ["string", "null"] },
+          "payload": {
+            "type": ["object", "null"],
+            "properties": {
+              "gate": { "type": "string" },
+              "surface": { "type": "string", "enum": ["pending_approval", "decision", "content_status", "class_b_gate", "client_gate"] },
+              "ref_url": { "type": "string" },
+              "result": { "type": "string" },
+              "outcome": { "type": "string" },
+              "reason": { "type": "string" },
+              "run_class": { "type": "string" },
+              "artifacts": { "type": "array" }
+            }
+          }
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "model": { "type": ["string", "null"] },
+          "outcome": { "type": ["string", "null"] },
+          "notes": { "type": ["string", "null"] },
+          "artifacts": { "type": ["array", "null"] },
+          "duration_s": { "type": ["number", "null"] },
+          "run_class": { "type": ["string", "null"] },
+          "human_edit_level": { "type": ["string", "null"], "description": "never shown or aggregated per person (Annex III)" }
+        }
+      }
+    }
+  }
+}

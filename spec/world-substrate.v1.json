@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tellefsen.om/agent-world/spec/world-substrate.v1.json",
+  "title": "GET /world/substrate — v1",
+  "description": "What the Compass Worker hands the adapter for the zone map and the trust rule (U12W). Read only, bearer-authenticated, Cache-Control max-age=60. v2 (Prompt B-2) adds automations, connectors, rollups and version: 2 — the keys below stay.",
+  "type": "object",
+  "required": ["at", "world_companies", "auto_run_policy", "deal_pipeline_stages", "clients", "skills"],
+  "properties": {
+    "at": { "type": "string", "description": "ISO 8601 — when the Worker read the substrate" },
+    "version": { "type": "integer", "description": "absent in v1; 2 once automations, connectors and rollups ride along" },
+    "world_companies": {
+      "type": ["object", "null"],
+      "description": "Compass WORLD_COMPANIES: the planets",
+      "required": ["home", "companies"],
+      "properties": {
+        "home": { "type": "string" },
+        "version": { "type": "string" },
+        "companies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "name", "role"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+              "name": { "type": "string" },
+              "role": { "type": "string" },
+              "status": { "type": "string" },
+              "clients": { "type": ["array", "string"] },
+              "substrate": { "type": ["object", "null"] },
+              "world_pack": { "type": "string" },
+              "colony_file": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "auto_run_policy": {
+      "type": ["object", "null"],
+      "description": "Compass AUTO_RUN_POLICY — the trust rule (skill_overrides first, then run_classes)",
+      "properties": {
+        "run_classes": { "type": "object" },
+        "skill_overrides": { "type": "object" }
+      }
+    },
+    "deal_pipeline_stages": { "type": "array", "items": { "type": "string" }, "description": "Compass DEAL_PIPELINE_STAGES in enum order" },
+    "clients": {
+      "type": "array",
+      "description": "Active ops_clients rows — one town each",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "type": "string" },
+          "world_branding": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "ops_skills rows — name, type (the room rule) and status",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "version": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "automations": { "type": "array", "description": "v2 — ops_automations" },
+    "connectors": { "type": "array", "description": "v2 — ops_mcp_connectors" },
+    "rollups": { "type": "object", "description": "v2 — { LAST_RUN_GOVERNANCE, LAST_GATE_RECONCILIATION }" }
+  }
+}

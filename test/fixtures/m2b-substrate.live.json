@@ -1,0 +1,637 @@
+{
+ "at": "2026-09-07T10:45:36.326Z",
+ "world_companies": {
+  "home": "tellefsen",
+  "name": "World companies — the planets of Agent World",
+  "open": [
+   "venture separation — Notion open question on M3 (one world per venture vs planets in one world)"
+  ],
+  "rules": [
+   "Zone map derived, never hardcoded: the overlay builds planets from this key and towns from ops_clients at scan time; npm test greps overlay code for company and client names and fails on a hit (V-U12)",
+   "A company with substrate null renders as an empty planet carrying its name and 'no substrate yet' — no runs, no towns, no badges, no reads; it costs nothing at rest",
+   "Every run is placed by its client: client → the company whose clients list names it, else the home company; client null → the home campus (Tellefsen HQ). No run is ever placed by actor (Annex III)",
+   "Adding a company is one entry here; its colony file is created on first render. Removing one deletes the entry; the file stays until cleaned by hand",
+   "The M3 venture-separation question (one world per venture vs planets in one world) is open in Notion and nothing here pre-empts it. This key survives either answer: status active + substrate for a co-rendered planet, status sibling + world_url for a separately deployed world the home planet links to",
+   "Renderer holds no state: this key and ops_clients are read; only the colony files are written",
+   "world_pack names the World Pack a planet wears (RA Component 10, Decision 2026-09-06 🟡 Working): a folder overlay/packs/<world_pack>/pack.json in the fork declaring skin, rooms, names and the layout file. The renderer reads the id here and loads the pack files; absent → tellefsen-campus, the default for Tellefsen SPC and its ventures. A client town wears its company's pack unless ops_clients.world_branding.pack says otherwise (that column is M3 work — the first client town). A pack names rooms, never clients. Switching this value swaps skin, rooms and names with no code change — that swap is part of V-U12"
+  ],
+  "status": "working",
+  "decided": "2026-09-06 (Agent World M2 pre-flight, chat). Company names confirmed by Christoffer the same day by tap. world_pack added 2026-09-06 (chat) from the World Packs decision.",
+  "purpose": "Read by the Agent World renderer (Build Pack M2, U12 / ES-4.1–4.2): one planet per company, each wearing the World Pack named by world_pack. The home planet is the default colony file; every other planet has its own data/colony.<key>.json. Nothing in this key is a client — towns come from ops_clients (Active rows) at scan time, never from here.",
+  "read_by": [
+   "agent-world overlay (U12 ontology skin and pack selection; U19 Steering Room labels)",
+   "scripts/zztest-seed.sh at U21 (seeds only the home planet)",
+   "Compass Worker GET /world/substrate (U12W read route — passes this key through to the fork)"
+  ],
+  "version": "0.3",
+  "changelog": [
+   "2026-09-06 v0.1 — created at the M2 pre-flight (chat); venture names as working names",
+   "2026-09-06 v0.2 — names confirmed by Christoffer (AI Drilling, AI Football); working_name flags removed",
+   "2026-09-06 v0.3 — world_pack per company (World Packs, RA Component 10, Decision 2026-09-06 🟡 Working): tellefsen-campus on Tellefsen SPC and its ventures; known packs listed; read_by gains the Worker read route"
+  ],
+  "companies": [
+   {
+    "key": "tellefsen",
+    "name": "Tellefsen SPC",
+    "role": "home",
+    "status": "active",
+    "clients": "every Active ops_clients row not claimed by another company (today: all of them, ZZTEST Client included)",
+    "substrate": {
+     "ledger": "ops_skill_runs + ops_run_events (this instance)",
+     "notion": "Tellefsen HQ workspace",
+     "compass": "this instance",
+     "airtable": "appixWl8C3bogLsvp"
+    },
+    "world_pack": "tellefsen-campus",
+    "colony_file": "data/colony.json"
+   },
+   {
+    "key": "ai-drilling",
+    "name": "AI Drilling",
+    "role": "venture",
+    "status": "placeholder",
+    "clients": [],
+    "substrate": null,
+    "world_pack": "tellefsen-campus",
+    "colony_file": "data/colony.ai-drilling.json"
+   },
+   {
+    "key": "ai-football",
+    "name": "AI Football",
+    "role": "venture",
+    "status": "placeholder",
+    "clients": [],
+    "substrate": null,
+    "world_pack": "tellefsen-campus",
+    "colony_file": "data/colony.ai-football.json"
+   }
+  ],
+  "world_packs": {
+   "known": [
+    "tellefsen-campus",
+    "neutral"
+   ],
+   "where": "overlay/packs/<id>/pack.json in Christoffer-Tellefsen/agent-world, versioned like the layout file; client packs at M3 (U27), scoped with the first client town",
+   "selection": "planet: companies[].world_pack here; client town: ops_clients.world_branding.pack when that column exists and is set, else the company's pack. Presentation only — badge precedence, the surface each room mirrors, Annex III and the viewer presets are identical under every pack"
+  }
+ },
+ "auto_run_policy": {
+  "run_classes": {
+   "B_judge": {
+    "skills": [
+     "solution-architecture",
+     "platform-fit",
+     "solution-brief",
+     "scoping",
+     "sow",
+     "proposal",
+     "build-kickoff:spec-and-decomposition",
+     "content-agent:final-copy",
+     "any client-facing output"
+    ],
+    "run_mode": "human_gated",
+    "preflight_is_class_A": true,
+    "preflight_steps_allowed_unattended": [
+     "currency checks",
+     "live-system measurement (Move 0)",
+     "research refresh",
+     "meeting sweep",
+     "artifact registration protocol"
+    ]
+   },
+   "A_gather_sync_check_propose": {
+    "skills": [
+     "daily-focus",
+     "task-triage",
+     "meeting-postprocess:sweep",
+     "firm-pulse",
+     "content-strategy:sunday-briefing",
+     "content-strategy:radar",
+     "content-strategy:hygiene",
+     "media-engine:session-prep",
+     "media-engine:harvest",
+     "content-agent:draft-to-in-review",
+     "linkedin-engine:package",
+     "link-integrity-audit",
+     "registry-reconciliation",
+     "account-expansion",
+     "research:refresh-mode",
+     "data-map:drift-check",
+     "integration-map:inventory",
+     "project-log",
+     "project-context"
+    ],
+    "run_mode": "unattended_allowed",
+    "output_rule": "Output is a proposal or filed substrate. Anything that commits (Task status, Decisions, Pipeline stage, client-facing send) still requires a human tap."
+   }
+  },
+  "skill_overrides": {
+   "added": "2026-09-06 at M0 acceptance (Agent World)",
+   "_schema": {
+    "entry": "<skill or skill:step> → {run_mode: human_gated | unattended_allowed, since: YYYY-MM-DD, reason: one line, finding_url: the System Health finding that motivated it, review_due: YYYY-MM-DD}",
+    "precedence": "an entry here overrides the skill's run_class default in run_classes; absence means the class default applies",
+    "who_writes": "a human, on a Run Governance finding (RG-02 demote, RG-03 promote after evals). The sweeps never write here."
+   },
+   "entries": {}
+  }
+ },
+ "deal_pipeline_stages": [
+  "Lead",
+  "Qualified Lead",
+  "Solution Brief Sent",
+  "Scoping",
+  "Proposal Sent",
+  "Negotiation",
+  "Won",
+  "Parked",
+  "Lost"
+ ],
+ "clients": [
+  {
+   "id": "918396bf-5b09-4edc-afa6-8782557cfa0e",
+   "name": "Avidly",
+   "type": "Retainer",
+   "status": "Active",
+   "work": "Senior HubSpot solution engineering",
+   "created_at": "2026-04-05T03:40:08.640283+00:00",
+   "updated_at": "2026-04-05T03:40:08.640283+00:00"
+  },
+  {
+   "id": "db4f1407-8148-4260-910d-c1dde69be01e",
+   "name": "Peopleinsport",
+   "type": "Fixed Project",
+   "status": "Active",
+   "work": "Danish company in the football and handball space; CEO Mads Winther based in Dubai. ACTIVE BUILD: contract/revenue management Airtable operating layer — go-live 1 September 2026 (Himmerland demo 24–25 Aug). INV-1024 issued (DKK→EUR). Contacts: Mads Winther, Helle. Originally referred by Benjamin Nygaard via the B2B Klubben network (Hans Høn / Mindmill connection); first conversation 24 April 2026. Status refreshed 2026-09-01 (Compass refresh — was 'Lead' from April).",
+   "created_at": "2026-04-25T15:52:54.973158+00:00",
+   "updated_at": "2026-09-01T10:45:55.646449+00:00"
+  },
+  {
+   "id": "e26e51a0-a4c3-4134-90a5-81662a4eb038",
+   "name": "Snevagten A/S",
+   "type": "Client",
+   "status": "Active",
+   "work": "Winter services / facility maintenance (Danish snow clearance + winter maintenance). Won 2026-09-02: Kundechat bag login — HubSpot customer agent behind login on Mit Snevagten with one read-only lookup in the client's backend, one help-desk ticket per conversation; fixed-outcome DKK 58,000 on the accepted priced brief v3 (no SOW). A2 subcontractor via Digital Republic (Jesper Toft) — neutral branding, all client comms through the partner. Notion Project 3cfc0af9c9748120aed7e2f818cea9a8 · Airtable Project recveGtlC40P7AXuA · client HubSpot portal 139526874 (EU1).",
+   "created_at": "2026-04-24T05:17:36.826848+00:00",
+   "updated_at": "2026-09-02T15:04:19.293046+00:00"
+  },
+  {
+   "id": "d53b9531-9d30-49c4-be6a-eb9819a67f07",
+   "name": "Titan Containers",
+   "type": "Fixed Project",
+   "status": "Active",
+   "work": "Container rental, leasing, sales, modifications, and self-storage. Danish A/S, HQ Taastrup; multi-country Scandinavian/Baltic operations, ~17-entity corporate family. ACTIVE BUILD (subcontractor mode): HubSpot + PandaDoc + TcRS, routed through Digital Republic ApS (Jesper Toft) — neutral branding, invoicing to Digital Republic in EUR (three-rate structure; INV-1023, INV-1025 issued). Contacts: Henning Hansen, Lukas. Next phase in view: AI enablement in HubSpot. Status refreshed 2026-09-01 (Compass refresh — was 'Lead / no commercial context' from 2026-05-25).",
+   "created_at": "2026-05-25T08:50:35.533844+00:00",
+   "updated_at": "2026-09-01T10:45:50.527123+00:00"
+  },
+  {
+   "id": "8dc05c9c-cf02-47aa-9b5b-8ee17d52b176",
+   "name": "Urhandleren",
+   "type": "Fixed Project",
+   "status": "Active",
+   "work": "Danish watch marketplace — Airtable, website, e-conomic",
+   "created_at": "2026-04-05T03:40:08.640283+00:00",
+   "updated_at": "2026-04-05T03:40:08.640283+00:00"
+  },
+  {
+   "id": "ae251fe2-4270-47c2-b2e6-6a0f3cff4d97",
+   "name": "ZZTEST Client",
+   "type": "Fixed Project",
+   "status": "Active",
+   "work": "AGENT WORLD STANDING TEST SET — not a client. Created 2026-09-06 (M2 pre-flight) so Build Pack U12 renders one test town (one town per Active ops_clients row), U20 has a prospect to decay and U21 has a town to film. Status is Active on purpose. Paired rows: Airtable Clients receKsWIaM5WozMKn ('ZZTEST Client', Prospect), Airtable Pipeline reclEgXG2t4ZnomCq ('ZZTEST Prospect — Zeta', Lead), Pending Approval recpYloZWYijWCO2T ('ZZTEST Alpha', M1 fixture). Seed runs use client = 'ZZTEST Client' and zztest-* skills. Skipped by run governance (RUN_GOVERNANCE_RULES.test_run_exclusion) and weekly hygiene (DATA_HYGIENE_RULES.test_data_exclusion) by the ZZTEST prefix. Never a real engagement; removed by the zztest cleanup at milestone close.",
+   "created_at": "2026-09-06T13:18:18.017379+00:00",
+   "updated_at": "2026-09-06T13:18:18.017379+00:00"
+  },
+  {
+   "id": "8d474131-9a59-495d-8731-3993a1e711ee",
+   "name": "ZZTEST Client 2",
+   "type": "Fixed Project",
+   "status": "Active",
+   "work": "AGENT WORLD STANDING TEST SET — not a client. Created 2026-09-07 by chat for V-U12 (a second Active ops_clients row must appear as a seventh town after a restart, and vanish when removed). Deleted by chat at the `remove client` cue in the same sitting. Skipped by governance and hygiene by the ZZTEST prefix.",
+   "created_at": "2026-09-07T09:54:16.869074+00:00",
+   "updated_at": "2026-09-07T09:54:16.869074+00:00"
+  }
+ ],
+ "skills": [
+  {
+   "id": "3e3ecad3-18a3-49ee-84f1-eaa9cf8feef4",
+   "name": "account-expansion",
+   "type": "Commercial",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "0bb35cf5-b479-4e84-98ea-2fbd290ca0f5",
+   "name": "agent-world-build",
+   "type": "Delivery",
+   "status": "active",
+   "version": "m1"
+  },
+  {
+   "id": "0075e070-138b-4255-ac63-492364ea75ad",
+   "name": "agent-world-pa",
+   "type": "Operations",
+   "status": "planned",
+   "version": "m2"
+  },
+  {
+   "id": "9db2eaaa-8b34-4c6c-be6f-cfb2168f203a",
+   "name": "agentic-coding-solutions",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "7c26965d-a506-47fc-93c8-c2b886a196a0",
+   "name": "airtable-data-import",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "500db88c-56a4-4d6f-baf3-d1a89e11cb94",
+   "name": "airtable-ops",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "6a0ce069-885e-4dff-a8b4-28947c1d7f37",
+   "name": "airtable-solutions",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "9e86a16a-841d-45d3-8ca6-d0396c6a2fe6",
+   "name": "architecture-diagram",
+   "type": "Design",
+   "status": "active",
+   "version": "1.0"
+  },
+  {
+   "id": "dcc40028-9db6-4303-80e7-2a7ab7bb5372",
+   "name": "build-kickoff",
+   "type": "Delivery",
+   "status": "active",
+   "version": "1.3"
+  },
+  {
+   "id": "c7fbc8dd-ff3c-4a1a-a7f1-66a7879f5e20",
+   "name": "client-onboarding",
+   "type": "Operations",
+   "status": "archived",
+   "version": "1.0"
+  },
+  {
+   "id": "531fe062-8e76-4e18-b8f3-f6e7812ff5cd",
+   "name": "client-onboarding",
+   "type": "Operations",
+   "status": "active",
+   "version": "3"
+  },
+  {
+   "id": "b1b0fb6e-d9a0-415a-b783-0f6eb2e6f69a",
+   "name": "client-update-agent",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "fc9e497f-6a69-4138-84d5-41cd44747ce3",
+   "name": "compass",
+   "type": "Operations",
+   "status": "active",
+   "version": "1.1"
+  },
+  {
+   "id": "04835c8e-2169-4803-9be9-a6a9d651739e",
+   "name": "content-agent",
+   "type": "Content",
+   "status": "active",
+   "version": "3.3"
+  },
+  {
+   "id": "98eba5b6-3a8d-47d5-9a2a-826a548ee270",
+   "name": "content-strategy",
+   "type": "Content",
+   "status": "active",
+   "version": "1.2"
+  },
+  {
+   "id": "c9ceb389-92bc-4a38-b3a3-9fe1320b6b34",
+   "name": "daily-context-sync",
+   "type": "Operations",
+   "status": "retired",
+   "version": "1"
+  },
+  {
+   "id": "0082d652-ae1f-4b43-a1e9-ad8abb3db1d8",
+   "name": "daily-focus",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "0031b6e8-851a-403c-9b5b-dda3ecf2451a",
+   "name": "data-map",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "41d72095-9da2-4859-90c0-0e50d317aef8",
+   "name": "decision-oplaeg",
+   "type": "Commercial",
+   "status": "unverified",
+   "version": "1"
+  },
+  {
+   "id": "7a147f97-4037-4065-889b-4bc49276138d",
+   "name": "engagement-close",
+   "type": "Delivery",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "52c1d765-cd92-45f0-a5bd-52b215c9e7e9",
+   "name": "finance-bank-import",
+   "type": "Finance",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "4f42f6ce-ff82-453b-a416-f83adf5c8615",
+   "name": "finance-expense",
+   "type": "Finance",
+   "status": "active",
+   "version": "1.0"
+  },
+  {
+   "id": "0dfa27b0-ff36-414d-a08e-1673dceaf9a5",
+   "name": "finance-invoice",
+   "type": "Finance",
+   "status": "active",
+   "version": "3"
+  },
+  {
+   "id": "5384365e-a663-472a-9bce-020f5d6927d3",
+   "name": "firm-pulse",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "c473b49e-9304-44ac-bf01-19c1a1606b4e",
+   "name": "gate-reconciliation",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "e200707e-0b24-490c-afc2-9bbbe02294fe",
+   "name": "hubspot-solutions",
+   "type": "Engineering",
+   "status": "active",
+   "version": "2"
+  },
+  {
+   "id": "508d4952-374f-4978-a2a9-f06aa17b3e3b",
+   "name": "integration-map",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "e75f4bbc-fd0c-43ed-9f61-aede710e63f8",
+   "name": "link-integrity-audit",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "fce141a4-42b0-4bac-8e06-43ad63d95544",
+   "name": "linkedin-engine",
+   "type": "Content",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "2ce726b8-f1bb-48df-bba1-a11c3c156ada",
+   "name": "make-api-shell-connection-workflow",
+   "type": "Engineering",
+   "status": "active",
+   "version": "0.3.0"
+  },
+  {
+   "id": "8f749ef5-7a25-4903-a28f-269bc317988a",
+   "name": "make-mcp-reference",
+   "type": "Engineering",
+   "status": "active",
+   "version": "0.1.7"
+  },
+  {
+   "id": "2c98048b-e502-4109-a875-6c99a5a378f1",
+   "name": "make-module-configuring",
+   "type": "Engineering",
+   "status": "active",
+   "version": "0.1.7"
+  },
+  {
+   "id": "f757d2a2-8e6f-468d-b0b3-d2fa6110c874",
+   "name": "make-scenario-building",
+   "type": "Engineering",
+   "status": "active",
+   "version": "0.1.7"
+  },
+  {
+   "id": "63d32ff1-9f85-49f5-8395-e0403afedc90",
+   "name": "make-scenarios",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1.1"
+  },
+  {
+   "id": "f61745c5-51f0-4cc4-b4f4-cc86ad12dca4",
+   "name": "media-engine",
+   "type": "Content",
+   "status": "active",
+   "version": "1.1"
+  },
+  {
+   "id": "30b25810-091f-493c-afa1-873ccb0018cf",
+   "name": "meeting-postprocess",
+   "type": "Operations",
+   "status": "active",
+   "version": "2 (spec authored, pending install)"
+  },
+  {
+   "id": "81f472da-8783-48c6-8ea7-9f03f0b44d78",
+   "name": "milestone-close",
+   "type": "Delivery",
+   "status": "active",
+   "version": "1.1"
+  },
+  {
+   "id": "f56ce6ad-a097-4b48-93ea-2c3e5fa8dbad",
+   "name": "notion",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "769a9a62-7203-4dd3-aab1-1c3f3b7737e3",
+   "name": "operating-layer-map",
+   "type": "Commercial",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "454c28aa-47b5-48b3-af3a-1859407cffea",
+   "name": "pipeline-conversion",
+   "type": "Operations",
+   "status": "active",
+   "version": "3"
+  },
+  {
+   "id": "e4ad0bc6-7c3c-4466-8ea0-9658b3f09d71",
+   "name": "platform-fit",
+   "type": "Engineering",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "838a598b-8879-495c-8341-b2ed2f38e8f8",
+   "name": "project-context",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "b6b597b9-0655-4bdb-bf34-f06cf3540e46",
+   "name": "project-log",
+   "type": "Operations",
+   "status": "active",
+   "version": "1.1"
+  },
+  {
+   "id": "384b7150-a055-4ad3-b190-860935f5163e",
+   "name": "project-overview",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "459a8442-e51b-479e-80e0-4efaac752f49",
+   "name": "proposal",
+   "type": "Commercial",
+   "status": "active",
+   "version": "2.0"
+  },
+  {
+   "id": "7adcc94b-36e7-44b8-8b2e-a9547bbb34e4",
+   "name": "registry-reconciliation",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "5d89c7a9-d396-46d5-9778-cf26a6ba53a8",
+   "name": "research",
+   "type": "Research",
+   "status": "active",
+   "version": "2"
+  },
+  {
+   "id": "983c5b13-3c9c-4c66-8819-20198802f157",
+   "name": "run-governance",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "98eaac48-12ef-4210-b2f0-273e18da2963",
+   "name": "scoping",
+   "type": "Commercial",
+   "status": "active",
+   "version": "2.0"
+  },
+  {
+   "id": "ca126ebc-772d-4af3-b611-d572f6412eae",
+   "name": "solution-agent",
+   "type": "Orchestration",
+   "status": "active",
+   "version": "3"
+  },
+  {
+   "id": "131334a5-8587-410d-a25a-6659cf181586",
+   "name": "solution-architecture",
+   "type": "Engineering",
+   "status": "active",
+   "version": "2"
+  },
+  {
+   "id": "baf92c68-21c7-450d-ae51-e2d0e8ba881c",
+   "name": "solution-brief",
+   "type": "Commercial",
+   "status": "active",
+   "version": "2.1"
+  },
+  {
+   "id": "9fd946d1-686e-4b91-a1e2-80e75b4d2ea7",
+   "name": "solution-context",
+   "type": "Commercial",
+   "status": "unverified",
+   "version": "1"
+  },
+  {
+   "id": "08011af0-8d1c-4109-8a90-dae1b1553979",
+   "name": "solution-portfolio",
+   "type": "Commercial",
+   "status": "unverified",
+   "version": "1"
+  },
+  {
+   "id": "e8179eaa-b7bf-48ff-a9a7-25da227fade2",
+   "name": "sow",
+   "type": "Commercial",
+   "status": "active",
+   "version": "2.0"
+  },
+  {
+   "id": "026cb2b7-edb3-4677-aaa5-c9a06ee6884f",
+   "name": "task-from-raw",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "914e3f4a-d49e-4390-82d7-c7fba4bb917a",
+   "name": "task-triage",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "67ae6c81-d598-4788-b176-43b9c76674b5",
+   "name": "tellefsen-design",
+   "type": "Brand",
+   "status": "active",
+   "version": "1.0"
+  },
+  {
+   "id": "e8517dbb-02ef-42f0-9c6d-ca25c31aa08c",
+   "name": "weekly-data-hygiene",
+   "type": "Operations",
+   "status": "active",
+   "version": "1"
+  },
+  {
+   "id": "eed846a0-6c63-428c-9fde-56c2057f78aa",
+   "name": "zztest-stale-expert",
+   "type": "Operations",
+   "status": "active",
+   "version": "fixture"
+  }
+ ],
+ "note": "GET /world/substrate captured 2026-09-07 for the contract test (U34). Re-capture with scripts/capture-contract.sh."
+}

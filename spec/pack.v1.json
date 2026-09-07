@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tellefsen.om/agent-world/spec/pack.v1.json",
+  "title": "World Pack — v1",
+  "description": "overlay/packs/<id>/pack.json: presentation config — skin, rooms (name, mirror, ring), nouns, lod, layout, figure. A pack names rooms, never clients or companies. figure ∈ {character, marker}; rendering a marker is M3 (the schema carries it now).",
+  "type": "object",
+  "required": ["id", "version", "title", "skin", "names", "rooms", "lod", "layout", "figure", "skills"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+    "version": { "type": "string" },
+    "title": { "type": "string" },
+    "blurb": { "type": "string" },
+    "figure": { "type": "string", "enum": ["character", "marker"] },
+    "skin": {
+      "type": "object",
+      "required": ["palette", "kit", "world", "sky", "lighting", "filter", "sounds", "badges"],
+      "properties": {
+        "palette": { "type": "object" },
+        "kit": { "type": "string" },
+        "world": { "type": "string" },
+        "sky": { "type": "string" },
+        "lighting": { "type": "object", "properties": { "timeOfDay": { "type": "number" }, "autoTime": { "type": "boolean" } } },
+        "filter": { "type": "string" },
+        "sounds": { "type": "string" },
+        "badges": { "type": "object", "required": ["waiting", "blocked", "working", "done", "asleep"] }
+      }
+    },
+    "names": {
+      "type": "object",
+      "required": ["world", "planet", "centre", "town", "building", "studio", "agent", "fixture", "request", "prospect"],
+      "additionalProperties": { "type": "string" }
+    },
+    "rooms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "mirrors", "surface", "ring", "spoke"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "name": { "type": "string" },
+          "mirrors": { "type": "string", "description": "the substrate surface the room's panel reads — the same under every pack" },
+          "surface": { "type": "string" },
+          "ring": { "type": "integer", "minimum": 0, "maximum": 2 },
+          "spoke": { "type": "integer", "minimum": 0, "maximum": 5 }
+        }
+      }
+    },
+    "default_room": { "type": "string" },
+    "lod": {
+      "type": "object",
+      "required": ["orbit", "desk"],
+      "properties": { "orbit": { "type": "number", "description": "camera distance above which only plates show" }, "desk": { "type": "number", "description": "camera distance below which the panel opens" } }
+    },
+    "layout": {
+      "type": "object",
+      "required": ["home", "planet"],
+      "properties": {
+        "home": { "type": "string" },
+        "planet": { "type": "string" },
+        "towns": { "type": "object", "properties": { "first_ring": { "type": "integer" }, "ring_step": { "type": "integer" }, "last_ring": { "type": "integer" } } }
+      }
+    },
+    "skills": {
+      "type": "object",
+      "required": ["by_type", "default_room", "overrides"],
+      "properties": {
+        "by_type": { "type": "object", "additionalProperties": { "type": "string" } },
+        "default_room": { "type": "string" },
+        "overrides": { "type": "object", "additionalProperties": { "type": "object", "properties": { "room": { "type": "string" }, "wants": { "type": "string" } } } }
+      }
+    }
+  }
+}
