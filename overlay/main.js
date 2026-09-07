@@ -33,7 +33,7 @@
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, onWorldLate, loadRoom, rooms as roomsOf } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, onWorldLate, loadRoom, loadArchive, rooms as roomsOf } from './zones.mjs'
 import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
 import { altitudeOf, labelRule, plateText, placeCounts } from './lod.mjs'
 import { homeTarget, homeDistance } from './home.mjs'
@@ -41,7 +41,8 @@ import { roomSections, skillRowsOf } from './rooms.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { createLabel, Plot, PLOT_PALETTE, hashString, worldToHex } from '../src/world/plots.js'
-import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
+import { artifactRows, BubbleTracker, newestArtifactAt, bubbleEligible } from './artifacts.mjs'
+import { shelfSections, projectTab } from './archive.mjs'
 import { intrayRows, nextRow } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
 
@@ -111,6 +112,7 @@ html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
 #aw-panel .fx b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
 #aw-panel .fx .ms{display:flex;justify-content:space-between;gap:10px;padding:2px 0;opacity:.85}
 #aw-panel .fx .ms.done{opacity:.55;text-decoration:line-through}
+#aw-panel .shelf .fxb{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin:8px 0 2px}#aw-panel .shelf .r.done{opacity:.55}
 #aw-toast{position:fixed;left:50%;bottom:140px;transform:translateX(-50%);background:color-mix(in srgb,var(--aw-wait) 22%,#000);color:var(--aw-ink);
   padding:9px 15px;border-radius:10px;font:13px system-ui,sans-serif;z-index:41;opacity:0;transition:opacity .2s;pointer-events:none}
 #aw-toast.on{opacity:1}
@@ -165,6 +167,11 @@ html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
 #aw-room .r .v.late{color:var(--aw-block)}
 #aw-room .r .v.stale{color:var(--aw-done)}
 #aw-room .note{opacity:.65;padding:6px 0;font-style:italic}
+#aw-room .cols.wide{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+#aw-room .sec{margin:6px 0 10px}#aw-room .sec b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin:6px 0 2px}
+#aw-room .r .v a{color:var(--aw-wait);text-decoration:none;margin-left:6px;font-size:11px}#aw-room .r .v a:hover{text-decoration:underline}#aw-room .r .v em{opacity:.5;font-style:normal;font-size:11px;margin-left:6px}
+#aw-panel .tabs{display:flex;gap:6px;margin:4px 0 8px}#aw-panel .tabs button{background:rgba(255,255,255,.08);color:var(--aw-ink);padding:4px 10px;font-size:12px}#aw-panel .tabs button[aria-pressed="true"]{background:var(--aw-accent);color:#fff}
+#aw-panel .shelf{max-height:38vh;overflow:auto}#aw-panel .shelf .r{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--aw-line)}#aw-panel .shelf .r small{display:block;opacity:.6}#aw-panel .shelf a{color:var(--aw-wait);font-size:11px;text-decoration:none;margin-left:6px}
 #aw-room .foot{opacity:.45;font-size:11px;margin-top:10px}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
@@ -245,8 +252,12 @@ function zoneLabel(thread, p) {
 /** The room a thread stands in or belongs to (M2b): its own room, else the room its skill maps to under the pack. */
 const roomOf = (thread, p) => (getWorld()?.rooms || []).find((r) => r.id === thread.room) || roomFor(thread.skill || String(thread.title || '').split(' · ')[0], p)
 
+let fixtureTab = 'entity' // 'entity' | 'archive' — the project fixture's two tabs (U32)
+let fixtureTabFor = ''
 /** A fixture's panel (M2b, ES-6.2): the entity — a project with its client, stack, milestones and live runs, or a room board. */
 function renderFixture(agent, thread) {
+  if (fixtureTabFor !== thread.id) { fixtureTab = 'entity'; fixtureTabFor = thread.id }
+  if (thread.fixture === 'project' && fixtureTab === 'archive') return renderProjectArchive(thread)
   const p = packOf(thread.pack)
   const isProject = thread.fixture === 'project'
   const url = thread.ref?.url
@@ -270,6 +281,7 @@ function renderFixture(agent, thread) {
   panel.innerHTML = `
     <div class="h"><div><span class="skill">${esc(thread.title || '')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
       <span class="id">${esc(noun('fixture', p))} · still</span></div>
+    ${isProject ? '<div class="tabs"><button data-tab="entity" aria-pressed="true">Project</button><button data-tab="archive" aria-pressed="false">Archive</button></div>' : ''}
     <div class="chips">${chips.join('')}</div>
     ${thread.preview && !isProject ? `<div class="note">${esc(thread.preview)}</div>` : ''}
     ${runs}${ms}
@@ -278,6 +290,28 @@ function renderFixture(agent, thread) {
   panel.classList.add('on')
   panel.querySelector('#aw-open')?.addEventListener('click', () => {
     if (url) window.open(url, '_blank', 'noopener')
+  })
+  panel.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { fixtureTab = b.dataset.tab; lastKey = ''; render(selection()) }))
+}
+/** The Archive tab (U32): the shelf scoped to this project, newest first, plus its milestones. */
+function renderProjectArchive(thread) {
+  const p = packOf(thread.pack)
+  panel.innerHTML = `
+    <div class="h"><div><span class="skill">${esc(thread.title || '')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
+      <span class="id">${esc(noun('fixture', p))} · archive</span></div>
+    <div class="tabs"><button data-tab="entity" aria-pressed="false">Project</button><button data-tab="archive" aria-pressed="true">Archive</button></div>
+    <div class="shelf" id="aw-shelf"><div class="note">reading the shelf…</div></div>
+    <div class="row"><span class="hint">read-only · Open where the row carries a link</span></div>`
+  panel.classList.add('on')
+  panel.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { fixtureTab = b.dataset.tab; lastKey = ''; render(selection()) }))
+  projectArchive(thread.projectId).then(({ sections, milestones }) => {
+    const el = panel.querySelector('#aw-shelf')
+    if (!el || fixtureTab !== 'archive') return
+    if (!archiveData) { el.innerHTML = '<div class="note">the sidecar did not answer — is ./dev.sh running?</div>'; return }
+    el.innerHTML =
+      sections.map((sec) => `<b class="fxb">${esc(sec.title)}</b>${sec.rows.map((r) => `<div class="r"><span>${esc(r.text)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</span><span>${esc(r.value)}${r.open.map((o) => `<a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.label)} ↗</a>`).join('')}</span></div>`).join('')}${sec.note ? `<div class="note">${esc(sec.note)}</div>` : ''}`).join('') +
+      `<b class="fxb">Milestones · ${milestones.filter((m) => m.done).length} of ${milestones.length} done</b>` +
+      (milestones.map((m) => `<div class="r${m.done ? ' done' : ''}"><span>${m.done ? '✓ ' : ''}${esc(m.text)}<small>${esc(m.small)}</small></span><span>${esc(m.value)}${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">Open in Notion ↗</a>` : ''}</span></div>`).join('') || '<div class="note">no milestones</div>')
   })
 }
 
@@ -447,6 +481,7 @@ function renderRoom() {
 let roomLoadingId = ''
 async function refreshRoom(force = false) {
   if (!roomOpen) return
+  if (roomOpen === 'archive') return openArchive(force) // the archive has its own reader and renderer (U32)
   if (roomLoadingId === roomOpen) return // this room is already on its way
   if (!force && roomData?.id === roomOpen && Date.now() - roomLoadedAt < 5 * 60_000) return
   const id = roomOpen
@@ -464,8 +499,52 @@ async function refreshRoom(force = false) {
 }
 function openRoom(id) {
   roomOpen = roomOpen === id ? '' : id
+  if (roomOpen === 'archive') return openArchive()
   renderRoom()
   if (roomOpen) refreshRoom(roomData?.id !== roomOpen)
+}
+
+// ── U32: the archive ────────────────────────────────────────────────────────────────────────
+let archiveData = null
+let archiveAt = 0
+let archiveLoading = false
+function renderArchive() {
+  if (roomOpen !== 'archive') return
+  const d = archiveData
+  const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text))
+  const shelfHtml = (shelf) => {
+    const sections = shelfSections(shelf).filter((sec) => sec.rows.length || sec.note.startsWith('SKIPPED'))
+    return `<div class="col"><h3>${esc(shelf.name)}<span>${shelf.deliverables.length} deliverable${shelf.deliverables.length === 1 ? '' : 's'} · ${shelf.decisions.length} settled decision${shelf.decisions.length === 1 ? '' : 's'}</span></h3>${sections
+      .map((sec) => `<div class="sec"><b>${esc(sec.title)}</b>${sec.rows.slice(0, 40).map((r) => `<div class="r"><span class="n">${esc(r.text)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</span><span class="v">${esc(r.value)} ${r.open.map((o) => `<a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.label)} ↗</a>`).join(' ')}${r.reference ? '<em>reference</em>' : ''}</span></div>`).join('')}${sec.note ? `<div class="note">${esc(sec.note)}</div>` : ''}</div>`)
+      .join('')}</div>`
+  }
+  room.innerHTML =
+    `<div class="h"><b>${esc(roomNameOf('archive'))}</b><span class="hint">a shelf per client and per venture · newest first · Open where the row carries a link · Esc closes</span></div>` +
+    (!d && archiveLoading ? '<div class="note">reading the shelves…</div>' : !d ? '<div class="note">the sidecar did not answer — is ./dev.sh running?</div>' : '') +
+    `<div class="cols wide">${(d?.shelves || []).map(shelfHtml).join('')}</div>` +
+    `<div class="foot">${d?.at ? 'as of ' + esc(new Date(d.at).toLocaleTimeString()) : ''} · Deliverables = every registered artifact in the ledger window; settled Decisions = Status Active${Object.values(d?.missing || {}).length ? ' · skipped: ' + esc(Object.values(d.missing).join(' · ')) : ''}</div>`
+  room.classList.add('on')
+}
+async function openArchive(force = false) {
+  renderArchive()
+  if (archiveLoading || (!force && archiveData && Date.now() - archiveAt < 5 * 60_000)) return
+  archiveLoading = true
+  renderArchive()
+  const d = await loadArchive()
+  archiveLoading = false
+  if (d) {
+    archiveData = d
+    archiveAt = Date.now()
+  }
+  renderArchive()
+}
+/** The project fixture's Archive tab: the shelf scoped to the project, plus its milestones. */
+async function projectArchive(projectId) {
+  if (!archiveData || Date.now() - archiveAt > 5 * 60_000) {
+    const d = await loadArchive()
+    if (d) { archiveData = d; archiveAt = Date.now() }
+  }
+  return projectTab(archiveData?.byProject?.[String(projectId || '').replace(/-/g, '')] || null)
 }
 window.addEventListener(
   'keydown',
@@ -483,7 +562,7 @@ window.addEventListener(
 )
 setInterval(() => roomOpen && refreshRoom(true), 60_000) // the sidecar's caches decide the cost; the panel never holds a stale copy of its own
 // a console handle for the verifier and the checks: open a room by id, read what is open. No state, no write.
-window.agentWorld = Object.assign(window.agentWorld || {}, { openRoom, roomOpen: () => roomOpen, rooms: () => roomsOf().map((r) => r.id) })
+window.agentWorld = Object.assign(window.agentWorld || {}, { openRoom, roomOpen: () => roomOpen, rooms: () => roomsOf().map((r) => r.id), refresh: () => refreshRoom(true) })
 // a click on a room plot (no figure under the pointer) opens its panel — the hex under the pointer against the rooms' cells
 let downAt = null
 window.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY } }, true)
@@ -1032,7 +1111,8 @@ function syncBubbles() {
     bubbleGroup.name = 'aw:bubbles'
     colony.scene.add(bubbleGroup)
   }
-  const active = tracker.update(bc.threads || [])
+  // U32 (ES-6.7): a bubble only on a request whose run has an open gate; an artifact without a gate is shelf-only
+  const active = tracker.update((bc.threads || []).filter(bubbleEligible))
   for (const [id, b] of bubbles) {
     if (active.has(id) && colony.astronauts.byId?.has(id)) continue
     bubbleGroup.remove(b.mesh)

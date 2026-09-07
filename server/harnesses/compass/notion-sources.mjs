@@ -8,8 +8,8 @@
  *   TASKS                resolved once from the Action Items database on the project page (GET
  *                        /v1/databases/<id> → data_sources[0].id); undefined until resolved, or when
  *                        the integration cannot see it
- *   CONTENT, RESEARCH, DELIVERABLES, INTEGRATIONS, FIELD_MAPPINGS, SYSTEM_HEALTH
- *                        the six NOTION_DS_* names in .env — absent → undefined, and the panel or
+ *   CONTENT, RESEARCH, DELIVERABLES, INTEGRATIONS, FIELD_MAPPINGS, SYSTEM_HEALTH (+ SENT_DOCUMENTS, optional)
+ *                        the NOTION_DS_* names in .env — absent → undefined, and the panel or
  *                        section that needs one is skipped (SKIPPED:ENV, names only), never guessed
  */
 export const PROJECTS = '33dc0af9-c974-80e9-9d5d-000ba4bd72ea'
@@ -24,6 +24,8 @@ export const ENV_NAMES = Object.freeze({
   INTEGRATIONS: 'NOTION_DS_INTEGRATIONS',
   FIELD_MAPPINGS: 'NOTION_DS_FIELD_MAPPINGS',
   SYSTEM_HEALTH: 'NOTION_DS_SYSTEM_HEALTH',
+  /** Optional (M2b U32): the Project page's Sent Documents table — not one of the six names the pack lists; absent → the section is skipped. */
+  SENT_DOCUMENTS: 'NOTION_DS_SENT_DOCUMENTS',
 })
 
 const ID = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

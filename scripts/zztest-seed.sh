@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Agent World — seed the standing ZZTEST test set into ops_run_events via the Compass Worker.
 #   scripts/zztest-seed.sh          → Alpha (waiting), Beta (running), Gamma (failed), Delta (asleep),
-#                                     Epsilon (U13: completed, one Notion-page artifact + one Compass reference),
+#                                     Epsilon (U13/U32: completed with one open in-session gate, one Notion-page artifact + one Compass reference),
 #                                     Zeta (U18: zztest-lead + two zztest-child runs carrying parent_run_id, one child waiting),
 #                                     Eta (U17: zztest-stale-expert, last run 40 d ago — its ops_skills row, status active, is
 #                                     created by chat through the Compass MCP; the world never writes to Compass)
@@ -110,8 +110,10 @@ run "Delta (asleep)"   zztest-sleeper  "ZZTEST Client" chat             96 \
 # Epsilon (U13): the page it "wrote" is ZZTEST_ARTIFACT_URL (default: the Agent World project page in Notion — read only, nothing is written there);
 # the second artifact is a Compass reference, which the card shows as a label with no Open.
 : "${ZZTEST_ARTIFACT_URL:=https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab}"
+# U32 (ES-6.7): Epsilon keeps one gate open — an in-session gate on its own run — so its bubble still fires under the still map
+# (a bubble only on a run with an open gate); an artifact on a run without a gate goes to the archive shelf only.
 run "Epsilon (artist)"  zztest-artist   "ZZTEST Client" cowork_manual    0 \
-  "[{\"event_type\":\"artifact_registered\",\"payload\":{\"type\":\"notion_page\",\"title\":\"ZZTEST artifact page\",\"notion_url\":\"$ZZTEST_ARTIFACT_URL\"}},{\"event_type\":\"run_completed\",\"payload\":{\"outcome\":\"success\",\"artifacts\":[{\"title\":\"ZZTEST config reference\",\"url\":\"ops_config:ZZTEST_REF\",\"system\":\"compass\"}]}}]"
+  "[{\"event_type\":\"artifact_registered\",\"payload\":{\"type\":\"notion_page\",\"title\":\"ZZTEST artifact page\",\"notion_url\":\"$ZZTEST_ARTIFACT_URL\"}},{\"event_type\":\"gate_waiting\",\"payload\":{\"gate\":\"ZZTEST review the artifact\",\"surface\":\"class_b_gate\"}},{\"event_type\":\"run_completed\",\"payload\":{\"outcome\":\"success\",\"artifacts\":[{\"title\":\"ZZTEST config reference\",\"url\":\"ops_config:ZZTEST_REF\",\"system\":\"compass\"}]}}]"
 run "Eta (stale)"       zztest-stale-expert "ZZTEST Client" cowork_scheduled 960 \
   '[{"event_type":"run_completed","payload":{"outcome":"success"}}]'
 # Zeta (U18): the lead runs on; child 1 stopped at an in-session gate (a ? of its own — N lands here); child 2 finished.

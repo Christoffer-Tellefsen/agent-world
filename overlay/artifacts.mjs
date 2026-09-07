@@ -111,3 +111,9 @@ export class BubbleTracker {
     return active
   }
 }
+
+/**
+ * U32 (ES-6.7) amends U13: a bubble fires only when the artifact's run has an open gate — under the still map that is
+ * a gate request carrying artifacts. An artifact on a run without a gate appears on the archive shelf only.
+ */
+export const bubbleEligible = (t) => Boolean(t && t.kind === 'request' && t.request === 'gate' && Array.isArray(t.gates) && t.gates.length && Array.isArray(t.artifacts) && t.artifacts.length)
