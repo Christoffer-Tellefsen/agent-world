@@ -281,7 +281,7 @@
         "if a later Decision moves the write path to /actions, this becomes a Worker unit — never build a write path in the fork"
       ],
       "check": "V-U15",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

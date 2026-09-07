@@ -11,6 +11,10 @@
 // label) and a speech bubble floats over the agent for a minute after a new one.
 // U14 — the in-tray: every open ? as one list in N's order (oldest gate first); I toggles it, a row
 // click flies to the figure, and N is taken over here so the key and the list can never disagree.
+// U15 — Approve as a verb: on a tray row and on the card. Shows the instruction and the surface's name
+// first, then opens the gate's surface (the same link Open uses). The row wears ⏳ until U6's cross-check
+// clears the ? on a later poll; three polls without that and it is a ? again, "not seen yet". Nothing is
+// written from here — the tap lands on the surface (Decision 2026-09-06; the write path is M3's /actions).
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
@@ -20,6 +24,7 @@ import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
 import { intrayRows, nextRow } from './intray.mjs'
+import { ApproveTracker, approveIntent } from './approve.mjs'
 
 const LABEL = {
   working: 'Working',
@@ -88,6 +93,18 @@ const css = `
 #aw-tray .r .z{opacity:.5;font-size:11px}
 #aw-tray .r .age{opacity:.55;font-size:11px;white-space:nowrap}
 #aw-tray .empty{opacity:.6;padding:6px 8px}
+#aw-tray .r button,#aw-panel button.ok{font:inherit;font-size:12px;border:0;border-radius:8px;padding:4px 10px;cursor:pointer;background:rgba(255,255,255,.1);color:var(--aw-ink);flex:none}
+#aw-tray .r .q.wait{background:color-mix(in srgb,var(--aw-done) 22%,#000);color:var(--aw-done)}
+#aw-tray .r .ns{opacity:.6;font-size:11px;font-style:italic}
+#aw-intent{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:42;width:min(520px,calc(100vw - 40px));display:none;
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
+  border-radius:16px;padding:18px 22px 16px;backdrop-filter:blur(10px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#aw-intent.on{display:block}
+#aw-intent b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
+#aw-intent .sf{font-weight:600;margin-bottom:8px}
+#aw-intent .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+#aw-intent button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
+#aw-intent button.ghost{background:rgba(255,255,255,.1);color:var(--aw-ink)}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
   border-radius:999px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
@@ -117,6 +134,7 @@ const el = (id) => {
 }
 const panel = el('aw-panel')
 const tray = el('aw-tray')
+const intent = el('aw-intent')
 const toastEl = el('aw-toast')
 const switcher = el('aw-planets')
 const empty = el('aw-empty')
@@ -189,8 +207,10 @@ function render(sel) {
     progressOf(thread.sizeBytes) > 0.051 ? `<span class="chip">${Math.round(progressOf(thread.sizeBytes) * 100)} % of milestones</span>` : '',
   ].join('')
 
+  const cardRow = intrayRows([thread])[0] || null
+  const aState = cardRow ? approvals.state(cardRow.id, cardRow.gate, cardRow.url) : ''
   const doBlock = gate
-    ? `<div class="do"><b>${thread.unread ? 'What it wants from you' : 'Waiting — not yours to tap'}</b>
+    ? `<div class="do"><b>${thread.unread ? (aState === '⏳' ? '⏳ Approved here — waiting for the surface to show it' : aState === 'not seen yet' ? 'What it wants from you · not seen yet on the surface' : 'What it wants from you') : 'Waiting — not yours to tap'}</b>
          <div class="gate">${esc(gate)}</div>
          <div>${esc(instruction || thread.gitBranch || '')}</div></div>`
     : thread.hasError
@@ -217,11 +237,12 @@ function render(sel) {
     ${doBlock}
     ${artBlock}
     <div class="row"><span class="hint">Enter opens · N flies to the next ? · ${thread.unread ? 'A is blocked on a waiting run' : 'A hides from this view only'}</span>
-      <span>${thread.ref?.context ? `<a class="ctx" href="${esc(thread.ref.context)}" target="_blank" rel="noopener">Context ↗</a>` : ''}<button id="aw-open" ${url ? '' : 'disabled'}>${esc(openLabel(url))}</button></span></div>`
+      <span>${thread.ref?.context ? `<a class="ctx" href="${esc(thread.ref.context)}" target="_blank" rel="noopener">Context ↗</a>` : ''}${cardRow?.url ? '<button class="ok" id="aw-approve">Approve</button> ' : ''}<button id="aw-open" ${url ? '' : 'disabled'}>${esc(openLabel(url))}</button></span></div>`
   panel.classList.add('on')
   panel.querySelector('#aw-open')?.addEventListener('click', () => {
     if (url) window.open(url, '_blank', 'noopener')
   })
+  panel.querySelector('#aw-approve')?.addEventListener('click', () => approve(cardRow))
   panel.querySelectorAll('button[data-art]').forEach((b) =>
     b.addEventListener('click', () => {
       const r = arts[Number(b.dataset.art)]
@@ -234,7 +255,8 @@ function render(sel) {
 let lastKey = ''
 setInterval(() => {
   const sel = selection()
-  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread)].join('|') : ''
+  const cr = sel ? intrayRows([sel.thread])[0] : null
+  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread), cr ? approvals.state(cr.id, cr.gate, cr.url) : ''].join('|') : ''
   syncQuietLabels()
   if (key === lastKey) return
   lastKey = key
@@ -279,7 +301,7 @@ function renderTray(force = false) {
   }
   const rows = trayRows()
   const sel = selectedId()
-  const key = rows.map((r) => `${r.id}:${r.at}:${r.what}`).join('|') + '~' + sel
+  const key = rows.map((r) => `${r.id}:${r.at}:${r.what}:${approvals.state(r.id, r.gate, r.url)}`).join('|') + '~' + sel
   if (!force && key === lastTray) return
   lastTray = key
   tray.innerHTML =
@@ -287,10 +309,10 @@ function renderTray(force = false) {
     (rows.length
       ? rows
           .map(
-            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q">?</span>
+            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q${approvals.state(r.id, r.gate, r.url) === '⏳' ? ' wait' : ''}" title="${approvals.state(r.id, r.gate, r.url) === '⏳' ? 'waiting for the surface to show the tap' : 'waiting on you'}">${approvals.glyph(r.id, r.gate, r.url)}</span>
             <span class="m"><div class="s">${esc(r.skill)} <span class="z">· ${esc(r.zone)}</span></div>
-            <div class="g">${esc(r.gate)}${r.left > 1 ? ` (${r.left} left)` : ''} — ${esc(r.what)}</div></span>
-            <span class="age" title="oldest open gate">${esc(ago(r.at))}</span></div>`
+            <div class="g">${esc(r.gate)}${r.left > 1 ? ` (${r.left} left)` : ''} — ${esc(r.what)}${approvals.state(r.id, r.gate, r.url) === 'not seen yet' ? ' <span class="ns">· not seen yet</span>' : ''}</div></span>
+            <span class="age" title="oldest open gate">${esc(ago(r.at))}</span>${r.url ? `<button data-approve="${esc(r.id)}">Approve</button>` : ''}</div>`
           )
           .join('')
       : '<div class="empty">Nothing is waiting on you.</div>')
@@ -301,7 +323,47 @@ function renderTray(force = false) {
       renderTray(true)
     })
   )
+  tray.querySelectorAll('button[data-approve]').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      approve(rows.find((r) => r.id === b.dataset.approve))
+    })
+  )
 }
+
+// ── U15: Approve ─────────────────────────────────────────────────────────────────────────────
+const approvals = new ApproveTracker()
+
+/** Show the instruction and the surface's name; "Open the surface" takes the human there. No write, ever. */
+function approve(row) {
+  const it = approveIntent(row)
+  if (!it) {
+    toast('This gate has no surface to open')
+    return
+  }
+  window.botCrossing?.hud?.actions?.focusThread?.(it.id)
+  intent.innerHTML = `<b>Approve · ${esc(it.gate)}</b><div class="sf">${esc(it.surface)}</div><div>${esc(it.what)}</div>
+    <div class="row"><button class="ghost" id="aw-intent-no">Not now</button><button id="aw-intent-go">Open the surface ↗</button></div>`
+  intent.classList.add('on')
+  intent.querySelector('#aw-intent-no').addEventListener('click', () => intent.classList.remove('on'))
+  intent.querySelector('#aw-intent-go').addEventListener('click', () => {
+    intent.classList.remove('on')
+    approvals.mark(it.id, it.gate, it.url)
+    window.open(it.url, '_blank', 'noopener')
+    renderTray(true)
+    lastKey = '' // the card re-renders with the ⏳
+  })
+}
+// One tick per poll: the roster's own timestamp changes when a poll lands (threads are a new array each time).
+let lastRosterRef = null
+setInterval(() => {
+  const bc = window.botCrossing
+  if (!bc) return
+  const ref = bc.threads
+  if (ref === lastRosterRef) return
+  lastRosterRef = ref
+  approvals.update(intrayRows(ref || []), Date.now(), Date.now())
+}, 250)
 setInterval(() => renderTray(), 500)
 
 // I toggles the tray; N is taken over: the row after the selected one, in the tray's order, wrapping.
