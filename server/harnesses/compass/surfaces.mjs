@@ -28,6 +28,7 @@
  */
 import { createNotion, titleOf, selectName, multiNames, relationIds, dateStart, richText } from './notion.mjs'
 import { PROJECTS, DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
+import { healthRow, isOpenFinding, HEALTH_OPEN_FILTER, HEALTH_SORT } from './notion-rows.mjs'
 export const PENDING_APPROVAL_TABLE = 'tbleRnuppbr0wpsaM'
 export const CLIENTS_TABLE = 'tbl3JYj8WwS3kSrN4'
 export const REQUEST_MS = 15_000
@@ -298,11 +299,15 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
       const rows = await client.query(env.CONTENT, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('CONTENT', err)) })
       return rows.filter((p) => /in review/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.last_edited_time) || 0, url: p.url || '' }))
     }, [])
-  /** 🩺 System Health open findings → ! requests; null when NOTION_DS_SYSTEM_HEALTH is not set. */
+  /**
+   * 🩺 System Health open findings → ! requests; null when NOTION_DS_SYSTEM_HEALTH is not set. Filtered server-side on
+   * Status = Open (2026-09-07: the source holds 500+ rows, nearly all Fixed — an unfiltered first page missed the open
+   * ones), newest Detected At first, shaped by notion-rows.healthRow (Finding · Severity · Source · Detected At).
+   */
   const systemHealthOpen = () =>
     !env.SYSTEM_HEALTH ? Promise.resolve(null) : stale('system-health', REQUEST_MS, async () => {
-      const rows = await client.query(env.SYSTEM_HEALTH, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('SYSTEM_HEALTH', err)) })
-      return rows.filter((p) => /open/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.created_time) || 0, url: p.url || '' }))
+      const rows = await client.query(env.SYSTEM_HEALTH, { filter: HEALTH_OPEN_FILTER, sorts: HEALTH_SORT, page_size: 100 }, { maxPages: 3 }).catch((err) => { throw new Error(unreadableNote('SYSTEM_HEALTH', err)) })
+      return rows.map(healthRow).filter(isOpenFinding)
     }, [])
 
   return { progress, recentDone, milestones, gateResolved, crossCheckable, activeProjects, pendingApprovals, pendingDecisions, contentInReview, systemHealthOpen, clientNames, notion, airtable, airtableAll, stale, readErrors, client, _cache: { progressCache, gateCache, swr } }

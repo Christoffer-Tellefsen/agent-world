@@ -14,6 +14,8 @@
  *                        Status "Sent to Client" (2026-09-07 — there is no Sent Documents database).
  *   A name that is set but unreadable (Notion 404: the database is not shared with the integration)
  *   is reported by name on the panel or shelf that needs it; nothing is retried faster than the cache.
+ *   2026-09-07: all six were shared with the "Tellefsen - Agent world" integration; each source's row shape,
+ *   by the property names its schema carries, lives in notion-rows.mjs.
  */
 export const PROJECTS = '33dc0af9-c974-80e9-9d5d-000ba4bd72ea'
 export const DECISIONS = 'f73d4f92-426c-4c11-990e-ae14403b4e28'

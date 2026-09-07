@@ -21,7 +21,7 @@ export function shelfSections(shelf) {
   return SECTIONS.map(([key, title, sub]) => {
     const rows = (shelf[key] || []).map((r) => ({
       text: str(r.title) || str(r.ref) || '(untitled)',
-      small: [r.kind === 'deliverable' ? [r.skill, r.system].filter(Boolean).join(' · ') : r.status, r.confidence].filter(Boolean).join(' · '),
+      small: [r.kind === 'deliverable' ? (r.type ? [r.type, r.status].filter(Boolean).join(' · ') : [r.skill, r.system].filter(Boolean).join(' · ')) : [r.type, r.status, r.integrationTitle].filter(Boolean).join(' · '), r.confidence].filter(Boolean).join(' · '),
       value: when(r.at),
       open: Array.isArray(r.open) ? r.open : [],
       reference: Boolean(r.ref) && !(r.open || []).length,

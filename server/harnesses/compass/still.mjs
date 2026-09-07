@@ -209,7 +209,7 @@ export function buildStill({ now, ttlMs = 2 * 3600 * 1000, runs, threadOf, proje
     threads.push(base({
       id: `health:${undash(h.id)}`, kind: 'request', request: 'health', badge: '!', skill: 'System Health', room: at.room,
       title: `! Open · System Health`,
-      preview: `${h.title || 'An open System Health finding'} — an open 🩺 System Health finding. Nothing in a surface waits on a tap; resolve or close it in Notion.`,
+      preview: `${h.title || 'An open System Health finding'} — an open 🩺 System Health finding${[h.severity, h.source, h.table && `Airtable ${h.table}`].filter(Boolean).length ? ` (${[h.severity, h.source, h.table && `Airtable ${h.table}`].filter(Boolean).join(' · ')})` : ''}. Nothing in a surface waits on a tap; resolve or close it in Notion.`,
       gitBranch: 'open finding',
       project: at.zone, planet: at.planet, pack: at.pack,
       createdAt: h.at || now, lastActivityAt: h.at || now,

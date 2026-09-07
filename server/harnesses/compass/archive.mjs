@@ -9,15 +9,18 @@
  *   Sent Documents    the 📎 Deliverables rows at Status "Sent to Client" (2026-09-07: there is no Sent Documents
  *                     database in Notion; NOTION_DS_SENT_DOCUMENTS is not a name)
  *   settled Decisions 🧠 Decisions at Status Active, by their Client relation (the client page → Airtable name)
- *   Research briefs   NOTION_DS_RESEARCH        Integration pages  NOTION_DS_INTEGRATIONS
- *   Field Mappings    NOTION_DS_FIELD_MAPPINGS  — each absent name skips its section (SKIPPED:ENV, the name only);
- *                     a name that is set but unreadable (Notion 404: not shared with the integration) says so by name
+ *   Research briefs   NOTION_DS_RESEARCH — by "Related client" / "Related project", newest "Date completed" first
+ *   Integration pages NOTION_DS_INTEGRATIONS — no Client relation: the shelf is the page's Project → that project's client
+ *   Field Mappings    NOTION_DS_FIELD_MAPPINGS — no Client or Project relation: Integration → its Project → its client
+ *                     (property names from each source's schema, notion-rows.mjs, 2026-09-07); each absent name skips its
+ *                     section (SKIPPED:ENV, the name only); a name that is set but unreadable says so by name
  * Open targets: Open PDF (a .pdf link), Open in Notion (notion.com / notion.so), Open in Drive (drive/docs.google);
  * any other link is plain Open; a Compass reference is a label.
  */
 import { DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
-import { titleOf, selectName, dateStart, relationIds, urlOf, filesOf, richText } from './notion.mjs'
+import { titleOf, richText, relationIds, selectName, dateStart } from './notion.mjs'
 import { PANEL_MS } from './surfaces.mjs'
+import { researchRow, integrationRow, fieldMappingRow, deliverableRow } from './notion-rows.mjs'
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 const isLink = (u) => /^https?:\/\//i.test(str(u))
@@ -28,7 +31,8 @@ export function openTargets(row) {
   const out = []
   const seen = new Set()
   const add = (label, url) => { if (isLink(url) && !seen.has(url)) { seen.add(url); out.push({ label, url }) } }
-  for (const u of [row?.pdf, row?.url, row?.notion_url, row?.drive_url, ...(row?.links || [])]) {
+  if (isLink(row?.pdf)) add('Open PDF', row.pdf) // a PDF field is a PDF whatever its URL looks like (Drive PDF URL)
+  for (const u of [row?.url, row?.notion_url, row?.drive_url, ...(row?.links || [])]) {
     if (!isLink(u)) continue
     if (/\.pdf(\?|$)/i.test(u)) add('Open PDF', u)
     else if (/notion\.(com|so)/i.test(u)) add('Open in Notion', u)
@@ -104,11 +108,31 @@ export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home'
     clientPage.set(pageId, { at: now(), name })
     return name
   }
-  const pageRow = async (p, kind) => {
-    const pr = p.properties || {}
-    const links = [urlOf(pr.URL), urlOf(pr.Link), urlOf(pr['PDF']), urlOf(pr['Drive Link']), urlOf(pr['Drive']), ...filesOf(pr.File), ...filesOf(pr.Files), ...filesOf(pr.Attachment)].filter(isLink)
-    return { kind, id: p.id, title: titleOf(p), status: selectName(pr.Status), at: Date.parse(dateStart(pr.Date) || p.last_edited_time) || 0, client: await clientName(relationIds(pr.Client)[0]), project: undash(relationIds(pr.Project)[0]), open: openTargets({ url: p.url, links }) }
+  /** A project's client name: the Active projects first, else the project page's own Client relation (cached 5 min). */
+  const projectClientCache = new Map() // undashed project id → { at, name }
+  async function projectClientName(projectId) {
+    const key = undash(projectId)
+    if (!key) return ''
+    const hit = projectClientCache.get(key)
+    if (hit && now() - hit.at < PANEL_MS) return hit.name
+    let name = ''
+    try {
+      const active = (await surfaces.activeProjects()).find((p) => undash(p.id) === key)
+      if (active) name = active.clientName || ''
+      else { const page = await surfaces.notion(`pages/${key}`); name = await clientName(relationIds(page.properties?.Client)[0]) }
+    } catch { /* unreadable project: the home shelf */ }
+    projectClientCache.set(key, { at: now(), name })
+    return name
   }
+  /** One page → a shelf row of its kind, by the source's own property names (notion-rows.mjs). */
+  const rowOf = {
+    decision: async (p) => { const pr = p.properties || {}; return { kind: 'decision', id: p.id, title: titleOf(p), status: selectName(pr.Status), at: Date.parse(dateStart(pr.Date) || p.last_edited_time) || 0, client: await clientName(relationIds(pr.Client)[0]), project: undash(relationIds(pr.Project)[0]), open: openTargets({ url: p.url }) } },
+    deliverable: async (p) => { const r = deliverableRow(p); return { kind: 'deliverable', id: r.id, title: r.title, status: r.status, type: r.type, version: r.version, at: r.at, client: await clientName(r.clientPage), project: r.project, open: openTargets({ pdf: r.pdf, url: r.url, links: [r.docx] }) } },
+    research: async (p) => { const r = researchRow(p); return { kind: 'research', id: r.id, title: r.title, status: r.status, type: r.type, refreshDue: r.refreshDue, handoff: r.handoff, at: r.at, client: (await clientName(r.clientPage)) || (await projectClientName(r.project)), project: r.project, open: openTargets({ url: r.url }) } },
+    integration: async (p) => { const r = integrationRow(p); return { kind: 'integration', id: r.id, title: r.title, status: r.status, drift: r.drift, platform: r.platform, mappings: r.mappings, at: r.at, client: await projectClientName(r.project), project: r.project, open: openTargets({ url: r.url, links: r.links.map((l) => l.url) }) } },
+    'field-mapping': async (p, ctx) => { const r = fieldMappingRow(p); const via = ctx.integrations?.get(r.integration); return { kind: 'field-mapping', id: r.id, title: r.title, status: r.drift, drift: r.drift, integration: r.integration, integrationTitle: via?.title || '', engagement: r.engagement, verifiedOn: r.verifiedOn, at: r.at, client: via?.client || '', project: via?.project || '', open: openTargets({ url: r.url }) } },
+  }
+  const pageRow = async (p, kind, ctx = {}) => rowOf[kind](p, ctx)
   const settledDecisions = () =>
     surfaces.stale('archive:decisions', PANEL_MS, async () => {
       const rows = await surfaces.client.query(DECISIONS, { filter: { property: 'Status', select: { equals: 'Active' } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 100 }, { maxPages: 3 })
@@ -117,22 +141,25 @@ export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home'
       return out
     }, [])
   /** One env-named section: null when the name is absent; { rows, error } otherwise — a failed read names itself (by name) and the shelf shows it. */
-  const section = (key, envKey, kind) => {
+  const section = (key, envKey, kind, ctx = () => ({})) => {
     const ds = env[envKey]
     if (!ds) return Promise.resolve(null)
     return surfaces.stale(`archive:${key}`, PANEL_MS, async () => {
       const out = []
-      const pages = await surfaces.client.query(ds, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote(envKey, err)) })
-      for (const p of pages) out.push(await pageRow(p, kind))
+      const pages = await surfaces.client.query(ds, { page_size: 100 }, { maxPages: 5 }).catch((err) => { throw new Error(unreadableNote(envKey, err)) })
+      const c = await ctx()
+      for (const p of pages) out.push(await pageRow(p, kind, c))
       return { rows: out, error: '' }
     }, { rows: [], error: 'reading…' })
   }
+  /** The integration pages by undashed id — the hop a Field Mapping takes to its project and client. */
+  const integrationIndex = async () => { const part = await section('integrations', 'INTEGRATIONS', 'integration'); return { integrations: new Map((part?.rows || []).map((r) => [undash(r.id), r])) } }
 
   async function shelf() {
     const s = (typeof lastScan === 'function' ? lastScan() : null) || { runs: new Map(), rowById: new Map() }
     const home = homeName()
     const deliverables = deliverablesFromRuns(s.runs, s.rowById, { homeName: home })
-    const [decisions, researchPart, integrationsPart, fieldMappingsPart, deliverablesPart] = await Promise.all([settledDecisions(), section('research', 'RESEARCH', 'research'), section('integrations', 'INTEGRATIONS', 'integration'), section('field-mappings', 'FIELD_MAPPINGS', 'field-mapping'), section('deliverables', 'DELIVERABLES', 'deliverable')])
+    const [decisions, researchPart, integrationsPart, fieldMappingsPart, deliverablesPart] = await Promise.all([settledDecisions(), section('research', 'RESEARCH', 'research'), section('integrations', 'INTEGRATIONS', 'integration'), section('field-mappings', 'FIELD_MAPPINGS', 'field-mapping', integrationIndex), section('deliverables', 'DELIVERABLES', 'deliverable')])
     // a read that failed (or is still on its way) is a note on its section, by name — never an empty shelf that looks read
     const failed = {}
     const rowsOf = (part, key) => { if (!part) return null; if (part.error) failed[key] = /^SKIPPED/.test(part.error) ? part.error : `${key}: ${part.error}`; return part.rows }
