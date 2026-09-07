@@ -1,4 +1,6 @@
-// overlay/main.js — Agent World overlay: the selection panel (U11) and the ontology skin (U12).
+// overlay/main.js — Agent World overlay: the selection panel (U11), the ontology skin (U12) and, since M2b,
+// the still map (U28): a thread is a fixture (a project, a room board — idle, pinned still) or a request (the
+// only thing that moves); the strip over the HUD's counts reads need you · blocked · running · shipped today.
 //
 // Per the seam Decision (2026-09-06): mounted from index.html, reads the handle main.js exposes
 // (window.botCrossing → threads, colony, settings, hud), touches nothing under src/, writes nothing
@@ -91,6 +93,19 @@ const css = `
 #aw-panel .hint{opacity:.5;font-size:11px}
 #aw-panel button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
 #aw-panel button:disabled{opacity:.35;cursor:default}
+.hud .stats .stat{display:none!important}
+#aw-strip{display:flex;flex-wrap:wrap;gap:5px;pointer-events:auto}
+#aw-strip .pill{display:inline-flex;align-items:center;gap:6px;height:27px;padding:0 9px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--aw-line);font:12px system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;color:var(--aw-ink)}
+#aw-strip .pill:hover{background:rgba(255,255,255,.1)}
+#aw-strip .pill[data-empty="true"]{opacity:.4}
+#aw-strip .pill i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+#aw-strip .pill b{font-weight:650}
+#aw-strip .pill span{color:#9a9aa6}
+#aw-strip .pill.wait{color:var(--aw-wait)}#aw-strip .pill.block{color:var(--aw-block)}#aw-strip .pill.work{color:var(--aw-work)}#aw-strip .pill.done{color:var(--aw-done)}
+#aw-panel .fx{margin:6px 0 8px;padding:8px 12px;border-left:3px solid var(--aw-quiet);background:rgba(255,255,255,.04);border-radius:6px}
+#aw-panel .fx b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
+#aw-panel .fx .ms{display:flex;justify-content:space-between;gap:10px;padding:2px 0;opacity:.85}
+#aw-panel .fx .ms.done{opacity:.55;text-decoration:line-through}
 #aw-toast{position:fixed;left:50%;bottom:140px;transform:translateX(-50%);background:color-mix(in srgb,var(--aw-wait) 22%,#000);color:var(--aw-ink);
   padding:9px 15px;border-radius:10px;font:13px system-ui,sans-serif;z-index:41;opacity:0;transition:opacity .2s;pointer-events:none}
 #aw-toast.on{opacity:1}
@@ -112,6 +127,7 @@ const css = `
 #aw-tray .r .age{opacity:.55;font-size:11px;white-space:nowrap}
 #aw-tray .empty{opacity:.6;padding:6px 8px}
 #aw-tray .r button,#aw-panel button.ok{font:inherit;font-size:12px;border:0;border-radius:8px;padding:4px 10px;cursor:pointer;background:rgba(255,255,255,.1);color:var(--aw-ink);flex:none}
+#aw-tray .r .q.err{background:color-mix(in srgb,var(--aw-block) 22%,#000);color:var(--aw-block)}
 #aw-tray .r .q.wait{background:color-mix(in srgb,var(--aw-done) 22%,#000);color:var(--aw-done)}
 #aw-tray .r .ns{opacity:.6;font-size:11px;font-style:italic}
 #aw-intent{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:42;width:min(520px,calc(100vw - 40px));display:none;
@@ -212,13 +228,52 @@ function selection() {
   return thread ? { agent, thread } : null
 }
 
-/** What the zone is called in the thread's pack: the campus centre, a town, or a plot with no town yet. */
+/** What the zone is called in the thread's pack: a room of the campus, a town, or a plot with no town yet. */
 function zoneLabel(thread, p) {
   const world = getWorld()
   if (!world) return thread.project || ''
   if (thread.project === world.campus.name) return `${noun('centre', p)} · ${thread.project}`
+  if ((world.rooms || []).some((r) => r.name === thread.project)) return `${noun('studio', p)} · ${thread.project}`
   const town = world.towns.find((t) => t.name === thread.project)
   return `${town ? noun('town', p) : 'plot'} · ${thread.project || ''}`
+}
+/** The room a thread stands in or belongs to (M2b): its own room, else the room its skill maps to under the pack. */
+const roomOf = (thread, p) => (getWorld()?.rooms || []).find((r) => r.id === thread.room) || roomFor(thread.skill || String(thread.title || '').split(' · ')[0], p)
+
+/** A fixture's panel (M2b, ES-6.2): the entity — a project with its client, stack, milestones and live runs, or a room board. */
+function renderFixture(agent, thread) {
+  const p = packOf(thread.pack)
+  const isProject = thread.fixture === 'project'
+  const url = thread.ref?.url
+  const chips = isProject
+    ? [
+        `<span class="chip room">${esc(noun('fixture', p))} · project</span>`,
+        thread.engagementType ? `<span class="chip">${esc(thread.engagementType)}</span>` : '',
+        thread.internal ? '<span class="chip">internal</span>' : thread.clientName ? `<span class="chip">${esc(thread.clientName)}</span>` : '',
+        ...(thread.techStack || []).map((t) => `<span class="chip room">${esc(t)}</span>`),
+        thread.runningCount ? `<span class="chip work">⚒ ${thread.runningCount} running</span>` : '',
+        thread.check ? '<span class="chip" style="color:var(--aw-done)">✓ milestone done</span>' : '',
+        (thread.milestones || []).length ? `<span class="chip">${Math.round(progressOf(thread.sizeBytes) * 100)} % of milestones</span>` : '',
+      ]
+    : [`<span class="chip room">${esc(noun('fixture', p))} · ${esc(noun('studio', p))} board</span>`, thread.surface ? `<span class="chip room" title="the surface this room mirrors">${esc(thread.surface)}</span>` : '']
+  const runs = isProject && thread.runningRuns?.length
+    ? `<div class="fx"><b>Running now · ${thread.runningRuns.length}</b>${thread.runningRuns.map((r) => `<div class="ms"><span>⚒ ${esc(r.skill)}${r.subruns ? ` · ${r.subruns} sub-run${r.subruns === 1 ? '' : 's'}` : ''}</span><span>${esc(ago(r.at))}</span></div>`).join('')}</div>`
+    : ''
+  const ms = isProject && (thread.milestones || []).length
+    ? `<div class="fx"><b>Milestones · ${thread.milestones.filter((m) => m.done).length} of ${thread.milestones.length} done</b>${thread.milestones.map((m) => `<div class="ms${m.done ? ' done' : ''}"><span>${m.done ? '✓ ' : ''}${esc(m.name)}</span><span>${esc(m.status || '')}</span></div>`).join('')}</div>`
+    : ''
+  panel.innerHTML = `
+    <div class="h"><div><span class="skill">${esc(thread.title || '')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
+      <span class="id">${esc(noun('fixture', p))} · still</span></div>
+    <div class="chips">${chips.join('')}</div>
+    ${thread.preview && !isProject ? `<div class="note">${esc(thread.preview)}</div>` : ''}
+    ${runs}${ms}
+    <div class="row"><span class="hint">A fixture is still: it never waits, never fails, never hammers · Enter opens the entity</span>
+      <span><button id="aw-open" ${url ? '' : 'disabled'}>${esc(openLabel(url))}</button></span></div>`
+  panel.classList.add('on')
+  panel.querySelector('#aw-open')?.addEventListener('click', () => {
+    if (url) window.open(url, '_blank', 'noopener')
+  })
 }
 
 function render(sel) {
@@ -227,8 +282,11 @@ function render(sel) {
     return
   }
   const { agent, thread } = sel
-  const [skill, ...gateParts] = String(thread.title || '').split(' · ')
-  const gate = gateParts.join(' · ')
+  if (thread.kind === 'fixture') return renderFixture(agent, thread)
+  // M2b: a request's title is badge · verb · surface and its skill rides on `skill`; the gate's name is in the tray row / preview.
+  const parts = String(thread.title || '').split(' · ')
+  const skill = thread.skill || parts[0]
+  const gate = thread.kind === 'request' ? (thread.gates?.[0]?.gate || '') : parts.slice(1).join(' · ')
   const status = agent.status || 'idle'
   const url = thread.ref?.url
   // The adapter puts "<gate> — <full instruction>" in preview while a gate is pending; the run's notes otherwise.
@@ -236,12 +294,11 @@ function render(sel) {
   const instruction = gate && preview.startsWith(gate + ' — ') ? preview.slice(gate.length + 3) : ''
   // A town that wears its own pack (world_branding.pack, carried on the thread) speaks it here: its nouns, its rooms.
   const p = packOf(thread.pack)
-  const room = roomFor(skill, p)
+  const room = roomOf(thread, p)
 
   const suit = suitFor(thread.trust)
   const chips = [
     `<span class="chip ${CHIP[status] || ''}">${esc(LABEL[status] || status)}</span>`,
-    thread.hand ? '<span class="chip wait" title="Active in ops_skills, no run in 30 days">✋ hand raised</span>' : '',
     thread.parentId ? `<span class="chip room" title="run ${esc(String(thread.parentId).slice(0, 8))}">sub-run of ${esc(thread.parentTitle || 'its parent')}</span>` : '',
     thread.subruns?.length ? `<span class="chip room">${thread.subruns.length} sub-run${thread.subruns.length === 1 ? '' : 's'}</span>` : '',
     `<span class="chip" style="color:#${suit.hex.toString(16).padStart(6, '0')}" title="${esc(suit.hint)} · ${esc(thread.trust?.source || '')}">suit · ${esc(suit.label)}</span>`,
@@ -310,7 +367,7 @@ let lastKey = ''
 setInterval(() => {
   const sel = selection()
   const cr = sel ? intrayRows([sel.thread])[0] : null
-  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread), cr ? approvals.state(cr.id, cr.gate, cr.url) : ''].join('|') : ''
+  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.kind === 'fixture' ? sel.thread.runningCount + ':' + sel.thread.check : sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread), cr ? approvals.state(cr.id, cr.gate, cr.url) : ''].join('|') : ''
   syncQuietLabels()
   if (key === lastKey) return
   lastKey = key
@@ -537,37 +594,28 @@ const plotAnchor = (colony, name) => {
   return plot?.labelAnchor || plot?.middle || null
 }
 
+/**
+ * M2b (ES-6.2): the marks a fixture wears are static — "⚒ n running" while a run on that project is live, "✓ milestone
+ * done" for 24 h after a milestone flips Done — drawn as plates over the fixture's figure. Nothing flashes; the mark is
+ * there or it is not. (U17's ✋ residents, the campus flag and the town ✓ are gone: a hand is a tray line and a dusty
+ * row, a ! is a request standing in a room, a ✓ lives on the fixture.)
+ */
 function syncSignals() {
   const bc = window.botCrossing
   const colony = bc?.colony
   if (!colony?.scene || !colony.plots) return
   if (!ensureMarkerGroup(colony)) return
-  const sig = signals()
   const wanted = new Set()
-
-  // ✋ residents — one per skill silent 30 days, following its figure
   for (const t of bc.threads || []) {
-    if (!t.hand || !colony.astronauts?.byId?.has(t.id)) continue
-    wanted.add(`hand:${t.id}`)
-    wantMarker(colony, `hand:${t.id}`, '✋ ' + t.title, cssVar('--aw-quiet', '#a9a8c0'), null, t.id)
-  }
-  // ! on the campus flag
-  const campusName = getWorld()?.campus?.name
-  const alert = sig.campus?.alert || []
-  if (alert.length && campusName && isHome()) {
-    const a = plotAnchor(colony, campusName)
-    if (a) {
-      wanted.add('flag')
-      wantMarker(colony, 'flag', `! ${alert.length === 1 ? alert[0].skill : alert.length + ' failed'}`, cssVar('--aw-block', '#f28b8b'), { x: a.x, y: 4.6, z: a.z })
+    if (t.kind !== 'fixture' || !colony.astronauts?.byId?.has(t.id)) continue
+    if (t.runningCount) {
+      wanted.add(`work:${t.id}`)
+      wantMarker(colony, `work:${t.id}`, `⚒ ${t.runningCount} running`, cssVar('--aw-work', '#7fd39a'), null, t.id)
     }
-  }
-  // ✓ over a town whose project shipped a milestone in the last 24 h
-  for (const [name, s] of Object.entries(sig.towns || {})) {
-    if (!s?.check) continue
-    const a = plotAnchor(colony, name)
-    if (!a) continue
-    wanted.add(`check:${name}`)
-    wantMarker(colony, `check:${name}`, '✓ milestone done', cssVar('--aw-done', '#e6c67f'), { x: a.x, y: 4.6, z: a.z })
+    if (t.check) {
+      wanted.add(`check:${t.id}`)
+      wantMarker(colony, `check:${t.id}`, '✓ milestone done', cssVar('--aw-done', '#e6c67f'), null, t.id)
+    }
   }
   for (const [key, mk] of markers) {
     if (wanted.has(key)) continue
@@ -576,6 +624,56 @@ function syncSignals() {
     markers.delete(key)
   }
 }
+/**
+ * Fixtures are still (ES-6.2). Bot Crossing's idle pose potters around the plot; a fixture has arrived and stays:
+ * its wander target is its own site and the next wander never comes due. Renderer limit reported, not fought:
+ * the figure still breathes (the idle clip) — src is untouched.
+ */
+function pinFixtures() {
+  const bc = window.botCrossing
+  const byId = bc?.colony?.astronauts?.byId
+  if (!byId) return
+  const fixtures = new Set((bc.threads || []).filter((t) => t.kind === 'fixture').map((t) => t.id))
+  for (const [id, agent] of byId) {
+    if (!fixtures.has(id) || !agent.site || !agent.wander) continue
+    // from the first frame: the wander target is the site itself, so the arrival settles and no drift leg is ever taken
+    agent.wander.copy(agent.site)
+    agent.wanderAt = Infinity
+    if (agent.state === 'at-site') agent.vel?.set?.(0, 0, 0)
+  }
+}
+/** The strip (ES-6.5): need you · blocked · running · shipped today, over the HUD's own count pills. */
+let strip = null
+function syncStrip() {
+  const bc = window.botCrossing
+  const stats = document.querySelector('.hud .stats')
+  if (!stats) return
+  if (!strip) {
+    strip = document.createElement('div')
+    strip.id = 'aw-strip'
+    stats.appendChild(strip)
+  }
+  const threads = bc?.threads || []
+  const sig = signals()
+  const c = sig.counts || { needYou: threads.filter((t) => t.kind === 'request' && t.unread).length, blocked: threads.filter((t) => t.kind === 'request' && t.hasError).length, running: 0, shippedToday: 0 }
+  const pills = [
+    ['wait', c.needYou, 'need you', 'N flies to the next request'],
+    ['block', c.blocked, 'blocked', 'failed runs inside 24 h and open findings'],
+    ['work', c.running, 'running', 'live runs — counted on their project fixtures, never a figure'],
+    ['done', c.shippedToday, 'shipped today', 'runs completed since midnight'],
+  ]
+  const html = pills.map(([cls, n, label, title]) => `<div class="pill ${cls}" data-key="${cls}" data-empty="${!n}" title="${esc(title)}"><i></i><b>${n}</b><span>${label}</span></div>`).join('')
+  if (strip.innerHTML !== html) {
+    strip.innerHTML = html
+    strip.querySelector('.pill.wait')?.addEventListener('click', () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'n' })))
+    strip.querySelector('.pill.block')?.addEventListener('click', () => {
+      const row = trayRows().find((r) => r.badge === '!')
+      if (row) window.botCrossing?.hud?.actions?.focusThread?.(row.id)
+    })
+  }
+}
+setInterval(pinFixtures, 250)
+setInterval(syncStrip, 1000)
 function followMarkers() {
   const colony = window.botCrossing?.colony
   if (colony?.astronauts && markers.size) {
@@ -657,11 +755,11 @@ function renderTray(force = false) {
   if (!force && key === lastTray) return
   lastTray = key
   tray.innerHTML =
-    `<div class="h"><b>In-tray · ${rows.length} waiting on you</b><span class="hint">N walks this list · I closes</span></div>` +
+    `<div class="h"><b>In-tray · ${rows.length} request${rows.length === 1 ? '' : 's'}${rows.some((r) => r.badge === '!') ? ` · ${rows.filter((r) => r.badge === '?').length} need you · ${rows.filter((r) => r.badge === '!').length} blocked` : ' waiting on you'}</b><span class="hint">N walks this list · I closes</span></div>` +
     (rows.length
       ? rows
           .map(
-            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q${approvals.state(r.id, r.gate, r.url) === '⏳' ? ' wait' : ''}" title="${approvals.state(r.id, r.gate, r.url) === '⏳' ? 'waiting for the surface to show the tap' : 'waiting on you'}">${approvals.glyph(r.id, r.gate, r.url)}</span>
+            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q${r.badge === '!' ? ' err' : approvals.state(r.id, r.gate, r.url) === '⏳' ? ' wait' : ''}" title="${r.badge === '!' ? 'failed — nothing to tap; retry where it ran' : approvals.state(r.id, r.gate, r.url) === '⏳' ? 'waiting for the surface to show the tap' : 'waiting on you'}">${r.badge === '!' ? '!' : approvals.glyph(r.id, r.gate, r.url)}</span>
             <span class="m"><div class="s">${esc(r.skill)} <span class="z">· ${esc(r.zone)}</span></div>
             <div class="g">${esc(r.gate)}${r.left > 1 ? ` (${r.left} left)` : ''} — ${esc(r.what)}${approvals.state(r.id, r.gate, r.url) === 'not seen yet' ? ' <span class="ns">· not seen yet</span>' : ''}</div></span>
             <span class="age" title="oldest open gate">${esc(ago(r.at))}</span>${r.url ? `<button data-approve="${esc(r.id)}">Approve</button>` : ''}</div>`

@@ -1,14 +1,17 @@
 /**
  * Compass harness — the one file that knows Tellefsen's ontology.
  *
- * Reads the Run Ledger (Supabase) and turns every governed run into a Bot Crossing thread:
- * zone = client, thread = run, badges from the events stream. Read only: the world is a mirror.
- * Contract: server/harnesses/README.md. Design: SPEC.md §4.
+ * Reads the Run Ledger (through the Worker) and the surfaces, and emits Bot Crossing threads. Since M2b
+ * (the still map, SPEC.md §3 O6) a thread is a fixture (an Active Notion Project, a room board) or a
+ * request (an open ? or !): running, completed and sleeping runs produce none — a live run is a count on
+ * its project fixture. Read only: the world is a mirror. Contract: server/harnesses/README.md.
  */
 import { loadConfig } from './compass/config.mjs'
 import { createLedgerClient } from './compass/supabase.mjs'
 import { fold } from './compass/fold.mjs'
-import { toThread, residentThread, linkSubagents } from './compass/threads.mjs'
+import { toThread } from './compass/threads.mjs'
+import { buildStill } from './compass/still.mjs'
+import { loadPack, roomsOf, lodOf } from './compass/pack.mjs'
 import { trustOf, staleSkills, ranSkillsOf, campusAlert, projectsByClient, STALE_DAYS } from './compass/signals.mjs'
 import { makeViewer } from './compass/viewer.mjs'
 import { createSurfaces } from './compass/surfaces.mjs'
@@ -33,7 +36,9 @@ let lastErrorAt = 0
 let ranCache = { at: 0, ran: null }
 const RAN_MS = 5 * 60_000
 /** U17: the world's signals from the last scan — the campus flag, town ✓s, residents — served with GET /world. */
-let signals = { at: '', campus: { alert: [] }, towns: {}, residents: [] }
+let signals = { at: '', campus: { alert: [] }, towns: {}, residents: [], counts: { needYou: 0, blocked: 0, running: 0, shippedToday: 0 } }
+/** The pack the home planet wears, read server-side for the rooms and the skill → room rule (M2b). */
+const homePack = () => loadPack(world?.planets.find((p) => p.home)?.pack || '')
 
 /** Planets, towns and the campus, derived from the substrate at scan time (U12). Never stored. */
 async function currentWorld() {
@@ -50,7 +55,12 @@ function ensureOverlayApi() {
     // Awaited: a page that loads right after a restart must not see a town-less world (seen 2026-09-07 — "plot" for a town).
     steering: () => steering.all(),
     // U20: the prospect rows ride with the world (one Airtable GET a minute); the overlay decides who stands and how faded.
-    descriptor: async () => ({ ...worldDescriptor(world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }))), viewer), signals, prospects: await steering.prospectRows() }),
+    descriptor: async () => {
+      const w = world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant })))
+      const pack = homePack()
+      // M2b: the rooms (zone names the room plots carry) and the lod thresholds ride with the world; prospects are rows for the strategy room, not plots.
+      return { ...worldDescriptor(w, viewer), signals, rooms: roomsOf(pack), lod: lodOf(pack), packId: pack.id || '', prospects: await steering.prospectRows() }
+    },
     log,
   })
   overlayApi = startOverlayApi(handle, { port: cfg.overlayPort, log })
@@ -97,20 +107,29 @@ async function scan(now = Date.now()) {
   const policy = substrateNow.auto_run_policy
   const trust = (skill, runClass) => trustOf(skill, runClass, policy)
 
-  const threads = []
+  // The M1 shape per run (gates cross-checked on their surfaces, the instruction text, Open, artifacts, trust) —
+  // the still map (U28) reads these and emits a thread only for a run that is a request.
+  const threadOf = new Map()
   for (const run of runs.values()) {
-    threads.push(await toThread(run, rowById.get(run.id) || null, viewer, surfaces, now, { runningTtlMs: cfg.runningTtlMs, claudeProjectUrl: cfg.claudeProjectUrl, place, trustOf: trust }))
+    threadOf.set(run.id, await toThread(run, rowById.get(run.id) || null, viewer, surfaces, now, { runningTtlMs: cfg.runningTtlMs, claudeProjectUrl: cfg.claudeProjectUrl, place, trustOf: trust }))
   }
 
-  // U18 — sub-agents: a child stands with its parent; the parent lists its children and inherits a waiting child's ?.
-  linkSubagents(threads, runs)
+  // U28 — the surfaces that make requests and fixtures: Active projects (5 min), Pending Approval rows and
+  // pending Decisions (15 s, stale-while-revalidate), Content In Review and System Health when their ids are set.
+  const [projects, paRows, decisions, contentRows, healthRows] = await Promise.all([
+    surfaces.activeProjects(), surfaces.pendingApprovals(), surfaces.pendingDecisions(), surfaces.contentInReview(), surfaces.systemHealthOpen(),
+  ])
+  const skillTypes = new Map((substrateNow.skills || []).filter((s) => s && s.name).map((s) => [s.name, s.type || '']))
+  const still = buildStill({ now, ttlMs: cfg.runningTtlMs, runs, threadOf, projects, paRows, decisions, contentRows, healthRows, pack: homePack(), place, skillTypes, viewer })
+  const threads = still.threads
+  for (const t of threads) if (t.kind === 'request' && t.trust?.mode === undefined) t.trust = trust(t.skill, '')
 
-  // U17 — residents: Active skills silent for 30 days stand on the campus with a hand up.
+  // U17 — the silent skills (no run in 30 days): a list for the records office panel, never a figure (ES-6.8).
   const ran = ranSkills(now)
   const stale = ran ? staleSkills(substrateNow.skills, ran) : []
-  for (const skill of stale) threads.push(residentThread(skill, { now, place, trust: trust(skill.name, '') }))
 
-  // U17 — the campus flag (!) and the town ✓s, read once per scan and served with GET /world.
+  // Signals served with GET /world: the strip's counts (U28), the campus alert list (the ! requests stand in the
+  // records office; the list feeds its panel), a ✓ per town whose project shipped a milestone (the mark is on the fixture).
   const byClient = projectsByClient(runs)
   const townSignals = {}
   for (const town of towns) {
@@ -119,9 +138,9 @@ async function scan(now = Date.now()) {
     for (const p of projects) if (await surfaces.recentDone(p)) check = true
     if (projects.length) townSignals[town.name] = { check, projects }
   }
-  signals = { at: new Date(now).toISOString(), campus: { name: campus.name, alert: campusAlert(runs, now) }, towns: townSignals, residents: stale.map((s) => s.name) }
+  signals = { at: new Date(now).toISOString(), campus: { name: campus.name, alert: campusAlert(runs, now) }, towns: townSignals, residents: stale.map((s) => s.name), counts: still.counts }
 
-  log(`scan: ${runs.size} runs → ${threads.length} threads (${threads.filter((t) => t.unread).length} waiting, ${stale.length} hands, ${signals.campus.alert.length} on the flag)`)
+  log(`scan: ${runs.size} runs → ${threads.length} threads (${threads.filter((t) => t.kind === 'fixture').length} fixtures, ${threads.filter((t) => t.kind === 'request').length} requests: ${still.counts.needYou} need you, ${still.counts.blocked} blocked; ${still.counts.running} running, ${stale.length} silent skills)`)
   return threads
 }
 

@@ -12,21 +12,30 @@ const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 
 /** Bot Crossing's precedence for a `?`: the same first-match order as statusFor, minus the states a Compass run never has. */
 export const wearsQuestion = (t) => Boolean(t && !t.hasError && !t.running && t.prState !== 'MERGED' && t.unread)
-/** A row is a ? of its own: a parent that only inherits a child's ? (U18) is not listed — N lands on the child. */
-const ownQuestion = (t) => wearsQuestion(t) && !t.inheritedGate
+/** A ! of its own (M2b): a request thread that failed — the still map's ! stands in the tray too (ES-6.1: the tray lists exactly the request threads). */
+export const wearsAlert = (t) => Boolean(t && t.kind === 'request' && t.hasError)
+/** A row is a ? of its own: a parent that only inherits a child's ? (U18) is not listed — N lands on the child. A fixture is never a row. */
+const ownQuestion = (t) => t?.kind !== 'fixture' && wearsQuestion(t) && !t.inheritedGate
+const isRow = (t) => ownQuestion(t) || wearsAlert(t)
 
 /** The rows, in N's order. */
 export function intrayRows(threads) {
-  const list = (Array.isArray(threads) ? threads : []).filter(ownQuestion)
+  const list = (Array.isArray(threads) ? threads : []).filter(isRow)
   return list
     .map((t) => {
-      const [skill] = String(t.title || '').split(' · ')
+      // M2b: a request's title is badge · verb · surface; the skill rides on `skill`. Older shapes split the title.
+      const skill = t.skill || String(t.title || '').split(' · ')[0]
       // The oldest gate the viewer can tap (the ? is theirs); a gate someone else must tap never sets the row's age.
       const all = Array.isArray(t.gates) ? t.gates : []
       const mine = all.filter((g) => g.canTap !== false)
       const gate = (mine.length ? mine : all).length ? [...(mine.length ? mine : all)].sort((a, b) => num(a.at) - num(b.at))[0] : null
+      const alert = wearsAlert(t) && !wearsQuestion(t)
+      if (alert) {
+        return { id: t.id, badge: '!', skill: skill || 'Untitled run', zone: t.project || '', gate: '', surface: '', what: t.gitBranch || 'failed', url: t.ref?.url || '', at: num(t.lastActivityAt), left: 0 }
+      }
       return {
         id: t.id,
+        badge: '?',
         skill: skill || 'Untitled run',
         zone: t.project || '',
         gate: gate?.gate || String(t.title || '').split(' · ').slice(1).join(' · '),
@@ -40,7 +49,8 @@ export function intrayRows(threads) {
         left: Array.isArray(t.gates) ? t.gates.length : 1,
       }
     })
-    .sort((a, b) => a.at - b.at || String(a.id).localeCompare(String(b.id)))
+    // badge precedence first (! before ?, as the renderer's STATUS_ORDER), then the oldest first, ties by id
+    .sort((a, b) => (a.badge === b.badge ? 0 : a.badge === '!' ? -1 : 1) || a.at - b.at || String(a.id).localeCompare(String(b.id)))
 }
 
 /** The row N lands on: the one after `selectedId` in the list, wrapping; the first when nothing (or something else) is selected. */

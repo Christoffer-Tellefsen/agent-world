@@ -1,0 +1,460 @@
+{
+  "note": "U28 — the still map. ZZTEST names only. `now` is the clock; events stand in for /ledger/scan; projects, pa, decisions and content stand in for the surface reads. counts.running counts every live run (the working child too); the fixture lists the live runs that name it.",
+  "now": "2026-09-07T12:00:00.000Z",
+  "ttlHours": 2,
+  "clients": [
+    {
+      "id": "c-zz",
+      "name": "ZZTEST Client",
+      "status": "active"
+    }
+  ],
+  "skills": [
+    {
+      "name": "zztest-builder",
+      "type": "Delivery",
+      "status": "active"
+    },
+    {
+      "name": "zztest-approver",
+      "type": "Operations",
+      "status": "active"
+    },
+    {
+      "name": "zztest-faulty",
+      "type": "Content",
+      "status": "active"
+    },
+    {
+      "name": "zztest-lead",
+      "type": "Research",
+      "status": "active"
+    }
+  ],
+  "projects": [
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "name": "ZZTEST Build project",
+      "clientName": "ZZTEST Client",
+      "internal": false,
+      "techStack": [
+        "Airtable"
+      ],
+      "engagementType": "Build",
+      "url": "https://app.notion.com/p/aaaaaaaa000040008000000000000001",
+      "milestones": {
+        "value": 0.5,
+        "list": [
+          {
+            "id": "m1",
+            "name": "M1",
+            "status": "🟢 Delivered",
+            "done": true
+          },
+          {
+            "id": "m2",
+            "name": "M2",
+            "status": "⚪ Not Started",
+            "done": false
+          }
+        ],
+        "doneAt": 0
+      }
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000002",
+      "name": "ZZTEST Internal project",
+      "clientName": "",
+      "internal": true,
+      "techStack": [],
+      "engagementType": "Build",
+      "url": "https://app.notion.com/p/aaaaaaaa000040008000000000000002",
+      "milestones": {
+        "value": 0.05,
+        "list": [],
+        "doneAt": 0
+      }
+    }
+  ],
+  "pa": [
+    {
+      "id": "recZZTESTALPHAROW0",
+      "title": "ZZTEST Alpha",
+      "type": "Send Email",
+      "summary": "",
+      "clientName": "ZZTEST Client",
+      "at": 1757200000000,
+      "url": "https://airtable.com/appX/tblY/recZZTESTALPHAROW0"
+    },
+    {
+      "id": "recZZTESTORPHANROW",
+      "title": "ZZTEST orphan row",
+      "type": "Data Cleanup",
+      "summary": "no run, no client",
+      "clientName": "",
+      "at": 1757100000000,
+      "url": "https://airtable.com/appX/tblY/recZZTESTORPHANROW"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "bbbbbbbb-0000-4000-8000-000000000001",
+      "title": "ZZTEST pending decision",
+      "status": "Pending",
+      "at": 1757150000000,
+      "url": "https://app.notion.com/p/bbbbbbbb000040008000000000000001"
+    }
+  ],
+  "content": [
+    {
+      "id": "cccccccc-0000-4000-8000-000000000001",
+      "title": "ZZTEST draft in review",
+      "status": "👀 In Review",
+      "at": 1757160000000,
+      "url": "https://app.notion.com/p/cccccccc000040008000000000000001"
+    }
+  ],
+  "events": [
+    {
+      "run_id": "r-live",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:30:00.000Z",
+      "skill": "zztest-builder",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": "aaaaaaaa000040008000000000000001",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "run_id": "r-done",
+      "event_type": "run_started",
+      "at": "2026-09-07T09:00:00.000Z",
+      "skill": "zztest-builder",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "project": "aaaaaaaa-0000-4000-8000-000000000001",
+      "payload": {}
+    },
+    {
+      "run_id": "r-done",
+      "event_type": "run_completed",
+      "at": "2026-09-07T09:30:00.000Z",
+      "skill": "zztest-builder",
+      "trigger": "claude_code",
+      "client": "ZZTEST Client",
+      "payload": {
+        "outcome": "success",
+        "artifacts": [
+          {
+            "title": "ZZTEST page",
+            "notion_url": "https://app.notion.com/p/dddddddd000040008000000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "run_id": "r-alpha",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:00:00.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "payload": {}
+    },
+    {
+      "run_id": "r-alpha",
+      "event_type": "gate_waiting",
+      "at": "2026-09-07T11:00:01.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "payload": {
+        "gate": "ZZTEST gate",
+        "surface": "pending_approval",
+        "ref_url": "https://airtable.com/appX/tblY/recZZTESTALPHAROW0"
+      }
+    },
+    {
+      "run_id": "r-alpha",
+      "event_type": "run_completed",
+      "at": "2026-09-07T11:00:02.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_scheduled",
+      "client": "ZZTEST Client",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "run_id": "r-gamma",
+      "event_type": "run_started",
+      "at": "2026-09-07T10:00:00.000Z",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "payload": {}
+    },
+    {
+      "run_id": "r-gamma",
+      "event_type": "run_failed",
+      "at": "2026-09-07T10:00:01.000Z",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "payload": {
+        "reason": "ZZTEST fault"
+      }
+    },
+    {
+      "run_id": "r-old-fail",
+      "event_type": "run_started",
+      "at": "2026-09-05T10:00:00.000Z",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "payload": {}
+    },
+    {
+      "run_id": "r-old-fail",
+      "event_type": "run_failed",
+      "at": "2026-09-05T10:00:01.000Z",
+      "skill": "zztest-faulty",
+      "trigger": "cowork_manual",
+      "client": null,
+      "payload": {
+        "reason": "old"
+      }
+    },
+    {
+      "run_id": "r-asleep",
+      "event_type": "run_started",
+      "at": "2026-09-01T10:00:00.000Z",
+      "skill": "zztest-builder",
+      "trigger": "chat",
+      "client": "ZZTEST Client",
+      "payload": {}
+    },
+    {
+      "run_id": "r-asleep",
+      "event_type": "run_completed",
+      "at": "2026-09-01T10:30:00.000Z",
+      "skill": "zztest-builder",
+      "trigger": "chat",
+      "client": "ZZTEST Client",
+      "payload": {
+        "outcome": "success"
+      }
+    },
+    {
+      "run_id": "r-lead",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:40:00.000Z",
+      "skill": "zztest-lead",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": "aaaaaaaa000040008000000000000001",
+      "payload": {}
+    },
+    {
+      "run_id": "r-child-wait",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:41:00.000Z",
+      "skill": "zztest-child",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "parent_run_id": "r-lead",
+      "payload": {}
+    },
+    {
+      "run_id": "r-child-wait",
+      "event_type": "gate_waiting",
+      "at": "2026-09-07T11:41:01.000Z",
+      "skill": "zztest-child",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "parent_run_id": "r-lead",
+      "payload": {
+        "gate": "child needs a yes",
+        "surface": "class_b_gate"
+      }
+    },
+    {
+      "run_id": "r-child-work",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:42:00.000Z",
+      "skill": "zztest-child",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "parent_run_id": "r-lead",
+      "payload": {}
+    },
+    {
+      "run_id": "r-nogate-client-unknown",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:50:00.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Not A Town",
+      "payload": {}
+    },
+    {
+      "run_id": "r-nogate-client-unknown",
+      "event_type": "gate_waiting",
+      "at": "2026-09-07T11:50:01.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Not A Town",
+      "payload": {
+        "gate": "orphan gate",
+        "surface": "class_b_gate"
+      }
+    },
+    {
+      "run_id": "r-client-gate",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:55:00.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "payload": {}
+    },
+    {
+      "run_id": "r-client-gate",
+      "event_type": "gate_waiting",
+      "at": "2026-09-07T11:55:01.000Z",
+      "skill": "zztest-approver",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "payload": {
+        "gate": "client acceptance",
+        "surface": "client_gate"
+      }
+    },
+    {
+      "run_id": "r-grandchild-wait",
+      "event_type": "run_started",
+      "at": "2026-09-07T11:43:00.000Z",
+      "skill": "zztest-child",
+      "trigger": "cowork_manual",
+      "client": null,
+      "parent_run_id": "r-child-work",
+      "payload": {}
+    },
+    {
+      "run_id": "r-grandchild-wait",
+      "event_type": "gate_waiting",
+      "at": "2026-09-07T11:43:01.000Z",
+      "skill": "zztest-child",
+      "trigger": "cowork_manual",
+      "client": null,
+      "parent_run_id": "r-child-work",
+      "payload": {
+        "gate": "grandchild needs a yes",
+        "surface": "class_b_gate"
+      }
+    }
+  ],
+  "expect": {
+    "fixtures": {
+      "project:aaaaaaaa000040008000000000000001": {
+        "zone": "ZZTEST Client",
+        "running": 2,
+        "runningSkills": [
+          "zztest-lead",
+          "zztest-builder"
+        ],
+        "leadSubruns": 2
+      },
+      "project:aaaaaaaa000040008000000000000002": {
+        "zone": "workshop",
+        "running": 0
+      }
+    },
+    "boards": 10,
+    "requests": {
+      "r-alpha": {
+        "title": "? Approve · Airtable",
+        "zone": "ZZTEST Client",
+        "unread": true
+      },
+      "r-gamma": {
+        "title": "! Failed · zztest-faulty",
+        "zone": "records office",
+        "hasError": true
+      },
+      "r-child-wait": {
+        "title": "? Answer · session",
+        "zone": "ZZTEST Client",
+        "unread": true
+      },
+      "r-nogate-client-unknown": {
+        "title": "? Answer · session",
+        "zone": "records office",
+        "unread": true
+      },
+      "pa:recZZTESTORPHANROW": {
+        "title": "? Approve · Airtable",
+        "zone": "corner office",
+        "unread": true
+      },
+      "decision:bbbbbbbb000040008000000000000001": {
+        "title": "? Confirm · Decision",
+        "zone": "board room",
+        "unread": true
+      },
+      "content:cccccccc000040008000000000000001": {
+        "title": "? Sign · Content",
+        "zone": "marketing studio",
+        "unread": true
+      },
+      "health:eeeeeeee000040008000000000000001": {
+        "title": "! Open · System Health",
+        "zone": "records office",
+        "hasError": true
+      },
+      "r-client-gate": {
+        "title": "? Client's tap · client",
+        "zone": "ZZTEST Client",
+        "unread": true
+      },
+      "r-grandchild-wait": {
+        "title": "? Answer · session",
+        "zone": "ZZTEST Client",
+        "unread": true,
+        "note": "client null, but its root ancestor r-lead lives in the ZZTEST town"
+      }
+    },
+    "absent": [
+      "r-live",
+      "r-done",
+      "r-old-fail",
+      "r-asleep",
+      "r-lead",
+      "r-child-work",
+      "pa:recZZTESTALPHAROW0"
+    ],
+    "counts": {
+      "needYou": 8,
+      "blocked": 2,
+      "running": 3,
+      "shippedToday": 2
+    }
+  },
+  "health": [
+    {
+      "id": "eeeeeeee-0000-4000-8000-000000000001",
+      "title": "ZZTEST open finding",
+      "status": "Open",
+      "at": 1757170000000,
+      "url": "https://app.notion.com/p/eeeeeeee000040008000000000000001"
+    }
+  ],
+  "viewerWithoutClientGate": {
+    "note": "an operator sees no client_gate: r-client-gate makes no thread and needYou drops by one",
+    "absent": [
+      "r-client-gate"
+    ]
+  }
+}

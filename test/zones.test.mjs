@@ -180,12 +180,21 @@ test('U12: two packs ship, each declaring skin, rooms, names and layout; rooms m
     assert.deepEqual(p.skin.badges, { waiting: '?', blocked: '!', working: '⚒', done: '✓', asleep: 'z' }, `${dir}: badge precedence is not a pack's to change`)
   }
   const campus = loaded['tellefsen-campus']
+  // M2b (ES-6.4 / ES-6.6, 2026-09-07): the still map's ten rooms with ring positions; the Steering Room is retired
   assert.deepEqual(
     campus.rooms.map((r) => r.name),
-    ['solution studio', 'research lab', 'content studio', 'finance office', 'integration yard', 'board room', 'corner office', 'steering room'],
-    'the Spatial grammar table, plus the Steering Room (U19)'
+    ['corner office', 'board room', 'strategy room', 'marketing studio', 'research lab', 'finance office', 'workshop', 'integration yard', 'archive', 'records office'],
+    'the still map\'s rooms (ES-6.4)'
   )
-  assert.deepEqual(campus.names, { world: 'campus', planet: 'planet', centre: 'campus', town: 'town', building: 'building', studio: 'studio', agent: 'agent', prospect: 'prospect plot' })
+  assert.deepEqual(campus.rooms.map((r) => `${r.ring}.${r.spoke}`), ['0.0', '1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '2.0', '2.2', '2.4'], 'centre, six on ring 1, three alternating spokes on ring 2')
+  assert.deepEqual(campus.names, { world: 'campus', planet: 'planet', centre: 'campus', town: 'town', building: 'building', studio: 'room', agent: 'agent', fixture: 'fixture', request: 'request', prospect: 'prospect' })
+  for (const [dir, p] of Object.entries(loaded)) {
+    assert.equal(p.figure, 'character', `${dir}: figure`)
+    assert.ok(p.lod && p.lod.orbit > p.lod.desk, `${dir}: lod.orbit above lod.desk`)
+    assert.ok(p.skills && p.skills.by_type && p.skills.overrides, `${dir}: skills rule`)
+    assert.equal(p.skills.overrides['zztest-stale-expert']?.wants, 'Airtable', `${dir}: the standing test skill wants Airtable (V-U33)`)
+  }
+  assert.deepEqual(loaded.neutral.rooms.map((r) => `${r.id}:${r.ring}.${r.spoke}`), campus.rooms.map((r) => `${r.id}:${r.ring}.${r.spoke}`), 'neutral: the same geometry')
   // the same rooms mirror the same surfaces under both packs
   const surfaces = (p) => p.rooms.map((r) => `${r.id}:${r.surface}`)
   assert.deepEqual(surfaces(loaded.neutral), surfaces(campus))
@@ -205,7 +214,8 @@ const overlayFiles = (dir, out = []) => {
 test('U12: no company or client name in overlay code or pack files (static names; live Compass names when the bearer is present)', async () => {
   const needles = [/tellefsen/i, /zztest/i]
   // The pack id `tellefsen-campus` is the substrate's own value for the default pack, not a name; strip it before matching.
-  const scrub = (text) => text.replace(/tellefsen-campus/g, '')
+  // Skill names are not client names: the packs' per-skill overrides (M2b) may name a skill, never a client or company.
+  const scrub = (text) => text.replace(/tellefsen-campus/g, '').replace(/"(tellefsen-design|zztest-stale-expert)"\s*:/g, '"skill":')
   const names = []
   const url = (process.env.EVENTS_URL || '').replace(/\/+$/, '').replace(/\/events$/, '/world/substrate')
   if (url && process.env.EVENTS_BEARER_TOKEN) {

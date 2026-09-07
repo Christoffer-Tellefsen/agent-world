@@ -13,9 +13,26 @@
  *                     (added 2026-09-06: Christoffer signed a draft and the ? stayed until the
  *                      20:00 poller — the poller owns the write, not the read)
  *   class_b_gate, client_gate — no surface to read; never checked.
+ *
+ * M2b (U28) adds the still map's surface reads, all through the one Notion client (compass/notion.mjs,
+ * data-source queries only for the ids compass/notion-sources.mjs allows) or Airtable GETs:
+ *   activeProjects()    Notion Projects with Status Active → fixtures (5 min); the client's name is resolved
+ *                       through the client page's "Airtable Client ID" → Airtable Clients "Client Name" (the
+ *                       same name ops_clients carries), else the page title without its " — Client Wiki" tail
+ *   pendingApprovals()  Airtable Pending Approval rows at Status "Pending Approval" (15 s, stale-while-revalidate:
+ *                       a request leaves within one poll of the tap)
+ *   pendingDecisions()  🧠 Decisions at Status Pending (15 s, stale-while-revalidate)
+ *   contentInReview()   ✍️ Content rows In Review — only when NOTION_DS_CONTENT is set (else null: SKIPPED:ENV)
+ *   systemHealthOpen()  🩺 System Health open findings — only when NOTION_DS_SYSTEM_HEALTH is set (else null)
+ *   clientNames()       Airtable Clients record id → Client Name (5 min)
  */
+import { createNotion, titleOf, selectName, multiNames, relationIds, dateStart, richText } from './notion.mjs'
+import { PROJECTS, DECISIONS, envSources } from './notion-sources.mjs'
+export const PENDING_APPROVAL_TABLE = 'tbleRnuppbr0wpsaM'
+export const CLIENTS_TABLE = 'tbl3JYj8WwS3kSrN4'
+export const REQUEST_MS = 15_000
+export const PANEL_MS = 5 * 60_000
 
-const NOTION_VERSION = '2025-09-03'
 const DONE = /delivered|done|accepted|complete/i // 🎯 Engagement Milestones → Status "🟢 Delivered"
 const PA_RESOLVED = /^(approved|sent|rejected)$/i
 const CROSS = new Set(['pending_approval', 'decision', 'content_status'])
@@ -36,10 +53,6 @@ export function airtableRef(url) {
   const m = String(url || '').match(/(app[A-Za-z0-9]+)\/(tbl[A-Za-z0-9]+)(?:\/viw[A-Za-z0-9]+)?\/(rec[A-Za-z0-9]+)/)
   return m ? { base: m[1], table: m[2], record: m[3] } : null
 }
-const selectName = (prop) => {
-  const t = prop?.type
-  return t === 'select' || t === 'status' ? prop[t]?.name || '' : ''
-}
 
 /** Pure: can this gate be verified on a surface at all? (needs a cross-checkable surface and a real link) */
 export const crossCheckable = (gate) => Boolean(gate && CROSS.has(gate.surface) && /^https?:\/\//.test(gate.ref_url || ''))
@@ -54,17 +67,47 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     }
   }
 
+  const client = createNotion(cfg, { fetchImpl })
   async function notion(path) {
-    if (!cfg.notionToken) throw new Error('NOTION_TOKEN is not set in .env')
-    const res = await fetchImpl(`https://api.notion.com/v1/${path}`, {
-      headers: { Authorization: `Bearer ${cfg.notionToken}`, 'Notion-Version': NOTION_VERSION },
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      const hint = res.status === 404 ? ' (share the database with the "Tellefsen - Agent world" integration)' : ''
-      throw new Error(`notion ${res.status} on ${path}: ${body.code || ''} ${hint}`.trim())
+    try {
+      return await client.get(path)
+    } catch (err) {
+      const hint = err.status === 404 ? ' (share the database with the "Tellefsen - Agent world" integration)' : ''
+      throw new Error(`notion ${err.status || ''} on ${path}: ${err.code || err.message || ''} ${hint}`.trim())
     }
+  }
+  async function airtable(pathAndQuery) {
+    if (!cfg.airtableToken) throw new Error('AIRTABLE_TOKEN is not set in .env')
+    const res = await fetchImpl(`https://api.airtable.com/v0/${cfg.airtableBaseId}/${pathAndQuery}`, { headers: { Authorization: `Bearer ${cfg.airtableToken}` } })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(`airtable ${res.status} on ${pathAndQuery.split('?')[0]}: ${body.error?.type || body.error || ''}`.trim())
     return body
+  }
+  /** Every record of a table (or a view / formula filter), following offset. */
+  async function airtableAll(table, query = '') {
+    const out = []
+    let offset = ''
+    do {
+      const page = await airtable(`${table}?pageSize=100${query}${offset ? `&offset=${encodeURIComponent(offset)}` : ''}`)
+      out.push(...(page.records || []))
+      offset = page.offset || ''
+    } while (offset)
+    return out
+  }
+  /** A cache with two lifetimes: a good answer lives `ms`; a stale one is handed back at once and refreshed behind it. */
+  const swr = new Map() // key → { at, value, refreshing }
+  async function stale(key, ms, fn, fallback) {
+    const hit = swr.get(key)
+    if (hit && now() - hit.at < ms) return hit.value
+    const refresh = () => fn().then((value) => { swr.set(key, { at: now(), value }); return value }).catch((err) => { warn(key, `${key} unavailable — ${err.message}`); if (!hit) swr.set(key, { at: now(), value: fallback }); else hit.at = now(); return hit ? hit.value : fallback })
+    if (hit) {
+      if (!hit.refreshing) hit.refreshing = refresh().finally(() => (hit.refreshing = null))
+      return hit.value
+    }
+    const entry = { at: 0, value: fallback, refreshing: null }
+    swr.set(key, entry)
+    entry.refreshing = refresh().finally(() => (entry.refreshing = null))
+    return entry.refreshing
   }
 
   // ── U4: 🎯 Engagement Milestones done ÷ total for the run's project, 5-min cache ──────────
@@ -170,5 +213,89 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     return resolved
   }
 
-  return { progress, recentDone, milestones, gateResolved, crossCheckable, _cache: { progressCache, gateCache } }
+  // ── M2b: the still map's surface reads ───────────────────────────────────────────────────
+  const clientNames = () =>
+    stale('clients', PANEL_MS, async () => {
+      const map = new Map()
+      for (const r of await airtableAll(CLIENTS_TABLE, '&fields%5B%5D=Client+Name')) map.set(r.id, String(r.fields?.['Client Name'] || '').trim())
+      return map
+    }, new Map())
+
+  const clientPageCache = new Map() // Notion client page id → { at, name }
+  /** The client's name as ops_clients carries it: the page's Airtable Client ID → Airtable Clients name, else the title without " — Client Wiki". */
+  async function clientNameOf(pageId, names) {
+    const hit = clientPageCache.get(pageId)
+    if (hit && now() - hit.at < PANEL_MS) return hit.name
+    let name = ''
+    try {
+      const page = await notion(`pages/${pageId}`)
+      const rec = richText(page.properties?.['Airtable Client ID']).trim()
+      name = (rec && names.get(rec)) || titleOf(page).replace(/\s*[—–-]\s*client wiki\s*$/i, '').trim()
+    } catch (err) {
+      warn(`client:${pageId}`, `client page ${pageId} unreadable — ${err.message}`)
+    }
+    clientPageCache.set(pageId, { at: now(), name })
+    return name
+  }
+  const INTERNAL = /tellefsen/i
+  /** Active Notion Projects → [{ id, name, clientName, internal, techStack, engagementType, url, edited, milestones }] (5 min). */
+  const activeProjects = () =>
+    stale('projects', PANEL_MS, async () => {
+      const rows = await client.query(PROJECTS, { filter: { property: 'Status', select: { equals: 'Active' } }, page_size: 100 })
+      const names = await clientNames()
+      const out = []
+      for (const p of rows) {
+        const pr = p.properties || {}
+        const clientIds = relationIds(pr.Client)
+        const clientName = clientIds.length ? await clientNameOf(clientIds[0], names) : ''
+        out.push({
+          id: p.id, name: titleOf(p), clientName, internal: !clientName || INTERNAL.test(clientName),
+          techStack: multiNames(pr['Tech Stack']), engagementType: selectName(pr['Engagement Type']), status: selectName(pr.Status),
+          url: p.url || '', edited: Date.parse(p.last_edited_time) || 0,
+          milestones: await milestones(p.id),
+        })
+      }
+      log(`projects: ${out.length} Active`)
+      return out
+    }, [])
+
+  const paUrl = (id) => `https://airtable.com/${cfg.airtableBaseId}/${PENDING_APPROVAL_TABLE}/${id}`
+  /** Pending Approval rows at Status "Pending Approval" → requests (15 s, stale-while-revalidate). */
+  const pendingApprovals = () =>
+    stale('pending-approvals', REQUEST_MS, async () => {
+      const names = await clientNames()
+      const records = await airtableAll(PENDING_APPROVAL_TABLE, `&filterByFormula=${encodeURIComponent("{Status}='Pending Approval'")}&fields%5B%5D=Action+Title&fields%5B%5D=Status&fields%5B%5D=Client&fields%5B%5D=Action+Type&fields%5B%5D=One-Line+Summary&fields%5B%5D=Created+Date`)
+      return records.map((r) => ({
+        id: r.id, title: String(r.fields?.['Action Title'] || '').trim(), type: String(r.fields?.['Action Type'] || '').trim(), summary: String(r.fields?.['One-Line Summary'] || '').trim(),
+        clientName: (Array.isArray(r.fields?.Client) && names.get(r.fields.Client[0])) || '', at: Date.parse(r.fields?.['Created Date'] || r.createdTime || '') || 0, url: paUrl(r.id),
+      }))
+    }, [])
+
+  /** 🧠 Decisions at Status Pending (or a ⚑ awaiting-confirm option) → requests (15 s, stale-while-revalidate). */
+  const pendingDecisions = () =>
+    stale('pending-decisions', REQUEST_MS, async () => {
+      // Status is a select: an exact equals filter server-side (every Pending row, however old); a ⚑ "awaiting confirm"
+      // option does not exist in the schema today (Active / Pending / Superseded) — it would need its own equals clause here.
+      const rows = await client.query(DECISIONS, { filter: { property: 'Status', select: { equals: 'Pending' } }, sorts: [{ property: 'Date', direction: 'descending' }], page_size: 100 }, { maxPages: 5 })
+      return rows.map((p) => ({
+        id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), confidence: selectName(p.properties?.Confidence),
+        at: Date.parse(dateStart(p.properties?.Date) || p.created_time || '') || 0, reviewDue: dateStart(p.properties?.['Review Due']), url: p.url || '',
+      }))
+    }, [])
+
+  const env = envSources()
+  /** ✍️ Content rows In Review → requests; null when NOTION_DS_CONTENT is not set (SKIPPED:ENV). Schema-agnostic: the Status option is matched by name. */
+  const contentInReview = () =>
+    !env.CONTENT ? Promise.resolve(null) : stale('content-in-review', REQUEST_MS, async () => {
+      const rows = await client.query(env.CONTENT, { page_size: 100 })
+      return rows.filter((p) => /in review/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.last_edited_time) || 0, url: p.url || '' }))
+    }, [])
+  /** 🩺 System Health open findings → ! requests; null when NOTION_DS_SYSTEM_HEALTH is not set. */
+  const systemHealthOpen = () =>
+    !env.SYSTEM_HEALTH ? Promise.resolve(null) : stale('system-health', REQUEST_MS, async () => {
+      const rows = await client.query(env.SYSTEM_HEALTH, { page_size: 100 })
+      return rows.filter((p) => /open/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.created_time) || 0, url: p.url || '' }))
+    }, [])
+
+  return { progress, recentDone, milestones, gateResolved, crossCheckable, activeProjects, pendingApprovals, pendingDecisions, contentInReview, systemHealthOpen, clientNames, notion, airtable, airtableAll, stale, client, _cache: { progressCache, gateCache, swr } }
 }

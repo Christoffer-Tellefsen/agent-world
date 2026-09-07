@@ -1,8 +1,82 @@
 {
   "id": "neutral",
-  "version": "0.1",
+  "version": "0.2",
+  "figure": "character",
+  "lod": {
+    "orbit": 95,
+    "desk": 30
+  },
+  "layout": {
+    "home": "data/colony.json",
+    "planet": "data/colony.<key>.json",
+    "towns": {
+      "first_ring": 4,
+      "ring_step": 2,
+      "last_ring": 10
+    }
+  },
+  "skills": {
+    "by_type": {
+      "Operations": "records-office",
+      "Commercial": "strategy-room",
+      "Content": "marketing-studio",
+      "Finance": "finance-office",
+      "Research": "research-lab",
+      "Delivery": "workshop"
+    },
+    "default_room": "workshop",
+    "overrides": {
+      "zztest-stale-expert": {
+        "room": "records-office",
+        "wants": "Airtable"
+      },
+      "make-scenarios": {
+        "room": "integration-yard"
+      },
+      "make-scenario-building": {
+        "room": "integration-yard"
+      },
+      "make-module-configuring": {
+        "room": "integration-yard"
+      },
+      "make-api-shell-connection-workflow": {
+        "room": "integration-yard"
+      },
+      "make-mcp-reference": {
+        "room": "integration-yard"
+      },
+      "hubspot-solutions": {
+        "room": "integration-yard",
+        "wants": "HubSpot"
+      },
+      "airtable-solutions": {
+        "room": "integration-yard",
+        "wants": "Airtable"
+      },
+      "airtable-data-import": {
+        "room": "integration-yard",
+        "wants": "Airtable"
+      },
+      "data-map": {
+        "room": "integration-yard"
+      },
+      "integration-map": {
+        "room": "integration-yard"
+      },
+      "solution-agent": {
+        "room": "strategy-room"
+      },
+      "architecture-diagram": {
+        "room": "workshop"
+      },
+      "agentic-coding-solutions": {
+        "room": "workshop",
+        "wants": "Claude Code"
+      }
+    }
+  },
   "title": "Neutral",
-  "blurb": "Grayscale, generic names. For a prime or subcontracted town: the same rooms, none of the campus vocabulary.",
+  "blurb": "Grayscale, generic names. The same geometry and the same rooms as the campus, none of its vocabulary.",
   "skin": {
     "palette": {
       "accent": "#9a9a9a",
@@ -40,108 +114,91 @@
     "building": "unit",
     "studio": "unit",
     "agent": "agent",
+    "fixture": "fixture",
+    "request": "request",
     "prospect": "prospect"
   },
   "rooms": [
     {
-      "id": "solution-studio",
-      "name": "unit A — solutions",
-      "mirrors": "solution runs (ops_skill_runs)",
-      "surface": "ops_skill_runs",
-      "skills": [
-        "solution",
-        "platform-fit",
-        "scoping",
-        "sow",
-        "proposal",
-        "build-kickoff",
-        "pipeline-conversion",
-        "engagement-close",
-        "milestone-close",
-        "agentic-coding"
-      ]
-    },
-    {
-      "id": "research-lab",
-      "name": "unit B — research",
-      "mirrors": "research runs (ops_skill_runs)",
-      "surface": "ops_skill_runs",
-      "skills": [
-        "research"
-      ]
-    },
-    {
-      "id": "content-studio",
-      "name": "unit C — content",
-      "mirrors": "content drafts and the signature gate (content_status)",
-      "surface": "content_status",
-      "skills": [
-        "content",
-        "linkedin",
-        "media"
-      ]
-    },
-    {
-      "id": "finance-office",
-      "name": "unit D — finance",
-      "mirrors": "finance rows",
-      "surface": "finance",
-      "skills": [
-        "finance"
-      ]
-    },
-    {
-      "id": "integration-yard",
-      "name": "unit E — integrations",
-      "mirrors": "integrations and field mappings",
-      "surface": "integrations",
-      "skills": [
-        "integration",
-        "data-map",
-        "make",
-        "hubspot",
-        "airtable"
-      ]
+      "id": "corner-office",
+      "name": "unit A — office",
+      "ring": 0,
+      "spoke": 0,
+      "surface": "pending_approval",
+      "mirrors": "the in-tray — Pending Approval rows, pending Decisions, waiting runs — today's Big 3 from Tasks, the four numbers of the last Run Governance sweep and the last gate reconciliation, the milestone heat"
     },
     {
       "id": "board-room",
-      "name": "unit F — decisions",
-      "mirrors": "pending decisions (decision) and milestones",
+      "name": "unit B — decisions",
+      "ring": 1,
+      "spoke": 0,
       "surface": "decision",
-      "skills": [
-        "project-log",
-        "project-context",
-        "project-overview",
-        "operating-layer"
-      ]
+      "mirrors": "Decisions — Pending and awaiting confirm stand here as requests; Working are folders; the next review dates"
     },
     {
-      "id": "corner-office",
-      "name": "unit G — approvals",
-      "mirrors": "the in-tray: approval rows, pending decisions, waiting runs, today's tasks",
-      "surface": "pending_approval",
-      "skills": [
-        "daily-focus",
-        "task-triage",
-        "task-from-raw",
-        "morning",
-        "firm-pulse",
-        "schedule",
-        "meeting",
-        "account-expansion"
-      ]
+      "id": "strategy-room",
+      "name": "unit C — deals",
+      "ring": 1,
+      "spoke": 1,
+      "surface": "pipeline",
+      "mirrors": "the Pipeline \"Active pipeline\" view in its own order with stage and warmth (days since last touch → 1.0 / 0.5 / 0.2), plus Research briefs with a handoff"
     },
     {
-      "id": "steering-room",
-      "name": "unit H — steering",
-      "mirrors": "the steering panels: pipeline, milestone board, last decisions — R opens it",
-      "surface": "steering",
-      "skills": []
+      "id": "marketing-studio",
+      "name": "unit D — content",
+      "ring": 1,
+      "spoke": 2,
+      "surface": "content_status",
+      "mirrors": "Content — the Sun-Thu week wall, cards by status, signatures pending; an In Review draft stands here as a request"
+    },
+    {
+      "id": "research-lab",
+      "name": "unit E — research",
+      "ring": 1,
+      "spoke": 3,
+      "surface": "research",
+      "mirrors": "Research briefs with refresh due"
+    },
+    {
+      "id": "finance-office",
+      "name": "unit F — finance",
+      "ring": 1,
+      "spoke": 4,
+      "surface": "finance",
+      "mirrors": "the finance table — unpaid, overdue, paid, this month"
+    },
+    {
+      "id": "workshop",
+      "name": "unit G — workshop",
+      "ring": 1,
+      "spoke": 5,
+      "surface": "ops_skill_runs",
+      "mirrors": "Active Build projects with their next milestone; internal projects stand here as fixtures; the Delivery-type skills are benches"
+    },
+    {
+      "id": "integration-yard",
+      "name": "unit H — integrations",
+      "ring": 2,
+      "spoke": 0,
+      "surface": "integrations",
+      "mirrors": "Integrations with open drift findings; Field Mappings as the wiring board"
+    },
+    {
+      "id": "archive",
+      "name": "unit I — archive",
+      "ring": 2,
+      "spoke": 2,
+      "surface": "archive",
+      "mirrors": "per client and venture, a shelf: Deliverables, Sent Documents, settled Decisions, Research briefs, Integration pages, Field Mappings — newest first"
+    },
+    {
+      "id": "records-office",
+      "name": "unit J — records",
+      "ring": 2,
+      "spoke": 4,
+      "surface": "ops_skill_runs",
+      "mirrors": "automations (next fire, last fire, missed), connectors, the silent-skills list, the last twenty ledger runs; a failed run with no client stands here as a request"
     }
   ],
-  "default_room": "solution-studio",
-  "layout": {
-    "home": "data/colony.json",
-    "planet": "data/colony.<key>.json"
-  }
+  "default_room": "workshop"
 }
