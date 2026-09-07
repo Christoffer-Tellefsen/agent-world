@@ -251,7 +251,7 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
   async function researchLab() {
     if (!env.RESEARCH) return { rows: [], skipped: SKIP.env('NOTION_DS_RESEARCH') }
     const r = await researchBriefs()
-    const today = new Date(now()).toISOString().slice(0, 10)
+    const today = localDay(new Date(now())) // the local calendar day, as the week wall (a UTC day flagged a brief 4 h late east of Greenwich)
     const rows = r.rows.map((b) => ({ ...b, due: needsRefresh(b, today) })).sort((a, b) => Number(b.due) - Number(a.due) || (a.refreshDue || '9999').localeCompare(b.refreshDue || '9999'))
     return { rows, due: rows.filter((b) => b.due).length, error: r.error, skipped: '' }
   }

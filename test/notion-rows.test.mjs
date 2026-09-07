@@ -31,6 +31,10 @@ test('ENV re-run: every mapper reads the schema\'s own property names — Findin
   assert.equal(d.status, 'Sent to Client'); assert.equal(d.type, 'SOW'); assert.equal(d.version, 4); assert.equal(d.pdf, 'https://drive.google.com/file/d/zztest-sow/view'); assert.equal(d.docx, ''); assert.equal(d.clientPage, 'cccc0001-0000-4000-8000-0000000000c1'); assert.equal(d.project, ''); assert.equal(d.at, Date.parse('2026-09-01T07:46:00.000Z'), 'newest by Created')
   const t = m.taskRow(fx.task)
   assert.equal(t.title, 'ZZTEST send the SOW'); assert.equal(t.status, '🎯 Today'); assert.equal(t.priority, '🔴 Big 3 Daily'); assert.equal(t.doDate, '2026-09-07')
+  // the lab (second opinion): an untitled brief is a row that says so, and "today" is the local day
+  const { roomSections } = await import(path.join(root, 'overlay/rooms.mjs'))
+  const lab = roomSections('research-lab', { rows: [{ ...m.researchRow({ properties: {} }), refreshDue: '2026-09-06' }], due: 0 }, new Date(2026, 8, 7, 1, 0).getTime())
+  assert.equal(lab[0].rows[0].text, '(untitled)'); assert.equal(lab[0].rows[0].cls, 'late', 'due yesterday by the local calendar, even at 01:00 local')
 })
 
 test('U28 (ENV re-run): the System Health read asks Notion for Status = Open, newest Detected At first, and the fold gets Finding · Severity · Source', async () => {

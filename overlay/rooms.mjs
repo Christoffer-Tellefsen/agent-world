@@ -48,8 +48,8 @@ export function roomSections(id, panel, now = Date.now()) {
       ]
     }
     case 'research-lab': {
-      const today = new Date(now).toISOString().slice(0, 10)
-      const rows = (panel.rows || []).map((b) => ({ text: b.title, small: [b.type, b.status, b.handoff ? 'handoff ready' : ''].filter(Boolean).join(' · '), value: b.refreshDue ? `refresh ${b.refreshDue}` : '—', cls: b.due || (b.refreshDue && b.refreshDue < today) ? 'late' : '', url: link(b.url) }))
+      const d = new Date(now); const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` // local day, as the server's localDay
+      const rows = (panel.rows || []).map((b) => ({ text: str(b.title) || '(untitled)', small: [b.type, b.status, b.handoff ? 'handoff ready' : ''].filter(Boolean).join(' · '), value: b.refreshDue ? `refresh ${b.refreshDue}` : '—', cls: b.due || (b.refreshDue && b.refreshDue < today) ? 'late' : '', url: link(b.url) }))
       return [{ title: `Briefs · ${rows.length}${panel.due ? ` · ${panel.due} due a refresh` : ''}`, sub: 'by "Refresh due", the due ones first', rows, note: sectionNote(panel, 'no brief') }]
     }
     case 'finance-office': {
