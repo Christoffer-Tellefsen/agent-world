@@ -35,6 +35,8 @@
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
 import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate, prospectRows } from './zones.mjs'
 import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
+import { altitudeOf, labelRule, plateText, placeCounts } from './lod.mjs'
+import { homeTarget, homeDistance } from './home.mjs'
 import { pipelineRows, milestoneRows, decisionRows, panelNote } from './steering.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
@@ -94,6 +96,9 @@ const css = `
 #aw-panel button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
 #aw-panel button:disabled{opacity:.35;cursor:default}
 .hud .stats .stat{display:none!important}
+html[data-aw-altitude="orbit"] .hud .thread-pop{display:none!important}
+html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
+#aw-alt{position:fixed;left:84px;bottom:6px;z-index:39;font:11px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-quiet);opacity:.7;pointer-events:none}
 #aw-strip{display:flex;flex-wrap:wrap;gap:5px;pointer-events:auto}
 #aw-strip .pill{display:inline-flex;align-items:center;gap:6px;height:27px;padding:0 9px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--aw-line);font:12px system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:pointer;color:var(--aw-ink)}
 #aw-strip .pill:hover{background:rgba(255,255,255,.1)}
@@ -364,8 +369,17 @@ function render(sel) {
 
 // Poll the handle rather than hook main.js: no src/ edits, and 4×/s is nothing.
 let lastKey = ''
+let flownTo = ''
+let altitude = '' // the camera's altitude (U30), set on the first sync
+const lodNow = () => getWorld()?.lod || { orbit: 95, desk: 30 }
 setInterval(() => {
   const sel = selection()
+  // ES-6.5: the panel belongs below lod.desk. A click at district selects without flying (src); fly in as N and the tray do.
+  if (sel && sel.agent.id !== flownTo && altitude === 'district') {
+    flownTo = sel.agent.id
+    window.botCrossing?.rig?.focus?.({ x: sel.agent.pos.x, y: 0, z: sel.agent.pos.z }, { distance: Math.min(26, lodNow().desk - 4) })
+  }
+  if (!sel) flownTo = ''
   const cr = sel ? intrayRows([sel.thread])[0] : null
   const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.kind === 'fixture' ? sel.thread.runningCount + ':' + sel.thread.check : sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread), cr ? approvals.state(cr.id, cr.gate, cr.url) : ''].join('|') : ''
   syncQuietLabels()
@@ -613,6 +627,201 @@ function syncStrip() {
 }
 setInterval(pinFixtures, 250)
 setInterval(syncStrip, 1000)
+
+// ── U30: three altitudes ─────────────────────────────────────────────────────────────────────
+//
+// The camera's distance (Bot Crossing's rig.distance — readable through the handle, so no O fallback is needed)
+// against the pack's lod: at orbit only place plates (name · ? n · ⚒ n) show — no thread labels, no card, no
+// bubbles; at district a request's title floats over its figure always and a fixture's on hover or selection;
+// at desk (a selection flies to ≤ 26) the panel. H flies to the corner office; a fresh load opens there.
+const altEl = el('aw-alt')
+const plates = new Map() // plot name → { mesh, text }
+let plateGroup = null
+const titleLabels = new Map() // thread id → { mesh, text }
+let titleGroup = null
+/** The hovered figure: main.js keeps hoverId to itself, but the hover ring it moves is on the handle — the nearest agent to it is the one under the pointer. */
+const hoveredId = () => {
+  const ast = window.botCrossing?.colony?.astronauts
+  const ring = ast?.hoverRing
+  if (!ring?.visible) return null
+  let best = null
+  let bestD = 0.5
+  for (const a of ast.agents || []) {
+    const d = Math.hypot(a.pos.x - ring.position.x, a.pos.z - ring.position.z)
+    if (d < bestD) { bestD = d; best = a.id }
+  }
+  return best
+}
+
+function syncAltitude() {
+  const bc = window.botCrossing
+  const colony = bc?.colony
+  if (!colony?.scene || !bc.rig) return
+  const THREE_GROUP = colony.plotGroup?.constructor
+  if (!THREE_GROUP) return
+  const lod = lodNow()
+  const next = altitudeOf(bc.rig.distance, lod)
+  if (next !== altitude) {
+    altitude = next
+    document.documentElement.dataset.awAltitude = altitude
+  }
+  altEl.textContent = `${altitude} · camera ${Math.round(bc.rig.distance)} · orbit above ${lod.orbit} · desk below ${lod.desk} · O orbit · H home`
+  const show = Boolean(colony.uiVisible ?? true)
+  // Bot Crossing's own zone name plates (src draws them for active plots at any distance) and the overlay's quiet-town
+  // plates give way to the place plates at orbit: src only ever sets labelGroup.visible back to true when the UI is shown.
+  if (colony.labelGroup) colony.labelGroup.visible = altitude !== 'orbit' && show
+  for (const { label } of quiet.values()) if (altitude === 'orbit') label.visible = false
+  // place plates: one per plot (rooms, towns, quiet towns), at orbit only
+  if (!plateGroup) {
+    plateGroup = new THREE_GROUP()
+    plateGroup.name = 'aw:plates'
+    colony.scene.add(plateGroup)
+  }
+  const counts = placeCounts(bc.threads || [])
+  const wantedPlates = new Set()
+  const anchors = new Map()
+  for (const plot of colony.plots.values()) anchors.set(plot.name, plot.labelAnchor || plot.middle || plot.center)
+  for (const [name, q] of quiet) anchors.set(name, q.plot.labelAnchor || q.plot.middle || q.plot.center)
+  for (const [name, a] of anchors) {
+    if (!a) continue
+    const text = plateText(name, counts.get(name) || {})
+    wantedPlates.add(name)
+    const have = plates.get(name)
+    if (have && have.text === text) {
+      have.mesh.visible = altitude === 'orbit' && show
+      continue
+    }
+    if (have) {
+      plateGroup.remove(have.mesh)
+      have.mesh.userData?.dispose?.()
+    }
+    try {
+      const mesh = createLabel(text, cssVar('--aw-ink', '#e6e9ef'))
+      mesh.renderOrder = 10
+      mesh.material.opacity = 0.95
+      mesh.position.set(a.x, 4.4, a.z)
+      mesh.visible = altitude === 'orbit' && show
+      plateGroup.add(mesh)
+      plates.set(name, { mesh, text })
+    } catch (err) {
+      console.warn('[world] plate not drawn:', name, err?.message || err)
+    }
+  }
+  for (const [name, p] of plates) {
+    if (wantedPlates.has(name)) continue
+    plateGroup.remove(p.mesh)
+    p.mesh.userData?.dispose?.()
+    plates.delete(name)
+  }
+  // thread title labels: requests always at district; fixtures on hover or selection; nothing at orbit
+  if (!titleGroup) {
+    titleGroup = new THREE_GROUP()
+    titleGroup.name = 'aw:titles'
+    colony.scene.add(titleGroup)
+  }
+  const sel = colony.astronauts?.selected?.id || null
+  const hov = hoveredId()
+  const wantedTitles = new Set()
+  for (const t of bc.threads || []) {
+    const agent = colony.astronauts?.byId?.get(t.id)
+    if (!agent) continue
+    const rule = labelRule(bc.rig.distance, lod, t, { hovered: hov === t.id, selected: sel === t.id })
+    if (!rule.label) continue
+    wantedTitles.add(t.id)
+    const have = titleLabels.get(t.id)
+    if (have && have.text === t.title) continue
+    if (have) {
+      titleGroup.remove(have.mesh)
+      have.mesh.userData?.dispose?.()
+    }
+    try {
+      const mesh = createLabel(t.title, cssVar(t.kind === 'request' ? (t.hasError ? '--aw-block' : '--aw-wait') : '--aw-quiet', '#e6e9ef'))
+      mesh.renderOrder = 9
+      mesh.material.opacity = 0.92
+      mesh.visible = true
+      if (agent.pos) mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y + 0.55, agent.pos.z)
+      titleGroup.add(mesh)
+      titleLabels.set(t.id, { mesh, text: t.title })
+    } catch (err) {
+      console.warn('[world] title not drawn:', t.id, err?.message || err)
+    }
+  }
+  for (const [id, l] of titleLabels) {
+    if (wantedTitles.has(id)) continue
+    titleGroup.remove(l.mesh)
+    l.mesh.userData?.dispose?.()
+    titleLabels.delete(id)
+  }
+  // bubbles and marks follow the rule too: none at orbit
+  if (bubbleGroup) bubbleGroup.visible = altitude !== 'orbit'
+  if (markerGroup) markerGroup.visible = altitude !== 'orbit'
+  if (altitude === 'orbit' && colony.astronauts?.selected) {
+    // a selection's card and panel are district things: nothing is selected at orbit
+    bc.hud?.actions?.select?.(null)
+  }
+}
+function followTitles() {
+  const colony = window.botCrossing?.colony
+  if (colony?.astronauts && titleLabels.size) {
+    const show = Boolean(colony.uiVisible ?? true)
+    for (const [id, l] of titleLabels) {
+      const agent = colony.astronauts.byId?.get(id)
+      if (!agent) continue
+      l.mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y + 0.55, agent.pos.z)
+      l.mesh.visible = show
+    }
+  }
+  requestAnimationFrame(followTitles)
+}
+requestAnimationFrame(followTitles)
+setInterval(syncAltitude, 200)
+
+/** H: fly to the corner office (Bot Crossing's own H — hide the UI — is shadowed; ⌘\ still does that). */
+function flyHome() {
+  const bc = window.botCrossing
+  if (!bc?.rig || !bc.colony) return false
+  const home = homeTarget(getWorld()?.rooms || [], bc.colony.plots)
+  bc.rig.setOrbit?.(false)
+  bc.rig.focus({ x: home.point.x, y: 0, z: home.point.z }, { distance: homeDistance(lodNow()) })
+  return true
+}
+/** O: to the orbit altitude and back (V-U30 "zoom out to orbit (or press O)"). Bot Crossing's O — the slow sweep — is shadowed; its rail button still sweeps. */
+let beforeOrbit = 0
+function toggleOrbitAltitude() {
+  const bc = window.botCrossing
+  if (!bc?.rig) return
+  const lod = lodNow()
+  if (altitudeOf(bc.rig.desiredDistance, lod) === 'orbit') {
+    bc.rig.desiredDistance = beforeOrbit || 62
+  } else {
+    beforeOrbit = bc.rig.desiredDistance
+    bc.rig.desiredDistance = Math.min(150, lod.orbit + 15)
+  }
+  bc.rig.idleFor = 99
+}
+window.addEventListener(
+  'keydown',
+  (e) => {
+    const k = e.key
+    if (k !== 'h' && k !== 'H' && k !== 'o' && k !== 'O') return
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
+    e.stopPropagation()
+    e.preventDefault()
+    if (k === 'o' || k === 'O') return toggleOrbitAltitude()
+    if (flyHome()) toast(`Home — the ${homeTarget(getWorld()?.rooms || [], window.botCrossing?.colony?.plots).name || 'corner office'}`)
+  },
+  true
+)
+// a fresh load opens on the corner office: as soon as the world and the plots exist, once
+let homed = false
+const homeOnLoad = setInterval(() => {
+  if (homed) return clearInterval(homeOnLoad)
+  const bc = window.botCrossing
+  if (!bc?.colony?.plots?.size || !getWorld()) return
+  homed = flyHome()
+}, 500)
 function followMarkers() {
   const colony = window.botCrossing?.colony
   if (colony?.astronauts && markers.size) {
