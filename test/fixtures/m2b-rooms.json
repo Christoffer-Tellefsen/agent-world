@@ -283,7 +283,7 @@
     "id": "corner-office",
     "big3": {
       "rows": [],
-      "skipped": "SKIPPED:ENV — the Action Items database exposes no data source to the integration (GET /v1/databases → data_sources [])"
+      "skipped": "SKIPPED:ENV — set NOTION_DS_TASKS in .env"
     },
     "numbers": {
       "skipped": "SKIPPED:WORKER-NEEDED — the four numbers (LAST_RUN_GOVERNANCE) and LAST_GATE_RECONCILIATION arrives with /world/substrate v2 (Prompt B-2)"

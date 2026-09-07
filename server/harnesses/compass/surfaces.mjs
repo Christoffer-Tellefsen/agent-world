@@ -27,7 +27,7 @@
  *   clientNames()       Airtable Clients record id → Client Name (5 min)
  */
 import { createNotion, titleOf, selectName, multiNames, relationIds, dateStart, richText } from './notion.mjs'
-import { PROJECTS, DECISIONS, envSources } from './notion-sources.mjs'
+import { PROJECTS, DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
 export const PENDING_APPROVAL_TABLE = 'tbleRnuppbr0wpsaM'
 export const CLIENTS_TABLE = 'tbl3JYj8WwS3kSrN4'
 export const REQUEST_MS = 15_000
@@ -102,10 +102,12 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
   const ERROR_MS = 30_000
   const swr = new Map() // key → { at, value, refreshing, failed }
   const withError = (fallback, err) => (fallback && typeof fallback === 'object' && !Array.isArray(fallback) && !(fallback instanceof Map) ? { ...fallback, error: err.message || String(err) } : fallback)
+  /** The reads whose last refresh failed: key → message (the panels name an unreadable source instead of showing an empty list). */
+  const readErrors = () => Object.fromEntries([...swr].filter(([, v]) => v.failed).map(([k, v]) => [k, v.error || 'unavailable']))
   async function stale(key, ms, fn, fallback) {
     const hit = swr.get(key)
     if (hit && now() - hit.at < (hit.failed ? ERROR_MS : ms)) return hit.value
-    const refresh = () => fn().then((value) => { swr.set(key, { at: now(), value, failed: false }); return value }).catch((err) => { warn(key, `${key} unavailable — ${err.message}`); const v = hit && !hit.failed ? hit.value : withError(fallback, err); swr.set(key, { at: now(), value: v, failed: true }); return v })
+    const refresh = () => fn().then((value) => { swr.set(key, { at: now(), value, failed: false }); return value }).catch((err) => { warn(key, `${key} unavailable — ${err.message}`); const v = hit && !hit.failed ? hit.value : withError(fallback, err); swr.set(key, { at: now(), value: v, failed: true, error: err.message || String(err) }); return v })
     if (hit) {
       if (!hit.refreshing) hit.refreshing = refresh().finally(() => (hit.refreshing = null))
       return hit.value
@@ -293,15 +295,15 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
   /** ✍️ Content rows In Review → requests; null when NOTION_DS_CONTENT is not set (SKIPPED:ENV). Schema-agnostic: the Status option is matched by name. */
   const contentInReview = () =>
     !env.CONTENT ? Promise.resolve(null) : stale('content-in-review', REQUEST_MS, async () => {
-      const rows = await client.query(env.CONTENT, { page_size: 100 })
+      const rows = await client.query(env.CONTENT, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('CONTENT', err)) })
       return rows.filter((p) => /in review/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.last_edited_time) || 0, url: p.url || '' }))
     }, [])
   /** 🩺 System Health open findings → ! requests; null when NOTION_DS_SYSTEM_HEALTH is not set. */
   const systemHealthOpen = () =>
     !env.SYSTEM_HEALTH ? Promise.resolve(null) : stale('system-health', REQUEST_MS, async () => {
-      const rows = await client.query(env.SYSTEM_HEALTH, { page_size: 100 })
+      const rows = await client.query(env.SYSTEM_HEALTH, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('SYSTEM_HEALTH', err)) })
       return rows.filter((p) => /open/i.test(selectName(p.properties?.Status))).map((p) => ({ id: p.id, title: titleOf(p), status: selectName(p.properties?.Status), at: Date.parse(p.created_time) || 0, url: p.url || '' }))
     }, [])
 
-  return { progress, recentDone, milestones, gateResolved, crossCheckable, activeProjects, pendingApprovals, pendingDecisions, contentInReview, systemHealthOpen, clientNames, notion, airtable, airtableAll, stale, client, _cache: { progressCache, gateCache, swr } }
+  return { progress, recentDone, milestones, gateResolved, crossCheckable, activeProjects, pendingApprovals, pendingDecisions, contentInReview, systemHealthOpen, clientNames, notion, airtable, airtableAll, stale, readErrors, client, _cache: { progressCache, gateCache, swr } }
 }

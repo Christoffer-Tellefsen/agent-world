@@ -119,6 +119,10 @@ test('the Notion client queries only allowed data sources: a listed id goes out 
   assert.equal(calls.at(-1).method, 'GET')
   // env names: a missing name is undefined, reported by name only
   assert.equal(sources.envSources({}).RESEARCH, undefined)
-  assert.deepEqual(sources.missingEnvNames({ NOTION_DS_CONTENT: env.NOTION_DS_CONTENT }).length, 6, 'the six pack names minus the one set, plus the optional Sent Documents name')
+  assert.deepEqual(sources.missingEnvNames({ NOTION_DS_CONTENT: env.NOTION_DS_CONTENT }).length, 6, 'the six pack names plus NOTION_DS_TASKS, minus the one set')
+  assert.ok(!Object.values(sources.ENV_NAMES).includes('NOTION_DS_SENT_DOCUMENTS'), 'Sent Documents is not a source of its own (Deliverables at Status "Sent to Client")')
+  assert.equal(sources.isAllowed('22222222333344445555666666666666', { NOTION_DS_TASKS: '22222222333344445555666666666666' }), true, 'the Tasks source is allowed once NOTION_DS_TASKS is set')
+  assert.equal(sources.isAllowed('22222222333344445555666666666666', {}), false, 'and refused while it is not')
+  assert.match(sources.unreadableNote('TASKS', new Error('notion 404: object_not_found')), /^SKIPPED:ENV — NOTION_DS_TASKS is set but unreadable: notion 404/)
   assert.equal(sources.isAllowed('33dc0af9c97480e99d5d000ba4bd72ea', {}), true, 'dashed and undashed forms are the same id')
 })

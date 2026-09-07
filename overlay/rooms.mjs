@@ -63,6 +63,7 @@ export function roomSections(id, panel, now = Date.now()) {
         { title: 'Connectors', rows: (panel.connectors?.rows || []).map((c) => ({ text: c.name || c.id, small: c.status || '', value: '', url: '' })), note: sectionNote(panel.connectors, 'no connector') },
         { title: `Silent skills · ${(panel.silent?.rows || []).length} of ${panel.silent?.of ?? '?'} silent 30 d`, rows: (panel.silent?.rows || []).map((s) => ({ text: `${s.dusty ? '◌ ' : ''}${s.name}`, small: s.dusty ? 'wanted — dusty' : 'silent', value: '', cls: s.dusty ? 'dusty' : '', url: '' })), note: sectionNote({ rows: panel.silent?.rows }, 'every Active skill ran in the last 30 days') },
         { title: 'Last twenty ledger runs', rows: (panel.runs || []).map((r) => ({ text: r.skill, small: `${r.client || 'no client'} · ${r.state}${r.gates ? ` · ${r.gates} gate${r.gates === 1 ? '' : 's'}` : ''}${r.artifacts ? ` · ${r.artifacts} artifact${r.artifacts === 1 ? '' : 's'}` : ''}`, value: r.at ? new Date(r.at).toLocaleString() : '', cls: r.state === 'failed' ? 'late' : '', url: '' })), note: sectionNote({ rows: panel.runs }, 'no run in the window') },
+        { title: '🩺 System Health · the ! requests standing here', rows: (panel.health?.rows || []).map((h) => ({ text: h.title, small: 'open finding', value: h.at ? `${Math.max(0, Math.round((now - h.at) / DAY_MS))} d` : '', cls: 'late', url: link(h.url) })), note: sectionNote(panel.health, 'no open finding') },
       ]
     case 'corner-office': {
       const n = panel.numbers || {}

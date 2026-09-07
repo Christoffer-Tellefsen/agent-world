@@ -5,14 +5,17 @@
  *   Deliverables      every registered artifact in the ledger window (artifact_registered, run_completed.artifacts,
  *                     the ops_skill_runs row's artifacts) — the ledger is the register; shelved by the run's client
  *                     (none → the home shelf) and by the run's project
- *   Sent Documents    the Project page's table — no data source id is named for it (NOTION_DS_SENT_DOCUMENTS, optional)
+ *                     plus the Notion 📎 Deliverables rows (NOTION_DS_DELIVERABLES) beside the ledger's register
+ *   Sent Documents    the 📎 Deliverables rows at Status "Sent to Client" (2026-09-07: there is no Sent Documents
+ *                     database in Notion; NOTION_DS_SENT_DOCUMENTS is not a name)
  *   settled Decisions 🧠 Decisions at Status Active, by their Client relation (the client page → Airtable name)
  *   Research briefs   NOTION_DS_RESEARCH        Integration pages  NOTION_DS_INTEGRATIONS
- *   Field Mappings    NOTION_DS_FIELD_MAPPINGS  — each absent name skips its section (SKIPPED:ENV, the name only)
+ *   Field Mappings    NOTION_DS_FIELD_MAPPINGS  — each absent name skips its section (SKIPPED:ENV, the name only);
+ *                     a name that is set but unreadable (Notion 404: not shared with the integration) says so by name
  * Open targets: Open PDF (a .pdf link), Open in Notion (notion.com / notion.so), Open in Drive (drive/docs.google);
  * any other link is plain Open; a Compass reference is a label.
  */
-import { DECISIONS, envSources } from './notion-sources.mjs'
+import { DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
 import { titleOf, selectName, dateStart, relationIds, urlOf, filesOf, richText } from './notion.mjs'
 import { PANEL_MS } from './surfaces.mjs'
 
@@ -34,6 +37,10 @@ export function openTargets(row) {
   }
   return out
 }
+
+/** Pure: the Sent Documents — the 📎 Deliverables rows whose Status is "Sent to Client", as their own kind. */
+export const SENT_STATUS = /^sent to client$/i
+export const sentDocumentsOf = (rows) => (Array.isArray(rows) ? rows : []).filter((r) => SENT_STATUS.test(str(r?.status))).map((r) => ({ ...r, kind: 'sent-document' }))
 
 /** Pure: the ledger's artifacts as shelf rows, newest first, by client and by project. */
 export function deliverablesFromRuns(runs, rowById = new Map(), { homeName = 'home' } = {}) {
@@ -79,8 +86,8 @@ export function assembleShelf({ deliverables, decisions = [], research = null, i
 
 export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home', log = () => {}, now = Date.now } = {}) {
   const env = envSources()
-  const sentDs = env.SENT_DOCUMENTS
-  const missing = () => ({ ...(env.RESEARCH ? {} : { research: 'SKIPPED:ENV — set NOTION_DS_RESEARCH in .env' }), ...(env.INTEGRATIONS ? {} : { integrations: 'SKIPPED:ENV — set NOTION_DS_INTEGRATIONS in .env' }), ...(env.FIELD_MAPPINGS ? {} : { fieldMappings: 'SKIPPED:ENV — set NOTION_DS_FIELD_MAPPINGS in .env' }), ...(sentDs ? {} : { sentDocuments: 'SKIPPED:ENV — no data source id is named for Sent Documents (set NOTION_DS_SENT_DOCUMENTS in .env)' }), ...(env.DELIVERABLES ? {} : { notionDeliverables: 'SKIPPED:ENV — set NOTION_DS_DELIVERABLES in .env (the Deliverables section shows the ledger\'s register meanwhile)' }) })
+  /** The notes for names that are absent; a read that failed adds its own (by name) in shelf(). */
+  const missing = (failed = {}) => ({ ...(env.RESEARCH ? {} : { research: 'SKIPPED:ENV — set NOTION_DS_RESEARCH in .env' }), ...(env.INTEGRATIONS ? {} : { integrations: 'SKIPPED:ENV — set NOTION_DS_INTEGRATIONS in .env' }), ...(env.FIELD_MAPPINGS ? {} : { fieldMappings: 'SKIPPED:ENV — set NOTION_DS_FIELD_MAPPINGS in .env' }), ...(env.DELIVERABLES ? {} : { sentDocuments: 'SKIPPED:ENV — set NOTION_DS_DELIVERABLES in .env (Sent Documents = its rows at Status "Sent to Client")', notionDeliverables: 'SKIPPED:ENV — set NOTION_DS_DELIVERABLES in .env (the Deliverables section shows the ledger\'s register meanwhile)' }), ...failed })
 
   const clientPage = new Map() // page id → { at, name }
   async function clientName(pageId) {
@@ -109,13 +116,31 @@ export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home'
       for (const p of rows) out.push({ ...(await pageRow(p, 'decision')), confidence: selectName(p.properties?.Confidence) })
       return out
     }, [])
-  const section = (key, ds, kind) => (!ds ? Promise.resolve(null) : surfaces.stale(`archive:${key}`, PANEL_MS, async () => { const out = []; for (const p of await surfaces.client.query(ds, { page_size: 100 })) out.push(await pageRow(p, kind)); return out }, []))
+  /** One env-named section: null when the name is absent; { rows, error } otherwise — a failed read names itself (by name) and the shelf shows it. */
+  const section = (key, envKey, kind) => {
+    const ds = env[envKey]
+    if (!ds) return Promise.resolve(null)
+    return surfaces.stale(`archive:${key}`, PANEL_MS, async () => {
+      const out = []
+      const pages = await surfaces.client.query(ds, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote(envKey, err)) })
+      for (const p of pages) out.push(await pageRow(p, kind))
+      return { rows: out, error: '' }
+    }, { rows: [], error: 'reading…' })
+  }
 
   async function shelf() {
     const s = (typeof lastScan === 'function' ? lastScan() : null) || { runs: new Map(), rowById: new Map() }
     const home = homeName()
     const deliverables = deliverablesFromRuns(s.runs, s.rowById, { homeName: home })
-    const [decisions, research, integrations, fieldMappings, sentDocuments, notionDeliverables] = await Promise.all([settledDecisions(), section('research', env.RESEARCH, 'research'), section('integrations', env.INTEGRATIONS, 'integration'), section('field-mappings', env.FIELD_MAPPINGS, 'field-mapping'), section('sent-documents', sentDs, 'sent-document'), section('deliverables', env.DELIVERABLES, 'deliverable')])
+    const [decisions, researchPart, integrationsPart, fieldMappingsPart, deliverablesPart] = await Promise.all([settledDecisions(), section('research', 'RESEARCH', 'research'), section('integrations', 'INTEGRATIONS', 'integration'), section('field-mappings', 'FIELD_MAPPINGS', 'field-mapping'), section('deliverables', 'DELIVERABLES', 'deliverable')])
+    // a read that failed (or is still on its way) is a note on its section, by name — never an empty shelf that looks read
+    const failed = {}
+    const rowsOf = (part, key) => { if (!part) return null; if (part.error) failed[key] = /^SKIPPED/.test(part.error) ? part.error : `${key}: ${part.error}`; return part.rows }
+    const research = rowsOf(researchPart, 'research'), integrations = rowsOf(integrationsPart, 'integrations'), fieldMappings = rowsOf(fieldMappingsPart, 'fieldMappings')
+    const notionDeliverables = rowsOf(deliverablesPart, 'deliverables')
+    if (failed.deliverables) failed.sentDocuments = failed.deliverables
+    // Sent Documents = the 📎 Deliverables rows at Status "Sent to Client" (client-side: the same read, one status)
+    const sentDocuments = notionDeliverables ? sentDocumentsOf(notionDeliverables) : null
     // a Notion 📎 Deliverables row (when NOTION_DS_DELIVERABLES is set) joins the Deliverables section beside the ledger's register
     for (const d of notionDeliverables || []) {
       const key = d.client || home
@@ -125,7 +150,7 @@ export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home'
     }
     for (const list of deliverables.byClient.values()) list.sort((a, b) => (b.at || 0) - (a.at || 0))
     for (const list of deliverables.byProject.values()) list.sort((a, b) => (b.at || 0) - (a.at || 0))
-    const shelves = assembleShelf({ deliverables, decisions, research, integrations, fieldMappings, sentDocuments, homeName: home, missing: missing() })
+    const shelves = assembleShelf({ deliverables, decisions, research, integrations, fieldMappings, sentDocuments, homeName: home, missing: missing(failed) })
     // per project: the same shelf scoped to the project, plus its milestones (from the fixtures' milestone read)
     const byProject = {}
     const projects = s.projects || []
@@ -137,10 +162,10 @@ export function createArchive(cfg, { surfaces, lastScan, homeName = () => 'home'
         decisions: decisions.filter((d) => d.project === key),
         research: (research || []).filter((r) => r.project === key), integrations: (integrations || []).filter((r) => r.project === key), fieldMappings: (fieldMappings || []).filter((r) => r.project === key), sentDocuments: (sentDocuments || []).filter((r) => r.project === key),
         milestones: (p.milestones?.list || []).map((m) => ({ id: m.id, name: m.name, status: m.status, done: Boolean(m.done), committed: m.committed || 0, url: m.url || '' })),
-        skipped: missing(),
+        skipped: missing(failed),
       }
     }
-    return { at: new Date(now()).toISOString(), shelves, byProject, missing: missing() }
+    return { at: new Date(now()).toISOString(), shelves, byProject, missing: missing(failed) }
   }
   return { shelf }
 }

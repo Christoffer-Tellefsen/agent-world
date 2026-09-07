@@ -57,7 +57,7 @@ test('U32: the shelf presentation — six sections newest first, Open buttons on
     name: 'ZZTEST Client',
     deliverables: [{ kind: 'deliverable', title: 'ZZTEST page', at: 2, skill: 'zztest-artist', system: 'notion', open: [{ label: 'Open in Notion', url: 'https://app.notion.com/p/x' }] }, { kind: 'deliverable', title: 'ZZTEST config reference', ref: 'ops_config:ZZTEST_REF', at: 1, skill: 'zztest-artist', system: 'compass', open: [] }],
     sentDocuments: [], decisions: [{ kind: 'decision', title: 'ZZTEST settled', status: 'Active', confidence: '🟢 Settled', at: 3, open: [{ label: 'Open in Notion', url: 'https://app.notion.com/p/d' }] }], research: [], integrations: [], fieldMappings: [],
-    skipped: { research: 'SKIPPED:ENV — set NOTION_DS_RESEARCH in .env', sentDocuments: 'SKIPPED:ENV — no data source id is named for Sent Documents (set NOTION_DS_SENT_DOCUMENTS in .env)' },
+    skipped: { research: 'SKIPPED:ENV — set NOTION_DS_RESEARCH in .env', sentDocuments: 'SKIPPED:ENV — set NOTION_DS_DELIVERABLES in .env (Sent Documents = its rows at Status "Sent to Client")' },
   }
   const sections = shelfSections(shelf)
   assert.deepEqual(sections.map((s) => s.key), SECTIONS.map(([k]) => k))
@@ -69,4 +69,26 @@ test('U32: the shelf presentation — six sections newest first, Open buttons on
   const tab = projectTab({ ...shelf, milestones: [{ id: 'm1', name: 'M1', status: '🟢 Delivered', done: true, committed: 1788739200000 }, { id: 'm2', name: 'M2', status: '⚪ Not Started', done: false }] })
   assert.equal(tab.milestones.length, 2); assert.equal(tab.milestones[0].done, true); assert.equal(tab.milestones[0].value, '2026-09-07')
   assert.ok(tab.sections.every((s) => s.rows.length || s.note.startsWith('SKIPPED')), 'the tab shows what it has and what is skipped, not empty shelves')
+})
+
+test('U32 (2026-09-07): Sent Documents = the Deliverables rows at Status "Sent to Client"; an unreadable name is a note on its section, by name', async () => {
+  const { sentDocumentsOf, assembleShelf, deliverablesFromRuns } = await import(path.join(root, 'server/harnesses/compass/archive.mjs'))
+  const { shelfSections } = await import(path.join(root, 'overlay/archive.mjs'))
+  const { fold } = await import(path.join(root, 'server/harnesses/compass/fold.mjs'))
+  const rows = [
+    { kind: 'deliverable', id: 'd1', title: 'ZZTEST proposal', status: 'Sent to Client', at: 3, client: 'ZZTEST Client', open: [] },
+    { kind: 'deliverable', id: 'd2', title: 'ZZTEST draft', status: 'Draft', at: 2, client: 'ZZTEST Client', open: [] },
+    { kind: 'deliverable', id: 'd3', title: 'ZZTEST older sent', status: 'sent to client', at: 1, client: 'ZZTEST Client', open: [] },
+  ]
+  const sent = sentDocumentsOf(rows)
+  assert.deepEqual(sent.map((r) => r.title), ['ZZTEST proposal', 'ZZTEST older sent'], 'the status match is exact and case-insensitive')
+  assert.ok(sent.every((r) => r.kind === 'sent-document'))
+  const d = deliverablesFromRuns(fold(fx.events), new Map(), { homeName: 'ZZTEST Home' })
+  const shelves = assembleShelf({ deliverables: d, sentDocuments: sent, homeName: 'ZZTEST Home', missing: { research: 'SKIPPED:ENV — NOTION_DS_RESEARCH is set but unreadable: notion 404 on data_sources/c911266c…/query: object_not_found' } })
+  const zz = shelves.find((s) => s.name === 'ZZTEST Client')
+  assert.deepEqual(zz.sentDocuments.map((r) => r.title), ['ZZTEST proposal', 'ZZTEST older sent'], 'newest first on the shelf')
+  const sections = shelfSections(zz)
+  assert.equal(sections[1].rows.length, 2)
+  assert.equal(sections[1].sub, 'the Deliverables rows at Status "Sent to Client"')
+  assert.match(sections[3].note, /^SKIPPED:ENV — NOTION_DS_RESEARCH is set but unreadable: notion 404/, 'the shelf names the name that failed, never an empty shelf that looks read')
 })

@@ -5,7 +5,7 @@
 
 export const SECTIONS = Object.freeze([
   ['deliverables', 'Deliverables', 'every registered artifact in the ledger window'],
-  ['sentDocuments', 'Sent Documents', ''],
+  ['sentDocuments', 'Sent Documents', 'the Deliverables rows at Status "Sent to Client"'],
   ['decisions', 'Settled Decisions', 'Status Active'],
   ['research', 'Research briefs', ''],
   ['integrations', 'Integration pages', ''],

@@ -13,20 +13,43 @@
  *   integration-yard  Integrations with open drift findings (NOTION_DS_INTEGRATIONS)
  *   workshop          Active Build projects with their next milestone; the Delivery-type skills as benches
  *   records-office    automations, connectors (substrate v2 — SKIPPED:WORKER-NEEDED on v1), the silent skills, the last twenty ledger runs
- *   corner-office     today's Big 3 (Tasks — the Action Items database exposes no data source today), the four numbers
- *                     (rollups — v2), the milestone heat; the in-tray is the overlay's own list
+ *   corner-office     today's Big 3 (✅ Tasks, NOTION_DS_TASKS — Status "🎯 Today" and the Big 3 priority, both matched by option
+ *                     name from the source's own schema, never assumed), the four numbers (rollups — v2), the milestone
+ *                     heat; the in-tray is the overlay's own list
+ * A name that is set but unreadable (Notion 404 — the database is not shared with the integration) names itself on its
+ * panel (SKIPPED:ENV — <name> is set but unreadable: …); an absent name says SKIPPED:ENV — set <name>.
  * Skills are rows in their room by ops_skills.type with the pack's overrides; each row is lit (a run live),
  * dark (idle), dusty (silent 30 d and wanted) or red (failed 24 h). Annex III: a row is a skill, never a person.
  */
 import { roomForSkill, roomsOf } from './pack.mjs'
 import { nextMilestone } from './steering.mjs'
 import { PANEL_MS } from './surfaces.mjs'
-import { DECISIONS, envSources, resolveTasks } from './notion-sources.mjs'
+import { DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
 import { titleOf, selectName, dateStart, multiNames, relationIds } from './notion.mjs'
 
 const DAY_MS = 24 * 3600 * 1000
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
-export const SKIP = Object.freeze({ env: (name) => `SKIPPED:ENV — set ${name} in .env`, worker: (what) => `SKIPPED:WORKER-NEEDED — ${what} arrives with /world/substrate v2 (Prompt B-2)`, tasks: 'SKIPPED:ENV — the Action Items database exposes no data source to the integration (GET /v1/databases → data_sources [])' })
+export const SKIP = Object.freeze({ env: (name) => `SKIPPED:ENV — set ${name} in .env`, worker: (what) => `SKIPPED:WORKER-NEEDED — ${what} arrives with /world/substrate v2 (Prompt B-2)` })
+
+/** Pure: a Date's local calendar day as YYYY-MM-DD (toISOString would give the UTC day — the wall was a day early east of Greenwich, seen 2026-09-07). */
+export const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+/** Pure: the week wall — Sun–Thu of the current local week (Muscat's working week), each day's cards by their date. */
+export function weekWall(items, now = Date.now()) {
+  const d = new Date(now); const sun = new Date(d); sun.setDate(d.getDate() - d.getDay()); sun.setHours(12, 0, 0, 0)
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'].map((name, i) => { const day = new Date(sun); day.setDate(sun.getDate() + i); const iso = localDay(day); return { name, date: iso, cards: (Array.isArray(items) ? items : []).filter((c) => c.date === iso) } })
+}
+/** Pure: the option of a select / status property whose name matches, from the data source's schema (never assumed). */
+export function optionNamed(prop, re) {
+  const t = prop?.type
+  const options = t === 'select' || t === 'status' ? prop[t]?.options || [] : []
+  const hit = options.find((o) => re.test(String(o?.name || '')))
+  return hit ? { type: t, name: hit.name } : null
+}
+/** Pure: today's Big 3 from the Tasks rows — Status "🎯 Today" and the Big 3 priority, by the names the schema gave. */
+export function big3Of(items, { today, big3 }) {
+  const rows = (Array.isArray(items) ? items : []).filter((t) => t.status === today)
+  return { rows: rows.filter((t) => t.priority === big3).slice(0, 3), today: rows.length }
+}
 
 /** Pure: warmth from days since last touch (U20's rule, now a column). */
 export const warmthOf = (days) => (days == null || !Number.isFinite(days) ? 0.2 : days <= 7 ? 1.0 : days <= 30 ? 0.5 : 0.2)
@@ -136,7 +159,7 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
 
   const researchBriefs = () =>
     surfaces.stale('room:research', PANEL_MS, async () => {
-      const rows = await surfaces.client.query(env.RESEARCH, { page_size: 100 })
+      const rows = await surfaces.client.query(env.RESEARCH, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('RESEARCH', err)) })
       return { rows: rows.map((p) => { const pr = p.properties || {}; return { id: p.id, title: titleOf(p), status: selectName(pr.Status), refreshDue: dateStart(pr['Refresh Due'] || pr['Review Due'] || pr['Next Refresh']), handoff: Boolean(relationIds(pr.Handoff).length || selectName(pr.Handoff) || relationIds(pr.Project).length), url: p.url || '', edited: p.last_edited_time || '' } }), error: '' }
     }, { rows: [], error: 'reading…' })
 
@@ -145,12 +168,10 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
     const signatures = (s.threads || []).filter((t) => t.kind === 'request' && (t.request === 'content' || t.gates?.some((g) => g.surface === 'content_status'))).map((t) => ({ id: t.id, title: t.gates?.[0]?.gate || t.title, url: t.ref?.url || '', at: t.gateAt || t.lastActivityAt }))
     if (!env.CONTENT) return { week: [], signatures, skipped: SKIP.env('NOTION_DS_CONTENT') }
     const wall = await surfaces.stale('room:content', PANEL_MS, async () => {
-      const rows = await surfaces.client.query(env.CONTENT, { page_size: 100 })
-      const items = rows.map((p) => { const pr = p.properties || {}; const date = dateStart(pr['Publish Date'] || pr.Date || pr['Scheduled'] || pr['Planned']); return { id: p.id, title: titleOf(p), status: selectName(pr.Status), channel: selectName(pr.Channel) || multiNames(pr.Channel).join('/'), date, url: p.url || '' } })
-      // the week wall: Sun–Thu of the current week (Muscat's working week)
-      const d = new Date(now()); const dow = d.getDay(); const sun = new Date(d); sun.setDate(d.getDate() - dow); sun.setHours(0, 0, 0, 0)
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'].map((name, i) => { const day = new Date(sun); day.setDate(sun.getDate() + i); const iso = day.toISOString().slice(0, 10); return { name, date: iso, cards: items.filter((c) => c.date === iso) } })
-      return { week: days, byStatus: items.reduce((m, c) => ((m[c.status || '∅'] = (m[c.status || '∅'] || 0) + 1), m), {}), error: '' }
+      const rows = await surfaces.client.query(env.CONTENT, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('CONTENT', err)) })
+      // the wall's date is the plan (Target Publish Date), else the fact (Published Date); the channel is the primary one
+      const items = rows.map((p) => { const pr = p.properties || {}; const date = dateStart(pr['Target Publish Date']) || dateStart(pr['Published Date']) || dateStart(pr['Publish Date'] || pr.Date); return { id: p.id, title: titleOf(p), status: selectName(pr.Status), channel: selectName(pr['Primary channel'] || pr.Channel) || multiNames(pr.Channel).join('/'), date, url: p.url || '' } })
+      return { week: weekWall(items, now()), byStatus: items.reduce((m, c) => ((m[c.status || '∅'] = (m[c.status || '∅'] || 0) + 1), m), {}), error: '' }
     }, { week: [], byStatus: {}, error: 'reading…' })
     return { ...wall, signatures, skipped: '' }
   }
@@ -174,10 +195,10 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
   async function integrationYard() {
     if (!env.INTEGRATIONS) return { rows: [], skipped: SKIP.env('NOTION_DS_INTEGRATIONS') }
     return surfaces.stale('room:integrations', PANEL_MS, async () => {
-      const rows = await surfaces.client.query(env.INTEGRATIONS, { page_size: 100 })
+      const rows = await surfaces.client.query(env.INTEGRATIONS, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('INTEGRATIONS', err)) })
       const items = rows.map((p) => { const pr = p.properties || {}; return { id: p.id, title: titleOf(p), status: selectName(pr.Status), drift: selectName(pr['Drift Status'] || pr.Drift) || (Number(pr['Open Findings']?.number) || 0), url: p.url || '' } })
       return { rows: items, open: items.filter((i) => /open|drift/i.test(String(i.drift)) || Number(i.drift) > 0), error: '', skipped: '' }
-    }, { rows: [], open: [], error: 'reading…' })
+    }, { rows: [], open: [], error: 'reading…', skipped: '' })
   }
 
   async function workshop() {
@@ -193,7 +214,10 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
     const runs = [...(s.runs?.values?.() || [])].sort((a, b) => b.lastAt - a.lastAt).slice(0, 20).map((r) => ({ id: r.id, skill: r.skill, client: r.client || '', state: r.terminal === 'run_failed' ? 'failed' : r.gates.some((g) => !g.passed) ? 'waiting' : r.terminal === 'run_completed' ? 'completed' : s.live.has(r.skill) ? 'running' : 'idle', at: r.lastAt, gates: r.gates.length, artifacts: r.artifacts.length }))
     const skills = await skillsWithStates()
     const v2 = Number(sub.version) >= 2
+    // the ! requests from 🩺 System Health stand here (ES-6.3); an unreadable source says so by name instead of an empty list
+    const health = { rows: (s.threads || []).filter((t) => t.kind === 'request' && t.request === 'health').map((t) => ({ id: t.id, title: t.gitBranch === 'open finding' ? (t.preview || '').split(' — ')[0] : t.title, url: t.ref?.url || '', at: t.createdAt })), skipped: env.SYSTEM_HEALTH ? '' : SKIP.env('NOTION_DS_SYSTEM_HEALTH'), error: surfaces.readErrors?.()['system-health'] || '' }
     return {
+      health,
       automations: v2 ? { rows: sub.automations || [], skipped: '' } : { rows: [], skipped: SKIP.worker('automations (next fire, last fire, missed)') },
       connectors: v2 ? { rows: sub.connectors || [], skipped: '' } : { rows: [], skipped: SKIP.worker('connectors') },
       silent: { rows: (s.silent || []).map((name) => ({ name, dusty: skills.get('records-office')?.some((r) => r.name === name && r.state === 'dusty') || [...skills.values()].some((list) => list.some((r) => r.name === name && r.state === 'dusty')) })), of: (sub.skills || []).filter((k) => /^active$/i.test(str(k.status))).length },
@@ -206,13 +230,18 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
     // the in-tray (U14) — the request threads standing on the scan, as the tray lists them
     const s = scan()
     const tray = (s.threads || []).filter((t) => t.kind === 'request').map((t) => ({ id: t.id, title: t.title, skill: t.skill, zone: t.project, at: t.gateAt || t.lastActivityAt, url: t.ref?.url || '', badge: t.badge })).sort((a, b) => (a.badge === b.badge ? 0 : a.badge === '!' ? -1 : 1) || a.at - b.at)
-    const tasksDs = await resolveTasks((p) => surfaces.client.get(p))
-    let big3 = { rows: [], skipped: SKIP.tasks }
-    if (tasksDs) {
+    let big3 = { rows: [], skipped: SKIP.env('NOTION_DS_TASKS') }
+    if (env.TASKS) {
       big3 = await surfaces.stale('room:tasks', PANEL_MS, async () => {
-        const rows = await surfaces.client.query(tasksDs, { page_size: 100 })
+        // the option names come from the source's schema (GET /v1/data_sources/<id>): "🎯 Today" and the Big 3 priority
+        const schema = await surfaces.client.get(`data_sources/${env.TASKS}`).catch((err) => { throw new Error(unreadableNote('TASKS', err)) })
+        const today = optionNamed(schema.properties?.Status, /today/i)
+        const big = optionNamed(schema.properties?.Priority, /big 3/i)
+        if (!today || !big) throw new Error(`NOTION_DS_TASKS: no ${!today ? 'Status option matching "Today"' : 'Priority option matching "Big 3"'} in the source's schema`)
+        const filter = { property: 'Status', [today.type]: { equals: today.name } }
+        const rows = await surfaces.client.query(env.TASKS, { filter, page_size: 100 }, { maxPages: 3 })
         const items = rows.map((p) => { const pr = p.properties || {}; return { id: p.id, title: titleOf(p), status: selectName(pr.Status), priority: selectName(pr.Priority), url: p.url || '' } })
-        return { rows: items.filter((t) => /today/i.test(t.status) && /big 3/i.test(t.priority)).slice(0, 3), today: items.filter((t) => /today/i.test(t.status)).length, skipped: '', error: '' }
+        return { ...big3Of(items, { today: today.name, big3: big.name }), names: { today: today.name, big3: big.name }, skipped: '', error: '' }
       }, { rows: [], skipped: '', error: 'reading…' })
     }
     const v2 = Number(sub.version) >= 2

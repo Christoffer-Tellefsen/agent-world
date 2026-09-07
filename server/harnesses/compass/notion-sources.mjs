@@ -5,17 +5,18 @@
  * and refuses every other POST, PUT, PATCH and DELETE (proven by a refused id in the test).
  *
  *   PROJECTS, DECISIONS  constants (allowed since U19)
- *   TASKS                resolved once from the Action Items database on the project page (GET
- *                        /v1/databases/<id> → data_sources[0].id); undefined until resolved, or when
- *                        the integration cannot see it
- *   CONTENT, RESEARCH, DELIVERABLES, INTEGRATIONS, FIELD_MAPPINGS, SYSTEM_HEALTH (+ SENT_DOCUMENTS, optional)
+ *   CONTENT, RESEARCH, DELIVERABLES, INTEGRATIONS, FIELD_MAPPINGS, SYSTEM_HEALTH, TASKS
  *                        the NOTION_DS_* names in .env — absent → undefined, and the panel or
- *                        section that needs one is skipped (SKIPPED:ENV, names only), never guessed
+ *                        section that needs one is skipped (SKIPPED:ENV, names only), never guessed.
+ *                        TASKS is the ✅ Tasks data source (2026-09-07: the Action Items block on the
+ *                        project page is a linked view and exposes no data source to the integration).
+ *                        Sent Documents is not a source of its own: the archive reads DELIVERABLES at
+ *                        Status "Sent to Client" (2026-09-07 — there is no Sent Documents database).
+ *   A name that is set but unreadable (Notion 404: the database is not shared with the integration)
+ *   is reported by name on the panel or shelf that needs it; nothing is retried faster than the cache.
  */
 export const PROJECTS = '33dc0af9-c974-80e9-9d5d-000ba4bd72ea'
 export const DECISIONS = 'f73d4f92-426c-4c11-990e-ae14403b4e28'
-/** The Action Items database on the project page; its data source is resolved at runtime. */
-export const TASKS_DATABASE = '373c0af9c97482b3a2cc01de75c1ba21'
 
 export const ENV_NAMES = Object.freeze({
   CONTENT: 'NOTION_DS_CONTENT',
@@ -24,14 +25,13 @@ export const ENV_NAMES = Object.freeze({
   INTEGRATIONS: 'NOTION_DS_INTEGRATIONS',
   FIELD_MAPPINGS: 'NOTION_DS_FIELD_MAPPINGS',
   SYSTEM_HEALTH: 'NOTION_DS_SYSTEM_HEALTH',
-  /** Optional (M2b U32): the Project page's Sent Documents table — not one of the six names the pack lists; absent → the section is skipped. */
-  SENT_DOCUMENTS: 'NOTION_DS_SENT_DOCUMENTS',
+  TASKS: 'NOTION_DS_TASKS',
 })
 
 const ID = /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const clean = (v) => (typeof v === 'string' && ID.test(v.trim()) ? v.trim() : undefined)
 
-/** The six env-named sources, read once from the environment. Absent or malformed → undefined. */
+/** The seven env-named sources, read once from the environment. Absent or malformed → undefined. */
 export function envSources(env = process.env) {
   const out = {}
   for (const [key, name] of Object.entries(ENV_NAMES)) out[key] = clean(env[name])
@@ -40,23 +40,12 @@ export function envSources(env = process.env) {
 /** Which NOTION_DS_* names are missing — names only, never a value. */
 export const missingEnvNames = (env = process.env) => Object.entries(ENV_NAMES).filter(([k]) => !envSources(env)[k]).map(([, name]) => name)
 
-let tasks
-/** Resolve the Tasks data source once from the Action Items database (GET). Undefined when unreadable. */
-export async function resolveTasks(notionGet) {
-  if (tasks !== undefined) return tasks
-  try {
-    const db = await notionGet(`databases/${TASKS_DATABASE}`)
-    tasks = clean(db?.data_sources?.[0]?.id) || null
-  } catch {
-    tasks = null
-  }
-  return tasks
-}
-export const _resetTasks = () => (tasks = undefined)
+/** The note a panel or shelf carries for a name that is set but the integration cannot read (names only). */
+export const unreadableNote = (key, err) => `SKIPPED:ENV — ${ENV_NAMES[key] || key} is set but unreadable: ${err?.message || err || 'unknown error'}`
 
 /** Every id the adapter may query right now. */
 export function allowedSources(env = process.env) {
-  return { PROJECTS, DECISIONS, TASKS: tasks || undefined, ...envSources(env) }
+  return { PROJECTS, DECISIONS, ...envSources(env) }
 }
 /** Is this data source id one the adapter may query? */
 export const isAllowed = (id, env = process.env) => Object.values(allowedSources(env)).some((v) => v && v.replace(/-/g, '') === String(id || '').replace(/-/g, ''))

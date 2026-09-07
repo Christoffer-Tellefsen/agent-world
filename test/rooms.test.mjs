@@ -142,3 +142,47 @@ test('U31: a failed panel read names its error on the panel and is retried after
   t = 63_000
   assert.deepEqual((await s.stale('k', 5 * 60_000, fn, { rows: [] })).rows, [1], 'a good answer replaces the error')
 })
+
+test('U31 (2026-09-07, NOTION_DS_TASKS): the Big 3 come from the Tasks source by the option names its schema gives — never assumed', async () => {
+  const { optionNamed, big3Of } = await import(path.join(root, 'server/harnesses/compass/rooms.mjs'))
+  const status = { type: 'select', select: { options: [{ name: '📥 Inbox' }, { name: '🎯 Today' }, { name: '✅ Done' }] } }
+  const priority = { type: 'select', select: { options: [{ name: '🔴 Big 3 Daily' }, { name: '🟡 Big 3 Weekly' }, { name: '⚪ Normal' }] } }
+  assert.deepEqual(optionNamed(status, /today/i), { type: 'select', name: '🎯 Today' })
+  assert.deepEqual(optionNamed(priority, /big 3/i), { type: 'select', name: '🔴 Big 3 Daily' }, 'the first Big 3 option in schema order is the daily one')
+  assert.deepEqual(optionNamed({ type: 'status', status: { options: [{ name: 'Today' }] } }, /today/i), { type: 'status', name: 'Today' }, 'a status-typed property works the same')
+  assert.equal(optionNamed({ type: 'rich_text' }, /today/i), null)
+  const items = [
+    { title: 'ZZTEST a', status: '🎯 Today', priority: '🔴 Big 3 Daily' }, { title: 'ZZTEST b', status: '🎯 Today', priority: '⚪ Normal' },
+    { title: 'ZZTEST c', status: '🎯 Today', priority: '🔴 Big 3 Daily' }, { title: 'ZZTEST d', status: '📥 Inbox', priority: '🔴 Big 3 Daily' },
+    { title: 'ZZTEST e', status: '🎯 Today', priority: '🔴 Big 3 Daily' }, { title: 'ZZTEST f', status: '🎯 Today', priority: '🔴 Big 3 Daily' },
+  ]
+  const b = big3Of(items, { today: '🎯 Today', big3: '🔴 Big 3 Daily' })
+  assert.deepEqual(b.rows.map((r) => r.title), ['ZZTEST a', 'ZZTEST c', 'ZZTEST e'], 'three at most, in the source order; Inbox and Normal never')
+  assert.equal(b.today, 5)
+  // the corner office fixture names the env name when it is absent
+  const { roomSections } = await import(path.join(root, 'overlay/rooms.mjs'))
+  const co = roomSections('corner-office', read('test/fixtures/m2b-rooms.json')['corner-office'], NOW)
+  assert.equal(co[1].note, 'SKIPPED:ENV — set NOTION_DS_TASKS in .env')
+})
+
+test('U31 (2026-09-07): the week wall is Sun–Thu of the local week by local calendar day, never the UTC day', async () => {
+  const { weekWall, localDay } = await import(path.join(root, 'server/harnesses/compass/rooms.mjs'))
+  const monday = new Date(2026, 8, 7, 9, 0, 0) // local Monday 2026-09-07 09:00 — the day this was seen a day early
+  const items = [{ title: 'ZZTEST sun', date: '2026-09-06' }, { title: 'ZZTEST tue', date: '2026-09-08' }, { title: 'ZZTEST fri', date: '2026-09-11' }]
+  const wall = weekWall(items, monday.getTime())
+  assert.deepEqual(wall.map((d) => `${d.name} ${d.date}`), ['Sun 2026-09-06', 'Mon 2026-09-07', 'Tue 2026-09-08', 'Wed 2026-09-09', 'Thu 2026-09-10'])
+  assert.deepEqual(wall.map((d) => d.cards.map((c) => c.title)), [['ZZTEST sun'], [], ['ZZTEST tue'], [], []], 'Friday is off the wall')
+  assert.equal(localDay(new Date(2026, 0, 1, 0, 30)), '2026-01-01', 'half past midnight local is still that day')
+  const saturday = new Date(2026, 8, 5, 23, 0, 0)
+  assert.equal(weekWall([], saturday.getTime())[0].date, '2026-08-30', 'a Saturday belongs to the week that began on the Sunday before it')
+  // pinned east of Greenwich (the second opinion: under TZ=UTC the old toISOString code gives the same dates, so the
+  // assertions above alone would not catch the regression on a UTC machine) — a child process in Asia/Muscat
+  const { execFileSync } = await import('node:child_process')
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e', `import { weekWall } from ${JSON.stringify(path.join(root, 'server/harnesses/compass/rooms.mjs'))}; const d = new Date(2026, 8, 7, 9); const w = weekWall([], d.getTime()); process.stdout.write(w[0].date + ' ' + d.toISOString().slice(0, 10))`], { env: { ...process.env, TZ: 'Asia/Muscat' }, encoding: 'utf8' })
+  assert.equal(out, '2026-09-06 2026-09-07', 'in Muscat the wall starts on Sun 06 (the old code read the UTC day and started a day early)')
+  // the records office names an unreadable System Health source instead of an empty list
+  const { roomSections } = await import(path.join(root, 'overlay/rooms.mjs'))
+  const rec = roomSections('records-office', { ...read('test/fixtures/m2b-rooms.json')['records-office'], health: { rows: [], error: 'SKIPPED:ENV — NOTION_DS_SYSTEM_HEALTH is set but unreadable: notion 404' } }, NOW)
+  assert.match(rec[4].note, /NOTION_DS_SYSTEM_HEALTH is set but unreadable/)
+  assert.equal(roomSections('records-office', read('test/fixtures/m2b-rooms.json')['records-office'], NOW)[4].note, 'no open finding')
+})
