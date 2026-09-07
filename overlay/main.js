@@ -15,11 +15,15 @@
 // first, then opens the gate's surface (the same link Open uses). The row wears ⏳ until U6's cross-check
 // clears the ? on a later poll; three polls without that and it is a ? again, "not seen yet". Nothing is
 // written from here — the tap lands on the surface (Decision 2026-09-06; the write path is M3's /actions).
+// U17 — signals: the suit is the skill's trust status (one colour per run_mode), a resident with its hand
+// up is a skill silent 30 days, ! on the campus flag is a run_failed with no later success, ✓ over a town
+// is a milestone flipped Done in 24 h; a short cue on a NEW ? or ! only, M mutes (a render setting).
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo } from './zones.mjs'
+import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
@@ -197,8 +201,11 @@ function render(sel) {
   const p = packOf(thread.pack)
   const room = roomFor(skill, p)
 
+  const suit = suitFor(thread.trust)
   const chips = [
     `<span class="chip ${CHIP[status] || ''}">${esc(LABEL[status] || status)}</span>`,
+    thread.hand ? '<span class="chip wait" title="Active in ops_skills, no run in 30 days">✋ hand raised</span>' : '',
+    `<span class="chip" style="color:#${suit.hex.toString(16).padStart(6, '0')}" title="${esc(suit.hint)} · ${esc(thread.trust?.source || '')}">suit · ${esc(suit.label)}</span>`,
     room ? `<span class="chip room" title="${esc(room.mirrors || '')}">${esc(noun('studio', p))} · ${esc(room.name)}</span>` : '',
     p.id !== pack().id ? `<span class="chip room" title="this ${esc(noun('town', p))} wears its own World Pack">${esc(p.id)}</span>` : '',
     thread.source ? `<span class="chip">${esc(thread.source)}</span>` : '',
@@ -277,6 +284,162 @@ window.addEventListener(
     e.stopPropagation()
     e.preventDefault()
     toast('This run is waiting on you — clear its gate on its surface instead of hiding it')
+  },
+  true
+)
+
+// ── U17: signals ─────────────────────────────────────────────────────────────────────────────
+
+const BUBBLE_Y = 2.35 // the badge floats at 1.52 (src/agents/astronauts.js); bubbles and hands sit above it
+/** Suits: the figure's suit tint is the skill's trust status. Re-applied after every roster (a status change resets nothing here, but a new agent arrives white). */
+function syncSuits() {
+  const bc = window.botCrossing
+  const byId = bc?.colony?.astronauts?.byId
+  if (!byId) return
+  const threads = new Map((bc.threads || []).map((t) => [t.id, t]))
+  for (const [id, agent] of byId) {
+    const t = threads.get(id) || agent.thread
+    const hex = suitFor(t?.trust).hex
+    if (agent.suit !== hex) {
+      agent.suit = hex
+      agent.colorDirty = true
+    }
+  }
+}
+
+/** Markers: a name plate above a point — ✋ over a resident, ! over the campus, ✓ over a town. */
+const markers = new Map() // key → { mesh, text, follow: agent id | null }
+let markerGroup = null
+function ensureMarkerGroup(colony) {
+  const THREE_GROUP = colony.plotGroup?.constructor
+  if (!THREE_GROUP) return null
+  if (!markerGroup) {
+    markerGroup = new THREE_GROUP()
+    markerGroup.name = 'aw:signals'
+    colony.scene.add(markerGroup)
+  }
+  return markerGroup
+}
+function wantMarker(colony, key, text, accent, at, follow = null) {
+  const have = markers.get(key)
+  if (have && have.text === text) {
+    if (at) have.mesh.position.set(at.x, at.y, at.z)
+    return
+  }
+  if (have) {
+    markerGroup.remove(have.mesh)
+    have.mesh.userData?.dispose?.()
+  }
+  try {
+    const mesh = createLabel(text, accent)
+    mesh.renderOrder = 9
+    mesh.visible = true
+    mesh.material.opacity = 0.95
+    if (at) mesh.position.set(at.x, at.y, at.z)
+    markerGroup.add(mesh)
+    markers.set(key, { mesh, text, follow })
+  } catch (err) {
+    console.warn('[world] marker not drawn:', key, err?.message || err)
+  }
+}
+const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+const plotAnchor = (colony, name) => {
+  const plot = colony.plots.get(name) || quiet.get(name)?.plot
+  return plot?.labelAnchor || plot?.middle || null
+}
+
+function syncSignals() {
+  const bc = window.botCrossing
+  const colony = bc?.colony
+  if (!colony?.scene || !colony.plots) return
+  if (!ensureMarkerGroup(colony)) return
+  const sig = signals()
+  const wanted = new Set()
+
+  // ✋ residents — one per skill silent 30 days, following its figure
+  for (const t of bc.threads || []) {
+    if (!t.hand || !colony.astronauts?.byId?.has(t.id)) continue
+    wanted.add(`hand:${t.id}`)
+    wantMarker(colony, `hand:${t.id}`, '✋ ' + t.title, cssVar('--aw-quiet', '#a9a8c0'), null, t.id)
+  }
+  // ! on the campus flag
+  const campusName = getWorld()?.campus?.name
+  const alert = sig.campus?.alert || []
+  if (alert.length && campusName && isHome()) {
+    const a = plotAnchor(colony, campusName)
+    if (a) {
+      wanted.add('flag')
+      wantMarker(colony, 'flag', `! ${alert.length === 1 ? alert[0].skill : alert.length + ' failed'}`, cssVar('--aw-block', '#f28b8b'), { x: a.x, y: 4.6, z: a.z })
+    }
+  }
+  // ✓ over a town whose project shipped a milestone in the last 24 h
+  for (const [name, s] of Object.entries(sig.towns || {})) {
+    if (!s?.check) continue
+    const a = plotAnchor(colony, name)
+    if (!a) continue
+    wanted.add(`check:${name}`)
+    wantMarker(colony, `check:${name}`, '✓ milestone done', cssVar('--aw-done', '#e6c67f'), { x: a.x, y: 4.6, z: a.z })
+  }
+  for (const [key, mk] of markers) {
+    if (wanted.has(key)) continue
+    markerGroup.remove(mk.mesh)
+    mk.mesh.userData?.dispose?.()
+    markers.delete(key)
+  }
+}
+function followMarkers() {
+  const colony = window.botCrossing?.colony
+  if (colony?.astronauts && markers.size) {
+    const show = Boolean(colony.uiVisible ?? true)
+    for (const mk of markers.values()) {
+      if (mk.follow) {
+        const agent = colony.astronauts.byId?.get(mk.follow)
+        if (agent) mk.mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y, agent.pos.z)
+      }
+      mk.mesh.visible = show
+    }
+  }
+  requestAnimationFrame(followMarkers)
+}
+requestAnimationFrame(followMarkers)
+setInterval(() => {
+  syncSuits()
+  syncSignals()
+  const b = residentsInfo()
+  const el = document.getElementById('aw-bench')
+  if (el) el.textContent = b.total ? `✋ ${b.shown} of ${b.total} silent skills${b.shown < b.total ? ' (rest on the bench)' : ''}` : ''
+}, 1000)
+
+// Sound: a cue on a NEW ? or ! since the last roster; M mutes, remembered as a render setting in the colony file.
+const cues = {
+  question: new Audio(new URL('./sounds/question.wav', import.meta.url).href),
+  alert: new Audio(new URL('./sounds/alert.wav', import.meta.url).href),
+}
+for (const a of Object.values(cues)) a.volume = 0.5
+const diff = new SignalDiff()
+const muted = () => Boolean(window.botCrossing?.settings?.get(AW_MUTED))
+let lastSoundRoster = null
+setInterval(() => {
+  const bc = window.botCrossing
+  if (!bc?.threads || bc.threads === lastSoundRoster) return
+  lastSoundRoster = bc.threads
+  const d = diff.update(bc.threads)
+  if (muted()) return
+  const cue = d.alert.length ? cues.alert : d.question.length ? cues.question : null
+  if (cue) cue.play().catch(() => {}) // autoplay policy: silent until the page has been clicked once
+}, 250)
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key !== 'm' && e.key !== 'M') return
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
+    const settings = window.botCrossing?.settings
+    if (!settings) return
+    const next = !settings.get(AW_MUTED)
+    settings.set(AW_MUTED, next)
+    toast(next ? 'Sound off — saved with your render settings' : 'Sound on')
   },
   true
 )
@@ -401,7 +564,7 @@ window.addEventListener(
 const bubbles = new Map() // thread id → { mesh, title }
 const tracker = new BubbleTracker()
 let bubbleGroup = null
-const BUBBLE_Y = 2.35 // the badge floats at 1.52 (src/agents/astronauts.js); the bubble sits above it
+// (BUBBLE_Y is declared with the signals above: the bubble and the ✋ share the height over the badge)
 
 function syncBubbles() {
   const bc = window.botCrossing
@@ -464,7 +627,8 @@ function renderSwitcher() {
     world.planets
       .map((p) => `<button data-key="${esc(p.key)}" aria-pressed="${p.key === currentKey()}" class="${p.hasSubstrate ? '' : 'empty'}" title="${esc(p.hasSubstrate ? `${p.role} · ${p.pack}` : 'no substrate yet')}">${esc(p.name)}</button>`)
       .join('') +
-    `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>`
+    `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>` +
+    `<span class="pack" id="aw-bench" title="skills Active in ops_skills with no run in 30 days: hands up on the campus; the rest wait on the bench under the figure cap (S → agents)"></span>`
   switcher.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
   switcher.classList.add('on')
 }

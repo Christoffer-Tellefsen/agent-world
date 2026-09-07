@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Agent World — seed the standing ZZTEST test set into ops_run_events via the Compass Worker.
 #   scripts/zztest-seed.sh          → Alpha (waiting), Beta (running), Gamma (failed), Delta (asleep),
-#                                     Epsilon (U13: completed, one Notion-page artifact + one Compass reference)
+#                                     Epsilon (U13: completed, one Notion-page artifact + one Compass reference),
+#                                     Eta (U17: zztest-stale-expert, last run 40 d ago — its ops_skills row, status active, is
+#                                     created by chat through the Compass MCP; the world never writes to Compass)
+# ZZTEST_PROJECT_ID (optional, .env): a ZZTEST project page id in Notion — every ZZTEST run then carries it as `project`,
+# so V-U17's ✓ (a ZZTEST milestone flipped Done) has a town to land on.
 #   scripts/zztest-seed.sh --clean  → DELETE $W/ledger/zztest first (skill LIKE 'zztest-%' rows only — the ledger's
 #                                     one named exception to append-only, Decision 2026-09-06), then the same seed.
 #                                     Without the flag nothing is deleted, ever.
@@ -27,7 +31,7 @@ run() {
     const [name, skill, client, trigger, hoursAgo, extra] = process.argv.slice(1)
     const id = require("crypto").randomUUID()
     const base = Date.now() - Number(hoursAgo) * 3600e3
-    const common = { run_id: id, skill, trigger, client: client === "null" ? null : client, project: null, actor: "zztest" }
+    const common = { run_id: id, skill, trigger, client: client === "null" ? null : client, project: process.env.ZZTEST_PROJECT_ID || null, actor: "zztest" }
     const events = [{ ...common, id, event_type: "run_started", at: new Date(base).toISOString(),
                       payload: { run_class: "A_gather_sync_check_propose", skill_version: "zztest" } }]
     JSON.parse(extra).forEach((e, i) => events.push({ ...common, ...e, at: e.at || new Date(base + (i + 1) * 1000).toISOString() }))
@@ -84,4 +88,6 @@ run "Delta (asleep)"   zztest-sleeper  "ZZTEST Client" chat             96 \
 : "${ZZTEST_ARTIFACT_URL:=https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab}"
 run "Epsilon (artist)"  zztest-artist   "ZZTEST Client" cowork_manual    0 \
   "[{\"event_type\":\"artifact_registered\",\"payload\":{\"type\":\"notion_page\",\"title\":\"ZZTEST artifact page\",\"notion_url\":\"$ZZTEST_ARTIFACT_URL\"}},{\"event_type\":\"run_completed\",\"payload\":{\"outcome\":\"success\",\"artifacts\":[{\"title\":\"ZZTEST config reference\",\"url\":\"ops_config:ZZTEST_REF\",\"system\":\"compass\"}]}}]"
+run "Eta (stale)"       zztest-stale-expert "ZZTEST Client" cowork_scheduled 960 \
+  '[{"event_type":"run_completed","payload":{"outcome":"success"}}]'
 echo "seeded — look at the world after the next poll (≤ 15 s)"

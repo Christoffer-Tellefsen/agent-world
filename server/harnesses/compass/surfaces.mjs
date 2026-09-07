@@ -68,13 +68,15 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
   }
 
   // ── U4: 🎯 Engagement Milestones done ÷ total for the run's project, 5-min cache ──────────
-  const progressCache = new Map() // dashed project id → { at, value }
-  async function progress(projectId) {
+  const progressCache = new Map() // dashed project id → { at, value, doneAt: newest last_edited_time of a Done milestone }
+  /** One read per project per 5 min: progress (U4) and the newest time a milestone was edited while Done (U17's ✓). */
+  async function milestones(projectId) {
     const id = dash(projectId)
-    if (!id) return 0.05
+    if (!id) return { value: 0.05, doneAt: 0 }
     const hit = progressCache.get(id)
-    if (hit && now() - hit.at < 5 * 60_000) return hit.value
+    if (hit && now() - hit.at < 5 * 60_000) return hit
     let value = 0.05
+    let doneAt = 0
     try {
       const page = await notion(`pages/${id}`)
       const rel = page.properties?.Milestones
@@ -84,15 +86,24 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
         ids = (more.results || []).map((r) => r.relation?.id).filter(Boolean)
       }
       if (ids.length) {
-        const statuses = await Promise.all(ids.map((m) => notion(`pages/${m}`).then((p) => selectName(p.properties?.Status)).catch(() => '')))
-        value = Math.max(0.05, statuses.filter((s) => DONE.test(s)).length / ids.length)
+        const pages = await Promise.all(ids.map((m) => notion(`pages/${m}`).then((p) => ({ status: selectName(p.properties?.Status), edited: Date.parse(p.last_edited_time) || 0 })).catch(() => ({ status: '', edited: 0 }))))
+        const done = pages.filter((p) => DONE.test(p.status))
+        value = Math.max(0.05, done.length / ids.length)
+        doneAt = done.reduce((m, p) => Math.max(m, p.edited), 0)
       }
       log(`progress ${id}: ${value} (${ids.length} milestones)`)
     } catch (err) {
       warn(`progress:${id}`, `milestone progress unavailable for project ${id} — ${err.message}`)
     }
-    progressCache.set(id, { at: now(), value })
-    return value
+    const entry = { at: now(), value, doneAt }
+    progressCache.set(id, entry)
+    return entry
+  }
+  const progress = async (projectId) => (await milestones(projectId)).value
+  /** U17: a milestone of this project was Done and edited within the window (Notion's last_edited_time is the only clock it offers). */
+  const recentDone = async (projectId, windowMs = 24 * 3600 * 1000) => {
+    const { doneAt } = await milestones(projectId)
+    return Boolean(doneAt) && now() - doneAt <= windowMs
   }
 
   // ── U6: has the surface already resolved this gate? ─────────────────────────────────────────
@@ -139,5 +150,5 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     return resolved
   }
 
-  return { progress, gateResolved, crossCheckable, _cache: { progressCache, gateCache } }
+  return { progress, recentDone, milestones, gateResolved, crossCheckable, _cache: { progressCache, gateCache } }
 }

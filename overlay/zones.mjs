@@ -7,6 +7,9 @@
 //     leaving data/colony.json to the API exactly as upstream wrote it.
 // The planet on screen is this browser's choice (localStorage), like the hide list — never state
 // on the server. No token ever reaches this file: the sidecar hands out names and packs only.
+//   - residents (U17: skills silent 30 days, sent by the adapter as sleeping figures) never take a
+//     figure slot from a run: they fill what is left under Bot Crossing's maxAgents, and go last.
+import { benchResidents } from './signals.mjs'
 
 const PORT = Number(window.AW_OVERLAY_PORT) || 5275
 export const SIDECAR = `${location.protocol}//${location.hostname}:${PORT}`
@@ -45,6 +48,30 @@ async function loadWorld() {
 
 /** Resolves once the world is known (or known to be unavailable); the fetch seam waits on it. */
 export const ready = loadWorld()
+
+/** The signals (U17) change with every scan: re-read GET /world on the poll's own cadence, keeping the shape stable. */
+const REFRESH_MS = 15_000
+async function refreshWorld() {
+  if (!world) return
+  try {
+    const res = await fetch(`${SIDECAR}/world`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(2500) })
+    if (!res.ok) return
+    const next = await res.json()
+    world.signals = next.signals || world.signals
+    world.towns = next.towns || world.towns
+    world.at = next.at
+  } catch {
+    /* keep the last good world */
+  }
+}
+ready.then(() => setInterval(refreshWorld, REFRESH_MS))
+export const signals = () => world?.signals || { campus: { alert: [] }, towns: {}, residents: [] }
+
+/** How many residents stand on this planet's map, of how many the adapter sent (the rest are "on the bench"). */
+let bench = { shown: 0, total: 0 }
+export const residentsInfo = () => bench
+/** Bot Crossing's figure cap — the page's own setting once it is up; its lowest preset until then. */
+const maxAgents = () => Number(window.botCrossing?.settings?.get?.('maxAgents')) || 40
 
 export const getWorld = () => world
 export const currentKey = () => current
@@ -92,7 +119,10 @@ window.fetch = async function awFetch(input, init) {
     const body = await res.json().catch(() => ({}))
     const list = Array.isArray(body.threads) ? body.threads : []
     // Placed by the adapter; a thread with no planet (an older adapter) belongs to the home planet.
-    body.threads = list.filter((t) => (t.planet || world.home) === current)
+    const here = list.filter((t) => (t.planet || world.home) === current)
+    const benched = benchResidents(here, maxAgents())
+    bench = { shown: benched.shown, total: benched.total }
+    body.threads = benched.threads
     return new Response(JSON.stringify(body), { status: res.status, headers: { 'Content-Type': 'application/json' } })
   }
   return realFetch(input, init)

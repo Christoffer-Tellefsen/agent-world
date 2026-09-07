@@ -310,7 +310,7 @@
         "npm test: each signal maps to exactly one defined fact; Annex III grep — no per-person field is read"
       ],
       "check": "V-U17",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

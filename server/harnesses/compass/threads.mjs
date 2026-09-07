@@ -162,10 +162,49 @@ export async function toThread(run, row, viewer, surfaces, now = Date.now(), opt
     canArchive: false,
     // What the run made (U13): the overlay lists these on the card and bubbles the newest one.
     artifacts: artifactsOf(run, row),
+    // The skill's trust status under AUTO_RUN_POLICY (U17): the suit colour, one per run_mode. Never a person's.
+    trust: typeof opts.trustOf === 'function' ? opts.trustOf(run.skill, run.runClass) : { mode: 'unknown', source: 'none' },
     // The gates still open on their surface (U14): the in-tray orders by the oldest one; each says who can tap it.
     gates: pending.map((g) => ({ gate: g.gate, surface: g.surface, ref_url: isLink(g.ref_url) ? g.ref_url : '', at: g.at, canTap: viewer.canTap(g), what: whatToDo(g, run) })),
     gateAt: pending.length ? Math.min(...pending.map((g) => g.at)) : 0,
     ref: { run_id: run.id, url: openUrl, context: contextUrl && contextUrl !== openUrl ? contextUrl : '' },
+  }
+}
+
+/**
+ * A resident (U17): a skill Active in ops_skills with no run in 30 days has no figure of its own —
+ * every figure is a run inside the window — so the campus keeps one for it, asleep, hand raised.
+ * Not a run: nothing to open, no gates, no artifacts; the id says what it is.
+ */
+export function residentThread(skill, { now = Date.now(), place, trust, staleDays = 30 } = {}) {
+  const at = typeof place === 'function' ? place('') : { zone: CAMPUS, planet: '', pack: '' }
+  const since = now - staleDays * 24 * 3600 * 1000
+  return {
+    id: `skill:${skill.name}`,
+    title: skill.name,
+    preview: `No run in ${staleDays} days, and the skill is Active in ops_skills — the hand is up. Nothing to open: run it from where it lives, or retire it in Compass.`,
+    project: at.zone,
+    planet: at.planet || '',
+    pack: at.pack || '',
+    projectPath: '', worktree: '', cwd: '',
+    gitBranch: 'hand raised · silent 30 d+',
+    model: '', effort: '',
+    // newest on its plot, so Bot Crossing (oldest first) seats every run before a resident
+    createdAt: now,
+    lastActivityAt: since,
+    lastFocusedAt: 0,
+    running: false, unread: false, hasError: false, starred: false, routine: false, archived: false,
+    sizeBytes: sizeBytesForProgress(0.05),
+    hasTranscript: false,
+    source: 'ops_skills',
+    canOpen: false, canArchive: false,
+    ref: { run_id: '', url: null, context: '' },
+    artifacts: [],
+    trust: trust || { mode: 'unknown', source: 'none' },
+    gates: [], gateAt: 0,
+    resident: true,
+    hand: true,
+    skillType: skill.type || '',
   }
 }
 
