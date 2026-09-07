@@ -1,7 +1,7 @@
 {
-  "_rules": "Edit ONLY the `passes` flags, and only after the steps have been run end-to-end. Never remove or weaken a feature or its steps. Order is the build order. `passes: true` means Built (automated + steps green); Verified is set by Christoffer in the Notion unit table, never here.",
-  "project": "Agent World — M1 Mirror (Bot Crossing fork with Compass adapter)",
-  "milestone": "M1 — Mirror: Bot Crossing fork with Compass adapter, filmed (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176)",
+  "_rules": "Edit ONLY the `passes` flags, and only after the steps have been run end-to-end. Never remove or weaken a feature or its steps. Order is the build order. `passes: true` means Built (automated + steps green); Verified is set by Christoffer in the Notion unit table, never here. M2 units carry depends_on / prereq / repo / check / verified: the loop skips a unit whose prereq is missing and says which; repo=worker units are built in tellefsen-compass-mcp, repo=human units are Christoffer's; verified is null until his cold check and is written only on his reply.",
+  "project": "Agent World — Bot Crossing fork with Compass adapter (M1 Mirror closed 2026-09-07; M2 Ontology skin in build)",
+  "milestone": "M1 — Mirror (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176, closed 2026-09-07) + M2 — The world speaks Tellefsen's ontology (units U12–U21, cut 2026-09-06, re-issued 2026-09-07 with the post-cut decisions folded in; build order U12 → U13 → U14 → U15 → U17 → U19 → U20 → U16 → U18 → U21; U16W is built in tellefsen-compass-mcp, U21 is Christoffer's)",
   "features": [
     {
       "id": "U1",
@@ -181,10 +181,294 @@
         "Uploaded to the Agent World Drive folder; the Project page's Sent Documents table links it as 'M1 film v1'"
       ],
       "passes": false
+    },
+    {
+      "id": "U12",
+      "category": "skin",
+      "milestone": "M2",
+      "description": "World Packs and the ontology skin — campus, one town per Active client, one planet per company",
+      "delivers": [
+        "ES-4.1",
+        "ES-4.2"
+      ],
+      "depends_on": [
+        "M1 closed"
+      ],
+      "prereq": [
+        "Compass WORLD_COMPANIES v0.3 with world_pack per company — done 2026-09-06",
+        "ZZTEST Client row in ops_clients, status Active — done 2026-09-06",
+        "GET /world/substrate live on the Worker (U12W) — done 2026-09-07"
+      ],
+      "repo": "fork",
+      "steps": [
+        "overlay/packs/<id>/pack.json: a pack declares skin (palette, KayKit asset set, lighting, sky, sound set, badge glyph art), rooms (each building and the substrate surface it mirrors, per the RA Spatial grammar table), names (nouns for world / town / building / studio / agent) and its layout file; ship tellefsen-campus (the Spatial grammar table: campus with solution studio, research lab, content studio, finance office, integration yard, board room, corner office) and neutral (grayscale, generic nouns, no Tellefsen name anywhere)",
+        "overlay/zones.mjs: read world_companies and clients from GET $EVENTS_URL/world/substrate (events bearer, 60 s cache) — never a Supabase key; planet pack = companies[].world_pack (absent → tellefsen-campus); town pack = ops_clients.world_branding.pack when present, else the company's; pack rides in the viewer context beside tenant, preset, scope, capabilities",
+        "town = a named zone group on its company's planet (client → the company whose clients list names it, else the home company); Tellefsen HQ at the centre; unknown client → town created with a default plot, layout persisted to that planet's colony file",
+        "planet = data/colony.<company>.json chosen by a switcher, created on first render; substrate null → an empty planet carrying its name and 'no substrate yet', no reads",
+        "skin assets via the agent-session-world skill, driven by the pack; no fact lives in the skin; a pack changes look and nouns, never badge precedence, mirrored surfaces, Annex III or presets",
+        "npm test: src/ unchanged; no model endpoint; zone map derived — the grep for company and client names covers overlay/** including overlay/packs/** and fails on any hit",
+        "fixture: add a second ZZTEST client through the Compass MCP → restart → town appears; remove → gone; layout survives reload; flip the home company's world_pack to neutral (chat does it) → restart → skin, rooms and nouns swap with no code change; flip back"
+      ],
+      "check": "V-U12",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U13",
+      "category": "artifacts",
+      "milestone": "M2",
+      "description": "Artifact bubbles and cards",
+      "delivers": [
+        "ES-4.3"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [],
+      "repo": "fork",
+      "steps": [
+        "adapter: fold artifact fields from run_completed / artifact_registered into the thread; keep Compass-reference artifacts as labels (non-openable) per the M1 data-shape note",
+        "overlay/: speech bubble on the agent for 60 s after a new artifact; card section 'Artifacts' with Open per row (Notion page or PDF URL)",
+        "fixture Epsilon: zztest-artist completes with one Notion-URL artifact and one Compass-reference artifact (added to scripts/zztest-seed.sh)",
+        "npm test: bubble appears on the Epsilon fixture; Compass-reference artifact has no Open target"
+      ],
+      "check": "V-U13",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U14",
+      "category": "in-tray",
+      "milestone": "M2",
+      "description": "In-tray — one list of every open ?",
+      "delivers": [
+        "ES-4.4"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [],
+      "repo": "fork",
+      "steps": [
+        "overlay/intray.mjs: list built from the same scan the badges use — no second data path; order = badge precedence, then oldest gate first",
+        "key I toggles; row click flies to the agent and selects it; N advances the same ordering",
+        "npm test: for the standing set the in-tray order equals the N order; count equals number of ? on the map"
+      ],
+      "check": "V-U14",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U15",
+      "category": "approve",
+      "milestone": "M2",
+      "description": "Approve as a verb — deep-link, no write",
+      "delivers": [
+        "ES-4.5"
+      ],
+      "depends_on": [
+        "U14"
+      ],
+      "prereq": [
+        "Decision 2026-09-06 (Active, Settled): Approve from the world at M2 = deep-link, no write; /actions stays M3"
+      ],
+      "repo": "fork",
+      "steps": [
+        "Approve on an in-tray row and on the card: show instruction text + surface name, then open the gate's ref_url (same resolution as U5)",
+        "row state ⏳ after Approve until U6's cross-check clears the ? on a later poll; if the ? is still open after 3 polls, the row returns to ? with 'not seen yet'",
+        "npm test: Approve calls no Worker write route; the adapter's write-guard test still passes",
+        "if a later Decision moves the write path to /actions, this becomes a Worker unit — never build a write path in the fork"
+      ],
+      "check": "V-U15",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U17",
+      "category": "signals",
+      "milestone": "M2",
+      "description": "Signals — suit colour, hand-raise, campus !, ✓ on milestone close, sound",
+      "delivers": [
+        "ES-4.7",
+        "ES-4.8"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [
+        "GET /world/substrate returns auto_run_policy {run_classes, skill_overrides} and skills — live 2026-09-07"
+      ],
+      "repo": "fork",
+      "steps": [
+        "suit colour = the skill's trust status from auto_run_policy: skill in skill_overrides → its run_mode; else named in run_classes.B_judge.skills → human_gated; else named in run_classes.A_gather_sync_check_propose.skills → unattended_allowed; else the run's own run_class (B_judge → human_gated, A → unattended_allowed); one colour per run_mode, grey for unknown; the mapping table lives in overlay/ (there is no ops_skills.class column)",
+        "hand-raise = skill status active in ops_skills (from /world/substrate) and no ledger run in 30 d (ledger fact, computed in the adapter from /ledger/scan?since=30 d, refreshed every 5 min)",
+        "campus ! = any run_failed in 24 h with no later run_completed for that skill",
+        "✓ over a town = a 🎯 Engagement Milestone of that client's project flipped Done in 24 h (Notion read, 5-min cache, reuse U4's client)",
+        "sound: two short local files under overlay/, play on a NEW ? or ! only (diff against last poll), M mutes; off-state remembered as a render setting in the colony file beside render scale; no voice",
+        "fixture Eta: zztest-stale-expert, last run 40 d ago, skill row active → hand raised (added to scripts/zztest-seed.sh; the ops_skills row is created by the seed with a zztest- name and removed by --clean); Gamma already gives the !",
+        "npm test: each signal maps to exactly one defined fact; Annex III grep — no per-person field is read"
+      ],
+      "check": "V-U17",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U19",
+      "category": "steering-room",
+      "milestone": "M2",
+      "description": "Steering Room panels — Pipeline, milestone board, last decisions",
+      "delivers": [
+        "ES-4.10"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [
+        "AIRTABLE_TOKEN reads Pipeline tbl5OkxwL3WqTK6Vz in base appixWl8C3bogLsvp (one GET with maxRecords=1 → 200)",
+        "NOTION_TOKEN shared with 🧠 Decisions (done 2026-09-06; data source f73d4f92-426c-4c11-990e-ae14403b4e28) and with the Projects DB (U4 proves it)"
+      ],
+      "repo": "fork",
+      "steps": [
+        "a Steering Room building on the campus (a room the pack names); walking in (or key R) opens three panels in overlay/",
+        "panel 1 Pipeline: Stage, deal, days since last touch — Airtable read, 5-min cache; Stage enum from deal_pipeline_stages on /world/substrate, never hardcoded",
+        "panel 2 Milestone board: next milestone per Active project — Notion read, reuse U4",
+        "panel 3 Decisions: last three Active/Pending — Notion read of the Decisions data source",
+        "npm test: all three readers are GET-only; cache respected; a 404 degrades to an empty panel with the fix named"
+      ],
+      "check": "V-U19",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U20",
+      "category": "prospects",
+      "milestone": "M2",
+      "description": "Prospect plots as decay",
+      "delivers": [
+        "ES-4.11"
+      ],
+      "depends_on": [
+        "U19"
+      ],
+      "prereq": [
+        "ZZTEST Pipeline row reclEgXG2t4ZnomCq in Airtable (Stage Lead, linked to Clients receKsWIaM5WozMKn) — done 2026-09-06"
+      ],
+      "repo": "fork",
+      "steps": [
+        "prospect = Pipeline row with Stage not in {Won, Lost} (enum from deal_pipeline_stages); plot on the campus edge, opacity from days since last touch (1.0 ≤ 7 d, 0.5 ≤ 30 d, 0.2 > 30 d) — a render rule, nothing stored",
+        "Won → the row's client becomes a town via U12 on the next poll; Lost → plot gone",
+        "the seed sets the ZZTEST Pipeline row's last-touch date 12 d back (ZZTEST rows only, guarded on the title) so V-U19 reads '12 d' and V-U20 half opacity",
+        "npm test: opacity function against three fixture dates; no write"
+      ],
+      "check": "V-U20",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U16W",
+      "category": "worker-pa",
+      "milestone": "M2",
+      "description": "Worker /ask — the PA route (Compass Worker repo)",
+      "delivers": [
+        "ES-4.6"
+      ],
+      "depends_on": [],
+      "prereq": [
+        "ANTHROPIC_API_KEY set on the Worker (wrangler secret put ANTHROPIC_API_KEY)",
+        "ops_skills row agent-world-pa exists (created 2026-09-07, status planned — flip to active when the route deploys)"
+      ],
+      "repo": "worker",
+      "steps": [
+        "in tellefsen-compass-mcp under its own CLAUDE.md: src/lib/ask-endpoint.ts, router on '/ask'; POST only (405 otherwise); events bearer, constant-time compare (401); body {question, context: {run_id?, client?, project?, zone?}}; an empty body or a missing question answers 400",
+        "reads only what the Worker already reaches: the run's events and ledger row, WORLD_COMPANIES, the client's runs, the project's milestones through the Notion token the Worker holds if any — read-only, no tool that writes",
+        "the model call lives here and only here: Anthropic Messages API with env.ANTHROPIC_API_KEY and env.PA_MODEL (default the current Sonnet); answer 200 {answer, run_id, model, tokens_in, tokens_out}; a model error → run_failed and 502",
+        "every ask is a governed run: run_started + run_completed (or run_failed) with skill agent-world-pa, trigger chat, actor world, client and project from context, plus the ops_skill_runs row (run_class A_gather_sync_check_propose, human_edit_level n/a, tokens filled); payload rules as /events — 8 KB, no content-shaped keys; the question and the answer stay out of the ledger",
+        "self-test with a fake Anthropic fetch (Workers semantics): wrong token 401 · GET 405 · missing question 400 · happy path issues one model call and writes run_started + run_completed + one row · model error writes run_failed and answers 502"
+      ],
+      "check": "V-U16W",
+      "passes": false,
+      "verified": null,
+      "worker": true
+    },
+    {
+      "id": "U16",
+      "category": "pa-panel",
+      "milestone": "M2",
+      "description": "PA panel — overlay on Worker /ask",
+      "delivers": [
+        "ES-4.6"
+      ],
+      "depends_on": [
+        "U12",
+        "U16W"
+      ],
+      "prereq": [
+        "POST $EVENTS_URL/ask answers 400 to an empty body (route live; 404 means U16W is not deployed)"
+      ],
+      "repo": "fork",
+      "steps": [
+        "overlay/pa.mjs: panel with a question box; sends the selected run / client / zone as context; renders the answer with the run_id and model it came from; key P",
+        "npm test: no model endpoint in the fork; /ask is the only network call the panel makes"
+      ],
+      "check": "V-U16",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U18",
+      "category": "sub-agents",
+      "milestone": "M2",
+      "description": "Sub-agent avatars",
+      "delivers": [
+        "ES-4.9"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [
+        "parent_run_id live on both write paths and returned by GET /ledger/scan — done 2026-09-06 (Lovable migration 21:40, Worker 8255545a)"
+      ],
+      "repo": "fork",
+      "steps": [
+        "adapter: read parent_run_id from the scan; child threads render as crew beside the parent's plot; parent card shows 'n sub-runs' and lists them",
+        "fixture Zeta: zztest-lead with two zztest-child runs carrying parent_run_id; one child waiting (?) — the parent inherits the ? per precedence, N lands on the child (added to scripts/zztest-seed.sh)",
+        "npm test: a stream without parent_run_id renders exactly as before (snapshot)"
+      ],
+      "check": "V-U18",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U21",
+      "category": "film",
+      "milestone": "M2",
+      "description": "The second film",
+      "delivers": [
+        "ES-4.12"
+      ],
+      "depends_on": [
+        "U12",
+        "U13",
+        "U14",
+        "U15",
+        "U17",
+        "U19",
+        "U20",
+        "U16",
+        "U18"
+      ],
+      "prereq": [],
+      "repo": "human",
+      "steps": [
+        "builder's part: scripts/zztest-seed.sh --clean seeds Alpha, Beta, Gamma, Delta, Epsilon, Eta, Zeta (lead + two children with parent_run_id) after DELETE /ledger/zztest, resets the ZZTEST Alpha Pending Approval row and sets the ZZTEST Pipeline row's last touch 12 d back; docs/film-shotlist-m2.md with the five beats: town → bubble → in-tray → Approve → ✓",
+        "Christoffer films; files to Drive; chat links it from Sent Documents"
+      ],
+      "check": "V-U21",
+      "passes": false,
+      "verified": null
     }
   ],
   "placeholders_not_cut": {
-    "M2": "Ontology skin via the agent-session-world skill; artifact bubbles and cards; in-tray as a plain list; Approve from the world (write path to settle); PA panel via Worker /ask (overlay/); sound; voice; suit colours; hand-raise; System Health !; ✓ on milestone close; sub-agent avatars; Steering Room panels as substrate reads; prospect plots rendering decay. Cut into units at the M1 acceptance refresh.",
     "M3": "Hosting on the Sovereign pattern; Supabase Auth; RLS policies; ops_world_grants; Worker /actions; client projection; multiplayer; first client town. Cut at the M2 acceptance refresh."
   }
 }

@@ -1,4 +1,4 @@
-# VERIFICATION — Agent World M1
+# VERIFICATION — Agent World (M1 closed 2026-09-07 · M2 checks V-U12W–V-U21 below)
 
 The verifier is Christoffer. He runs these checks cold, from this file, through the real surfaces (the browser at 127.0.0.1:5274, Airtable, Notion, the Compass MCP). A check that cannot be followed as written is a defect in the check — fix the check first. Pass → the unit is **Verified** in the Notion unit table with the date and evidence. Fail → one-line defect note on the unit, status stays **Built**, back to the builder. Never build the next dependent unit past a failing check.
 
@@ -17,6 +17,10 @@ All test runs use skill names prefixed `zztest-` and client `ZZTEST Client`, so 
 The one Airtable artifact: a Pending Approval row titled **ZZTEST Alpha** (Status *Pending Approval*) whose URL is Alpha's `ref_url`. Create it by hand before V-U3; delete it after V-U6.
 
 Cleanup at milestone close and before every film: `scripts/zztest-seed.sh --clean` — it calls the Worker's `DELETE /ledger/zztest` first (the route deletes `skill LIKE 'zztest-%'` rows and nothing else; the pattern is a constant in the Worker, Decision 2026-09-06) and prints `events_deleted` / `runs_deleted`, resets the ZZTEST Alpha Pending Approval row to *Pending Approval* (guarded: the row's title must start with ZZTEST), then seeds the four fixtures above. Without `--clean` the seed deletes nothing. `scripts/zztest-cleanup.sql` is gone — it assumed a Supabase SQL editor this Lovable-managed project does not have. The Airtable ZZTEST rows and the `data/colony.json` plot entry are unaffected by the route and can be cleaned up normally.
+
+**M2 additions (re-issued 2026-09-07).** Standing test set gains: **Epsilon** `zztest-artist` (completed, two artifacts), **Eta** `zztest-stale-expert` (last run 40 d ago, skill row active), **Zeta** `zztest-lead` + two `zztest-child` carrying `parent_run_id` (one child waiting), the **ZZTEST Client** (Active in `ops_clients` since 2026-09-06, `ae251fe2-4270-47c2-b2e6-6a0f3cff4d97`), the **ZZTEST Pipeline row** (`reclEgXG2t4ZnomCq`, Stage Lead; the seed sets its last touch 12 d back). `scripts/zztest-seed.sh --clean` creates all of them after `DELETE /ledger/zztest`; `test_run_exclusion` keeps them out of every rule. A seed run is the setup for every check below unless it says otherwise.
+
+The five Greek letters used by the offline fold fixtures in `test/fixtures/events.zztest.json` (Epsilon batch gate, Zeta content_status, Eta Class B blocked, Theta two drafts, Iota session gate) are test-file names only; on the live seed the names Epsilon, Eta and Zeta mean the M2 rows above.
 
 ## V-U10 — Worker ledger-read proxy (in `tellefsen-compass-mcp`, not this fork)
 Setup: `worker/ledger-read.mjs` dropped in and wired per `worker/WIRING.md`; `wrangler deploy` done.
@@ -92,5 +96,89 @@ See: 30–60 s; the six beats — rest, arrival, `?`, N, Open on the surface, `?
 Fail looks like: a seeded-only film with no real run; a beat missing; a client name that should not be on film.
 Cleanup: none.
 
+## V-U12W — Worker substrate read route (Compass Worker repo)
+- **Setup:** Worker deployed; bearer in hand; `W` and `H` as in the pre-flight page.
+- **Do:** `curl -s -o /dev/null -w '%{http_code}\n' $W/world/substrate` · the same with `-X POST -H "$H"` · `curl -s -H "$H" $W/world/substrate | jq 'keys'` · `| jq '.clients[].name'`.
+- **See:** 401 · 405 · the keys `at, auto_run_policy, clients, deal_pipeline_stages, skills, world_companies` · every client Active and "ZZTEST Client" among them; `Cache-Control: max-age=60`.
+- **Fail looks like:** a 200 without the bearer; a client row that is not Active; a Supabase value anywhere in the response.
+- **Cleanup:** none.
+
+## V-U12 — World Packs and the ontology skin
+- **Setup:** `./dev.sh`; seed run; `WORLD_COMPANIES` v0.3 in Compass (Tellefsen + two placeholder planets, `world_pack` on each).
+- **Do:** open the world. Open the planet switcher. Add a second ZZTEST client to `ops_clients` through the Compass MCP, restart `dev.sh`. Then, in chat, set the home company's `world_pack` to `neutral`, restart `dev.sh`; set it back, restart.
+- **See:** every Active client is a named town; Tellefsen HQ is the centre; the switcher lists the companies from Compass and each planet opens (the placeholders empty, named, "no substrate yet"); the new ZZTEST client is a town after restart; drag a plot, reload — it stays. On `neutral`: skin, rooms and nouns swap with no code change and no client or company name is in any pack file; on the way back the campus returns.
+- **Fail looks like:** a client with no town; a town whose name is in code or in a pack; a planet that shows another planet's runs; a plot that snaps back on reload; a swap that needs a commit.
+- **Cleanup:** remove the second ZZTEST client row; `world_pack` back to `tellefsen-campus`.
+
+## V-U13 — Artifact bubbles and cards
+- **Setup:** seed run (Epsilon completed with one Notion-URL artifact and one Compass-reference artifact).
+- **Do:** watch Epsilon's plot for one poll; open its card; press Open on the first artifact; try the second.
+- **See:** bubble on Epsilon within 15 s; card lists two artifacts; the first opens the Notion page in the browser; the second is a label with no Open.
+- **Fail looks like:** no bubble; Open on the Compass reference; the bubble on the wrong agent.
+- **Cleanup:** none.
+
+## V-U14 — In-tray
+- **Setup:** seed run (Alpha and the Zeta child give two `?`; sign nothing).
+- **Do:** press I. Press N three times with the in-tray open, watching which row highlights. Click a row.
+- **See:** rows = the `?` on the map, same count; N walks the list top to bottom in the same order; click flies to that agent and selects it.
+- **Fail looks like:** N and the list disagree; a `?` on the map missing from the list; a row for a run with no open gate.
+- **Cleanup:** none.
+
+## V-U15 — Approve (deep-link)
+- **Setup:** seed run; Alpha waiting on the real ZZTEST Pending Approval row.
+- **Do:** in the in-tray select Alpha, press Approve. Read what the panel shows before the surface opens. Approve the Airtable row (through the Compass MCP in chat, or in the Airtable UI). Come back and wait one poll.
+- **See:** instruction text and surface name shown first; the Airtable row opens; Alpha's row shows ⏳; after the poll the `?` and the row clear; the ledger has no `gate_passed` from the world (`GET /ledger/scan` — `at_source` is `worker` for an MCP tap, the sweep's for a UI tap, never `world`).
+- **Fail looks like:** the row clears before the surface saw the tap; any `gate_passed` written by the world; Approve on a run with no gate.
+- **Cleanup:** `scripts/zztest-seed.sh --clean` re-arms Alpha.
+
+## V-U16W — Worker /ask
+- **Setup:** Worker deployed with `ANTHROPIC_API_KEY`; bearer in hand; seed run.
+- **Do:** `curl -X POST $W/ask` without the bearer; with the bearer and `{}`; with the bearer and `{"question":"what is Alpha waiting on","context":{"run_id":"<Alpha's run_id>"}}`; then `GET /ledger/scan?since=<now − 5 min>`.
+- **See:** 401; 400; an answer naming the ZZTEST Pending Approval row and its instruction, with `run_id`, `model`, `tokens_in`, `tokens_out`; one new run in the scan — `run_started` and `run_completed` for skill `agent-world-pa` — and its `ops_skill_runs` row; nothing else changed.
+- **Fail looks like:** an answer that invents a row; the question or the answer text in an event payload; any write besides the PA's own events and row.
+- **Cleanup:** none.
+
+## V-U16 — PA panel
+- **Setup:** U16W verified; bearer in `.env`.
+- **Do:** select Alpha, press P, ask "what does this need from me?". Then ask "which client has the most open gates?".
+- **See:** first answer matches the card; second answer matches the in-tray; `npm test` output in the terminal still shows the no-model-endpoint invariant green.
+- **Fail looks like:** the panel works with the Worker bearer removed (means a model call in the fork); an answer that contradicts the map.
+- **Cleanup:** none.
+
+## V-U17 — Signals
+- **Setup:** seed run (Eta stale; Gamma failed).
+- **Do:** look at Eta, Gamma, the campus flag, and Beta's suit. Flip a ZZTEST Engagement Milestone to Done in Notion, wait 5 min. Trigger a new `?` (seed Alpha again), then press M and trigger another.
+- **See:** Eta's hand is up; the campus flag shows `!` (Gamma); Beta's suit colour matches its trust status under `AUTO_RUN_POLICY` (a `zztest-` skill is in neither list, so the run's own `run_class` decides); `✓` over the ZZTEST town after the cache; a sound on the first new `?`, silence after M.
+- **Fail looks like:** a hand up on a skill that ran last week; `!` on the flag with no failed run in 24 h; a colour not in the run_mode table; sound on every poll.
+- **Cleanup:** flip the ZZTEST milestone back.
+
+## V-U18 — Sub-agent avatars
+- **Setup:** seed run (Zeta lead + two children with `parent_run_id`, one waiting).
+- **Do:** find Zeta. Open its card. Press N until it lands on the waiting child.
+- **See:** two crew beside Zeta's plot; card says "2 sub-runs" and lists them; Zeta shows `?` by inheritance; N lands on the child, not the parent.
+- **Fail looks like:** children on their own plots; the parent with no badge while a child waits; N stopping on the parent.
+- **Cleanup:** none.
+
+## V-U19 — Steering Room
+- **Setup:** tokens in `.env`; seed run (the ZZTEST Pipeline row at 12 d since last touch).
+- **Do:** press R (or walk into the room). Compare panel 1 with the Airtable Pipeline hot-deals view, panel 2 with the HQ Milestone Heat Map, panel 3 with the Decisions DB sorted by date.
+- **See:** the same rows in the same order in each pair; the ZZTEST deal in panel 1 with "12 d"; nothing on the panels is editable.
+- **Fail looks like:** a row present in one and missing in the other; an edit control anywhere; panels blank without a named fix.
+- **Cleanup:** none.
+
+## V-U20 — Prospect decay
+- **Setup:** ZZTEST Pipeline row at 12 d since last touch.
+- **Do:** find the ZZTEST prospect plot on the campus edge. Set its Stage to Won in Airtable, wait one poll. Set it to Lost, wait one poll.
+- **See:** plot at half opacity; on Won it becomes a ZZTEST town; on Lost the plot is gone.
+- **Fail looks like:** opacity that does not change with the date; a Lost prospect still standing; a Won prospect still on the edge.
+- **Cleanup:** reset Stage to Lead.
+
+## V-U21 — The second film
+- **Setup:** V-U12 to V-U20 verified in one sitting the same day; `scripts/zztest-seed.sh --clean`.
+- **Do:** film 30–60 s: town → bubble → in-tray → Approve → `✓`.
+- **See:** the file in Drive under the project folder, linked from Sent Documents on the Project page.
+- **Fail looks like:** a beat that needed a fixture staged by hand outside `zztest-seed.sh`.
+- **Cleanup:** `scripts/zztest-seed.sh --clean` before the next film; nothing else.
+
 ## Cadence and evidence
-Per unit: the check above, minutes each. Per milestone: when U8 verifies, re-run V-U1 … V-U7 and V-U9 in one sitting (the regression pass) before `milestone-close` flips M1 to Done. Evidence per unit in the Notion unit table: the date, plus a link — the Compass `run_id` for V-U2, a screenshot for V-U3/V-U6, the recording for V-U8.
+Per unit: the check above, minutes each. Per milestone: when U8 verifies, re-run V-U1 … V-U7 and V-U9 in one sitting (the regression pass) before `milestone-close` flips M1 to Done. **Regression before milestone-close M2:** re-run V-U1–V-U6, V-U9–V-U11, V-U12W and V-U12–V-U20 in one sitting. Evidence per unit in the Notion unit table: the date, plus a link — the Compass `run_id` for V-U2, a screenshot for V-U3/V-U6, the recording for V-U8.
