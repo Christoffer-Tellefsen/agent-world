@@ -80,6 +80,7 @@ export function fold(events) {
         break
       case 'gate_waiting':
         run.gates.push({
+          run_id: e.run_id,
           gate: str(payload.gate) || 'gate',
           surface: str(payload.surface) || 'class_b_gate',
           ref_url: str(payload.ref_url),

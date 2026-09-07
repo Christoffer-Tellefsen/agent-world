@@ -90,6 +90,21 @@ test('U6: a failed read never hides a ? — and a resolved gate stays resolved w
   }
 })
 
+test('U6: a re-armed Pending Approval row — run A seen resolved on record R, then run B on the same R — is read again and shows ?', async () => {
+  // A stateful fake: the row is Sent while run A looks, then reset to Pending Approval for run B.
+  let status = 'Sent'
+  const { fetch, calls } = fakeFetch([['recREARM', () => ({ ok: true, status: 200, json: async () => ({ fields: { Status: status } }) })]])
+  const s = createSurfaces(cfg, { fetchImpl: fetch })
+  const R = 'https://airtable.com/appX/tblY/recREARM'
+  assert.equal(await s.gateResolved({ run_id: 'run-A', gate: 'ZZTEST gate', surface: 'pending_approval', ref_url: R }), true, 'run A: resolved')
+  const before = calls.length
+  assert.equal(await s.gateResolved({ run_id: 'run-A', gate: 'ZZTEST gate', surface: 'pending_approval', ref_url: R }), true)
+  assert.equal(calls.length, before, 'run A stays resolved without a second read')
+  status = 'Pending Approval' // the seed re-armed the row for a new run
+  assert.equal(await s.gateResolved({ run_id: 'run-B', gate: 'ZZTEST gate', surface: 'pending_approval', ref_url: R }), false, 'run B on the same record is read again — still open, so ?')
+  assert.equal(calls.length, before + 1, 'exactly one new read for run B')
+})
+
 test('U4: milestones done ÷ total from the project page, floored, cached, and safe when the project is not shared', async () => {
   const milestones = ['m1', 'm2', 'm3', 'm4'].map((id) => ({ id: `00000000-0000-4000-8000-0000000000${id.slice(1)}${id.slice(1)}` }))
   const { fetch, calls } = fakeFetch([

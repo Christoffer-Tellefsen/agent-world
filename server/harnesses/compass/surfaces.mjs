@@ -118,10 +118,14 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     return false
   }
 
-  const gateCache = new Map() // surface|ref_url → { at, resolved }; a resolved gate stays resolved
+  // Keyed by run_id + gate (+ surface + ref_url), never by ref_url alone: a Pending Approval row that
+  // is re-armed for a NEW run (same record, new gate_waiting) must be read again, or its ? would stay
+  // hidden until the process restarts (defect found 2026-09-07 at the M1 rechecks). Within one run a
+  // gate seen resolved stays resolved — no surface read every poll for it.
+  const gateCache = new Map() // run_id|gate|surface|ref_url → { at, resolved }
   async function gateResolved(gate) {
     if (!crossCheckable(gate)) return false
-    const key = `${gate.surface}|${gate.ref_url}`
+    const key = `${gate.run_id || ''}|${gate.gate || ''}|${gate.surface}|${gate.ref_url}`
     const hit = gateCache.get(key)
     if (hit && (hit.resolved || now() - hit.at < 5_000)) return hit.resolved
     let resolved = false
