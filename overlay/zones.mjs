@@ -74,7 +74,8 @@ const REFRESH_MS = 15_000
 async function refreshWorld() {
   if (!world) return
   try {
-    const res = await fetch(`${SIDECAR}/world`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(2500) })
+    // ten seconds: a refresh may land while the adapter is mid-read of a slow substrate; the last good world holds meanwhile
+    const res = await fetch(`${SIDECAR}/world`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) })
     if (!res.ok) return
     const next = await res.json()
     world.signals = next.signals || world.signals

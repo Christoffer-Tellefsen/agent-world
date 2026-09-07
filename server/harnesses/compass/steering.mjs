@@ -197,10 +197,21 @@ export function createSteering(cfg, { surfaces, substrate, fetchImpl = globalThi
     })
   }
 
-  // ── U20: the rows the prospect plots stand on — one GET a minute at most, the whole table, every stage ──
+  // ── U20: the rows the prospect plots stand on — one GET a poll at most, the whole table, every stage.
+  // Stale-while-revalidate: GET /world must stay instant (the page gives it seconds), so a stale answer is
+  // handed back at once and refreshed in the background; the first call, with nothing yet, waits.
+  let prospectRefresh = null
   async function prospectRows() {
     const hit = caches.get('prospects')
-    if (hit && now() - hit.at < (hit.value?.error ? ERROR_MS : PROSPECTS_MS)) return hit.value
+    const fresh = hit && now() - hit.at < (hit.value?.error ? ERROR_MS : PROSPECTS_MS)
+    if (fresh) return hit.value
+    if (hit) {
+      prospectRefresh ||= readProspects().finally(() => (prospectRefresh = null))
+      return hit.value
+    }
+    return prospectRefresh || (prospectRefresh = readProspects().finally(() => (prospectRefresh = null)))
+  }
+  async function readProspects() {
     const stages = (await substrate.read()).deal_pipeline_stages || []
     let value = { rows: [], stages, error: '' }
     if (!cfg.airtableToken) value.error = 'AIRTABLE_TOKEN is not set in .env'

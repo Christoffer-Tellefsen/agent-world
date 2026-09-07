@@ -151,7 +151,10 @@ test('U20: the prospect rows — one Airtable GET a poll at most, every stage, n
   assert.equal(gets, 1, 'cached for a poll')
   stage = 'Won'
   t += PROSPECTS_MS + 1
+  const stale = await st.prospectRows()
+  assert.equal(stale.rows[0].won, false, 'a stale answer comes back at once…')
+  await new Promise((r) => setImmediate(r))
   const b = await st.prospectRows()
   assert.equal(gets, 2)
-  assert.equal(b.rows[0].won, true, 'Won on the next read')
+  assert.equal(b.rows[0].won, true, '…and the background read has Won by the next call')
 })
