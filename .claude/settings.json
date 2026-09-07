@@ -1,6 +1,9 @@
 {
   "hooks": {
     "SessionStart": [
+      { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh session_start" } ] }
+    ],
+    "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": ".claude/hooks/ledger.sh run_started" } ] }
     ],
     "PermissionRequest": [
