@@ -43,7 +43,7 @@ import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { createLabel, Plot, PLOT_PALETTE, hashString, worldToHex } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt, bubbleEligible } from './artifacts.mjs'
 import { shelfSections, projectTab } from './archive.mjs'
-import { intrayRows, nextRow } from './intray.mjs'
+import { intrayRows, nextRow, withHands } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
 
 const LABEL = {
@@ -135,6 +135,7 @@ html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
 #aw-tray .empty{opacity:.6;padding:6px 8px}
 #aw-tray .r button,#aw-panel button.ok{font:inherit;font-size:12px;border:0;border-radius:8px;padding:4px 10px;cursor:pointer;background:rgba(255,255,255,.1);color:var(--aw-ink);flex:none}
 #aw-tray .r .q.err{background:color-mix(in srgb,var(--aw-block) 22%,#000);color:var(--aw-block)}
+#aw-tray .r.hand{opacity:.7}#aw-tray .r .q.dusty{background:rgba(255,255,255,.06);color:var(--aw-quiet)}
 #aw-tray .r .q.wait{background:color-mix(in srgb,var(--aw-done) 22%,#000);color:var(--aw-done)}
 #aw-tray .r .ns{opacity:.6;font-size:11px;font-style:italic}
 #aw-intent{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:42;width:min(520px,calc(100vw - 40px));display:none;
@@ -996,17 +997,19 @@ function renderTray(force = false) {
     lastTray = ''
     return
   }
-  const rows = trayRows()
+  const requests = trayRows()
+  // U33 (ES-6.8): a wanted silent skill is a line after every request — dusty in its room, never a figure, never N's
+  const rows = withHands(requests, signals().dusty || [])
   const sel = selectedId()
   const key = rows.map((r) => `${r.id}:${r.at}:${r.what}:${approvals.state(r.id, r.gate, r.url)}`).join('|') + '~' + sel
   if (!force && key === lastTray) return
   lastTray = key
   tray.innerHTML =
-    `<div class="h"><b>In-tray · ${rows.length} request${rows.length === 1 ? '' : 's'}${rows.some((r) => r.badge === '!') ? ` · ${rows.filter((r) => r.badge === '?').length} need you · ${rows.filter((r) => r.badge === '!').length} blocked` : ' waiting on you'}</b><span class="hint">N walks this list · I closes</span></div>` +
+    `<div class="h"><b>In-tray · ${requests.length} request${requests.length === 1 ? '' : 's'}${requests.some((r) => r.badge === '!') ? ` · ${requests.filter((r) => r.badge === '?').length} need you · ${requests.filter((r) => r.badge === '!').length} blocked` : ' waiting on you'}${rows.length > requests.length ? ` · ${rows.length - requests.length} hand${rows.length - requests.length === 1 ? '' : 's'}` : ''}</b><span class="hint">N walks the requests · I closes</span></div>` +
     (rows.length
       ? rows
           .map(
-            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q${r.badge === '!' ? ' err' : approvals.state(r.id, r.gate, r.url) === '⏳' ? ' wait' : ''}" title="${r.badge === '!' ? 'failed — nothing to tap; retry where it ran' : approvals.state(r.id, r.gate, r.url) === '⏳' ? 'waiting for the surface to show the tap' : 'waiting on you'}">${r.badge === '!' ? '!' : approvals.glyph(r.id, r.gate, r.url)}</span>
+            (r) => `<div class="r${r.id === sel ? ' sel' : ''}${r.hand ? ' hand' : ''}" data-id="${esc(r.id)}"><span class="q${r.hand ? ' dusty' : r.badge === '!' ? ' err' : approvals.state(r.id, r.gate, r.url) === '⏳' ? ' wait' : ''}" title="${r.hand ? 'silent 30 d and wanted — a dusty row in its room, never a figure' : r.badge === '!' ? 'failed — nothing to tap; retry where it ran' : approvals.state(r.id, r.gate, r.url) === '⏳' ? 'waiting for the surface to show the tap' : 'waiting on you'}">${r.hand ? '✋' : r.badge === '!' ? '!' : approvals.glyph(r.id, r.gate, r.url)}</span>
             <span class="m"><div class="s">${esc(r.skill)} <span class="z">· ${esc(r.zone)}</span></div>
             <div class="g">${esc(r.gate)}${r.left > 1 ? ` (${r.left} left)` : ''} — ${esc(r.what)}${approvals.state(r.id, r.gate, r.url) === 'not seen yet' ? ' <span class="ns">· not seen yet</span>' : ''}</div></span>
             <span class="age" title="oldest open gate">${esc(ago(r.at))}</span>${r.url ? `<button data-approve="${esc(r.id)}">Approve</button>` : ''}</div>`
@@ -1016,6 +1019,7 @@ function renderTray(force = false) {
   tray.classList.add('on')
   tray.querySelectorAll('.r').forEach((row) =>
     row.addEventListener('click', () => {
+      if (row.classList.contains('hand')) return openRoom(roomsOf().find((r) => r.name === rows.find((x) => x.id === row.dataset.id)?.zone)?.id || 'records-office')
       window.botCrossing?.hud?.actions?.focusThread?.(row.dataset.id)
       renderTray(true)
     })
