@@ -9,8 +9,9 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-    <!-- Agent World overlay (seam Decision 2026-09-06): reads window.botCrossing, touches nothing under src/ -->
+    <!-- Agent World overlay (seam Decision 2026-09-06): reads window.botCrossing, touches nothing under src/.
+         Mounted first so its fetch seam (overlay/zones.mjs, U12) is in place before the game's first poll. -->
     <script type="module" src="/overlay/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

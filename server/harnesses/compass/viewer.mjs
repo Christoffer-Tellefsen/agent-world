@@ -21,11 +21,13 @@ export const PRESETS = {
   prime: { scope: 'town', capabilities: ['view', 'tap'], surfaces: ['client_gate'] },
 }
 
-export function makeViewer({ tenant = 'tellefsen', preset = 'owner' } = {}) {
+export function makeViewer({ tenant = 'tellefsen', preset = 'owner', pack = '' } = {}) {
   const p = PRESETS[preset] || PRESETS.viewer
   const viewer = {
     tenant,
     preset: PRESETS[preset] ? preset : 'viewer',
+    /** The World Pack the viewer's planet wears (U12) — set per scan from WORLD_COMPANIES, never stored. */
+    pack,
     scope: p.scope,
     capabilities: [...p.capabilities],
     surfaces: [...p.surfaces],

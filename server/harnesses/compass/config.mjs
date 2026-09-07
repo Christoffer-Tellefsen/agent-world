@@ -18,6 +18,11 @@ export function loadConfig(env = process.env) {
     eventsBearerToken: env.EVENTS_BEARER_TOKEN || '',
     /** Sibling of EVENTS_URL: .../events → .../ledger/scan. No separate env var needed. */
     ledgerUrl: eventsUrl.replace(/\/events$/, '/ledger/scan'),
+    /** Sibling of EVENTS_URL: .../events → .../world/substrate (U12W). Same bearer; 60 s cache. */
+    substrateUrl: eventsUrl.replace(/\/events$/, '/world/substrate'),
+    substrateCacheMs: 60_000,
+    /** The overlay sidecar's loopback port (overlay-api.mjs); 0 disables it (home planet only). */
+    overlayPort: env.WORLD_OVERLAY_PORT === undefined ? 5275 : Math.max(0, Number(env.WORLD_OVERLAY_PORT) || 0),
     notionToken: env.NOTION_TOKEN || '',
     airtableToken: env.AIRTABLE_TOKEN || '',
     airtableBaseId: env.AIRTABLE_BASE_ID || 'appixWl8C3bogLsvp',
@@ -31,5 +36,8 @@ export function loadConfig(env = process.env) {
   }
 }
 
-/** Zone name for runs with no client. The campus. */
+/**
+ * Zone name for runs with no client — the campus centre, and the plot key every saved layout
+ * already carries. The only name in the adapter; the overlay and the packs carry none (npm test).
+ */
 export const CAMPUS = 'Tellefsen HQ'

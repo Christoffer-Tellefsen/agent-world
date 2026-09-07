@@ -102,6 +102,8 @@ export async function toThread(run, row, viewer, surfaces, now = Date.now(), opt
   const gateLabel = gate ? (open.length > 1 ? `${gate.gate} (${pending.length} of ${open.length} left)` : gate.gate) : ''
   const art = newest(run.artifacts)
   const openUrl = openUrlFor(run, row, pending, opts)
+  // Placed by client, never by actor (Annex III): its town on its company's planet, else the campus (U12).
+  const at = typeof opts.place === 'function' ? opts.place(run.client) : { zone: run.client || CAMPUS, planet: '', pack: '' }
 
   // Bot Crossing never renders `preview`; the overlay panel (U11) does. For a pending gate it carries
   // the full instruction; otherwise the run's own notes, so the panel has something to say.
@@ -115,7 +117,9 @@ export async function toThread(run, row, viewer, surfaces, now = Date.now(), opt
     id: run.id,
     title: run.skill ? (gate ? `${run.skill} · ${gateLabel}` : run.skill) : 'Untitled run',
     preview,
-    project: run.client || CAMPUS,
+    project: at.zone,
+    planet: at.planet || '',
+    pack: at.pack || '',
     projectPath: '',
     worktree: '',
     cwd: '',

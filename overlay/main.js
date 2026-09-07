@@ -1,13 +1,19 @@
-// overlay/main.js — Agent World selection panel (U11).
+// overlay/main.js — Agent World overlay: the selection panel (U11) and the ontology skin (U12).
 //
-// The first overlay module, per the seam Decision (2026-09-06): mounted from index.html, reads
-// the handle main.js already exposes (window.botCrossing → threads, colony.astronauts.selected),
-// touches nothing under src/, writes nothing anywhere. Bot Crossing's own card stays as the
-// pointer beside the figure; this panel is the explanation — the run, its zone, its state, and
-// for a pending gate the gate's name and exactly what the human must do, in full. It also blocks
-// the A (hide) key on a figure that is waiting on you: a ? is cleared on its surface, not hidden.
+// Per the seam Decision (2026-09-06): mounted from index.html, reads the handle main.js exposes
+// (window.botCrossing → threads, colony, settings, hud), touches nothing under src/, writes nothing
+// but a planet's own layout file through overlay/zones.mjs. Mounted BEFORE src/main.js so the fetch
+// seam in zones.mjs is in place when the game's first poll goes out.
 //
-// Everything it shows comes off the thread the adapter emitted — the panel has no opinions.
+// U11 — the panel: the run, its zone, its state, and for a pending gate the gate's name and exactly
+// what the human must do, in full; A is refused on a figure that is waiting on you.
+// U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
+// wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
+// name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
+// substrate through the adapter; none lives here or in a pack (npm test greps for them).
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo } from './zones.mjs'
+import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
+import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
 
 const LABEL = {
   working: 'Working',
@@ -22,9 +28,10 @@ const LABEL = {
 const CHIP = { working: 'work', waiting: 'wait', blocked: 'block' }
 
 const css = `
+:root{--aw-accent:#e05a2b;--aw-ink:#e6e9ef;--aw-panel:rgba(12,14,18,.94);--aw-line:rgba(255,255,255,.1);--aw-wait:#8fb4ee;--aw-work:#7fd39a;--aw-block:#f28b8b;--aw-done:#e6c67f;--aw-quiet:#a9a8c0}
 #aw-panel{position:fixed;left:84px;bottom:18px;width:min(580px,calc(100vw - 460px));z-index:40;
-  font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#e6e9ef;background:rgba(12,14,18,.94);
-  border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px 16px 12px;backdrop-filter:blur(10px);
+  font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);
+  border:1px solid var(--aw-line);border-radius:14px;padding:14px 16px 12px;backdrop-filter:blur(10px);
   box-shadow:0 12px 40px rgba(0,0,0,.5);display:none}
 #aw-panel.on{display:block}
 #aw-panel .h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
@@ -33,36 +40,56 @@ const css = `
 #aw-panel .id{opacity:.45;font-family:ui-monospace,Menlo,monospace;font-size:11px;white-space:nowrap}
 #aw-panel .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 #aw-panel .chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;background:rgba(255,255,255,.08)}
-#aw-panel .chip.wait{background:#1a2b46;color:#8fb4ee}
-#aw-panel .chip.work{background:#16301f;color:#7fd39a}
-#aw-panel .chip.block{background:#3a1a1a;color:#f28b8b}
-#aw-panel .do{margin:8px 0 10px;padding:10px 12px;border-left:3px solid #8fb4ee;background:rgba(143,180,238,.08);border-radius:6px}
-#aw-panel .do.err{border-left-color:#f28b8b;background:rgba(242,139,139,.08)}
+#aw-panel .chip.wait{background:color-mix(in srgb,var(--aw-wait) 22%,#000);color:var(--aw-wait)}
+#aw-panel .chip.work{background:color-mix(in srgb,var(--aw-work) 22%,#000);color:var(--aw-work)}
+#aw-panel .chip.block{background:color-mix(in srgb,var(--aw-block) 22%,#000);color:var(--aw-block)}
+#aw-panel .chip.room{background:rgba(255,255,255,.05);color:var(--aw-quiet)}
+#aw-panel .do{margin:8px 0 10px;padding:10px 12px;border-left:3px solid var(--aw-wait);background:color-mix(in srgb,var(--aw-wait) 8%,transparent);border-radius:6px}
+#aw-panel .do.err{border-left-color:var(--aw-block);background:color-mix(in srgb,var(--aw-block) 8%,transparent)}
 #aw-panel .do b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
-#aw-panel a.ctx{color:#8fb4ee;font-size:12px;margin-right:12px;text-decoration:none;opacity:.85}
+#aw-panel a.ctx{color:var(--aw-wait);font-size:12px;margin-right:12px;text-decoration:none;opacity:.85}
 #aw-panel a.ctx:hover{text-decoration:underline}
 #aw-panel .do .gate{font-weight:600;margin-bottom:2px}
 #aw-panel .note{opacity:.75;margin:6px 0 8px}
 #aw-panel .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
 #aw-panel .hint{opacity:.5;font-size:11px}
-#aw-panel button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:#e05a2b;color:#fff}
+#aw-panel button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
 #aw-panel button:disabled{opacity:.35;cursor:default}
-#aw-toast{position:fixed;left:50%;bottom:140px;transform:translateX(-50%);background:#1a2b46;color:#cfe0ff;
+#aw-toast{position:fixed;left:50%;bottom:140px;transform:translateX(-50%);background:color-mix(in srgb,var(--aw-wait) 22%,#000);color:var(--aw-ink);
   padding:9px 15px;border-radius:10px;font:13px system-ui,sans-serif;z-index:41;opacity:0;transition:opacity .2s;pointer-events:none}
 #aw-toast.on{opacity:1}
+#aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
+  font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
+  border-radius:999px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+#aw-planets.on{display:flex}
+#aw-planets .k{opacity:.55;margin:0 4px 0 6px;text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+#aw-planets button{font:inherit;border:0;border-radius:999px;padding:4px 11px;cursor:pointer;background:rgba(255,255,255,.07);color:var(--aw-ink)}
+#aw-planets button[aria-pressed="true"]{background:var(--aw-accent);color:#fff}
+#aw-planets button.empty{opacity:.7}
+#aw-planets .pack{opacity:.5;margin-left:4px;padding-right:4px;font-size:11px}
+#aw-empty{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:39;text-align:center;display:none;
+  font:14px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
+  border-radius:16px;padding:22px 30px;backdrop-filter:blur(10px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#aw-empty.on{display:block}
+#aw-empty .name{font-size:22px;font-weight:600;margin-bottom:4px}
+#aw-empty .sub{opacity:.65}
 `
 
 const style = document.createElement('style')
 style.textContent = css
 document.head.appendChild(style)
 
-const panel = document.createElement('div')
-panel.id = 'aw-panel'
-document.body.appendChild(panel)
+const el = (id) => {
+  const d = document.createElement('div')
+  d.id = id
+  document.body.appendChild(d)
+  return d
+}
+const panel = el('aw-panel')
+const toastEl = el('aw-toast')
+const switcher = el('aw-planets')
+const empty = el('aw-empty')
 
-const toastEl = document.createElement('div')
-toastEl.id = 'aw-toast'
-document.body.appendChild(toastEl)
 let toastTimer = 0
 function toast(text) {
   toastEl.textContent = text
@@ -95,6 +122,15 @@ function selection() {
   return thread ? { agent, thread } : null
 }
 
+/** What the zone is called in the thread's pack: the campus centre, a town, or a plot with no town yet. */
+function zoneLabel(thread, p) {
+  const world = getWorld()
+  if (!world) return thread.project || ''
+  if (thread.project === world.campus.name) return `${noun('centre', p)} · ${thread.project}`
+  const town = world.towns.find((t) => t.name === thread.project)
+  return `${town ? noun('town', p) : 'plot'} · ${thread.project || ''}`
+}
+
 function render(sel) {
   if (!sel) {
     panel.classList.remove('on')
@@ -108,9 +144,14 @@ function render(sel) {
   // The adapter puts "<gate> — <full instruction>" in preview while a gate is pending; the run's notes otherwise.
   const preview = String(thread.preview || '')
   const instruction = gate && preview.startsWith(gate + ' — ') ? preview.slice(gate.length + 3) : ''
+  // A town that wears its own pack (world_branding.pack, carried on the thread) speaks it here: its nouns, its rooms.
+  const p = packOf(thread.pack)
+  const room = roomFor(skill, p)
 
   const chips = [
     `<span class="chip ${CHIP[status] || ''}">${esc(LABEL[status] || status)}</span>`,
+    room ? `<span class="chip room" title="${esc(room.mirrors || '')}">${esc(noun('studio', p))} · ${esc(room.name)}</span>` : '',
+    p.id !== pack().id ? `<span class="chip room" title="this ${esc(noun('town', p))} wears its own World Pack">${esc(p.id)}</span>` : '',
     thread.source ? `<span class="chip">${esc(thread.source)}</span>` : '',
     thread.model ? `<span class="chip">${esc(shortModel(thread.model))}</span>` : '',
     `<span class="chip">${esc(ago(thread.lastActivityAt))}</span>`,
@@ -128,8 +169,8 @@ function render(sel) {
         : ''
 
   panel.innerHTML = `
-    <div class="h"><div><span class="skill">${esc(skill || 'Untitled run')}</span><span class="zone">${esc(thread.project || '')}</span></div>
-      <span class="id">run ${esc(String(thread.id).slice(0, 8))}</span></div>
+    <div class="h"><div><span class="skill">${esc(skill || 'Untitled run')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
+      <span class="id">${esc(noun('agent', p))} · run ${esc(String(thread.id).slice(0, 8))}</span></div>
     <div class="chips">${chips}</div>
     ${doBlock}
     <div class="row"><span class="hint">Enter opens · N flies to the next ? · ${thread.unread ? 'A is blocked on a waiting run' : 'A hides from this view only'}</span>
@@ -145,6 +186,7 @@ let lastKey = ''
 setInterval(() => {
   const sel = selection()
   const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt].join('|') : ''
+  syncQuietLabels()
   if (key === lastKey) return
   lastKey = key
   render(sel)
@@ -167,3 +209,133 @@ window.addEventListener(
   },
   true
 )
+
+// ── U12: planets, pack, quiet towns ───────────────────────────────────────────────────────────
+
+/** The switcher: one button per company from Compass; the pressed one is the planet on screen. */
+function renderSwitcher() {
+  const world = getWorld()
+  if (!world || world.planets.length < 1) return
+  const here = currentPlanet()
+  switcher.innerHTML =
+    `<span class="k">${esc(noun('planet'))}</span>` +
+    world.planets
+      .map((p) => `<button data-key="${esc(p.key)}" aria-pressed="${p.key === currentKey()}" class="${p.hasSubstrate ? '' : 'empty'}" title="${esc(p.hasSubstrate ? `${p.role} · ${p.pack}` : 'no substrate yet')}">${esc(p.name)}</button>`)
+      .join('') +
+    `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>`
+  switcher.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
+  switcher.classList.add('on')
+}
+
+/** An empty planet: its name and "no substrate yet". No runs, no towns, no reads happened for it. */
+function renderEmpty() {
+  const here = currentPlanet()
+  if (!here || here.hasSubstrate) {
+    empty.classList.remove('on')
+    return
+  }
+  empty.innerHTML = `<div class="name">${esc(here.name)}</div><div class="sub">no substrate yet</div>`
+  empty.classList.add('on')
+}
+
+/**
+ * Quiet towns — an Active client with no run in the window still is a town (ES-4.1). Bot Crossing
+ * makes a plot only where a thread stands, so the overlay lays the deck and the name plate itself,
+ * on cells its own allocator hands out around the plots that exist, and remembers the cells in the
+ * colony's layout memory: the layout file carries them, and the day a run arrives for that client
+ * the game's plot lands on the same ground and this one steps aside.
+ */
+const quiet = new Map() // town name → { plot, label, signature }
+let quietGroup = null
+
+/**
+ * createLabel hands back a plate that is hidden until the colony fades it in, and the colony only
+ * fades in plots of its own. A quiet town has nothing going on, so its name is the whole point:
+ * the plate stays on, dimmer than a live zone's, and follows H (hide UI) and the labels setting.
+ */
+function syncQuietLabels() {
+  if (!quiet.size) return
+  const colony = window.botCrossing?.colony
+  const show = Boolean(colony?.uiVisible ?? true) && (colony?.settings?.get?.('showLabels') ?? true)
+  for (const { label } of quiet.values()) {
+    label.material.opacity = show ? 0.85 : 0
+    label.visible = show
+  }
+}
+function syncQuietTowns() {
+  const bc = window.botCrossing
+  const colony = bc?.colony
+  if (!colony?.plots || !colony.plotCells || !colony.scene) return
+  const THREE_GROUP = colony.plotGroup?.constructor
+  if (!THREE_GROUP) return
+  if (!quietGroup) {
+    quietGroup = new THREE_GROUP()
+    quietGroup.name = 'aw:quiet-towns'
+    colony.scene.add(quietGroup)
+  }
+  const towns = townsHere().map((t) => t.name).filter((name) => !colony.plots.has(name))
+  const wanted = new Set(towns)
+
+  // Towns that gained a real plot, or vanished from the substrate, give their ground back.
+  for (const [name, entry] of quiet) {
+    if (wanted.has(name)) continue
+    quietGroup.remove(entry.plot.group, entry.label)
+    entry.label.userData?.dispose?.()
+    entry.plot.dispose?.()
+    quiet.delete(name)
+  }
+  if (!towns.length) return
+
+  // The same input Bot Crossing gives its allocator — each plot's live thread count, which the
+  // allocator turns into cells — so every real plot keeps exactly its cells and the quiet towns
+  // take the innermost ground that is genuinely free. (Passing cell counts here made the campus
+  // look smaller than it is and put a quiet deck on a cell it already held.)
+  const perProject = new Map()
+  for (const t of colony.threads?.values?.() || []) perProject.set(t.project, (perProject.get(t.project) || 0) + 1)
+  const projects = [...colony.plots.values()].map((p) => ({ id: p.name, size: Math.max(1, perProject.get(p.name) || 1) }))
+  for (const name of towns) projects.push({ id: name, size: 1 })
+  const layout = allocateCells(projects, colony.plotCells)
+  for (const name of towns) {
+    const cells = layout.get(name)
+    if (!cells?.length) continue
+    const signature = cells.map((c) => `${c.q},${c.r}`).join('/')
+    const have = quiet.get(name)
+    if (have?.signature === signature) continue
+    if (have) {
+      quietGroup.remove(have.plot.group, have.label)
+      have.plot.dispose?.()
+    }
+    // Remembered in the colony's own layout memory, so the file learns it on the next save.
+    colony.plotCells.set(name, cells.map((c) => ({ q: c.q, r: c.r })))
+    for (const c of cells) colony.deckedCells?.add(`${c.q},${c.r}`)
+    const accent = PLOT_PALETTE[hashString(name) % PLOT_PALETTE.length]
+    try {
+      const plot = new Plot({ id: `quiet:${name}`, name, index: colony.plots.size + quiet.size, cells, accent })
+      const label = createLabel(name, accent)
+      label.position.set(plot.labelAnchor.x, 3.2, plot.labelAnchor.z)
+      quietGroup.add(plot.group, label)
+      quiet.set(name, { plot, label, signature })
+    } catch (err) {
+      console.warn('[world] quiet town not drawn:', name, err?.message || err)
+    }
+  }
+}
+
+ready.then(() => {
+  const here = currentPlanet()
+  wear(here?.pack || getWorld()?.viewer?.pack || '')
+  document.title = here ? `${here.name} · ${pack().title}` : document.title
+  renderSwitcher()
+  renderEmpty()
+  if (!isHome() && here?.hasSubstrate) console.info(`[world] on ${here.name} — layout ${here.colonyFile}`)
+  // Quiet towns follow the roster: after every poll the plots may have changed.
+  let lastRoster = ''
+  setInterval(() => {
+    const bc = window.botCrossing
+    if (!bc?.colony) return
+    const key = `${(bc.threads || []).length}|${bc.colony.plots?.size || 0}|${townsHere().length}`
+    if (key === lastRoster && quiet.size === townsHere().filter((t) => !bc.colony.plots.has(t.name)).length) return
+    lastRoster = key
+    syncQuietTowns()
+  }, 1000)
+})

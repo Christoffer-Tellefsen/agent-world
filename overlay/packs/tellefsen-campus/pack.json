@@ -1,0 +1,47 @@
+{
+  "id": "tellefsen-campus",
+  "version": "0.1",
+  "title": "Campus",
+  "blurb": "The Spatial grammar table (RA v0): a campus of studios at the centre, one town per client around it.",
+  "skin": {
+    "palette": {
+      "accent": "#e05a2b",
+      "ink": "#e6e9ef",
+      "panel": "rgba(12,14,18,.94)",
+      "line": "rgba(255,255,255,.1)",
+      "wait": "#8fb4ee",
+      "work": "#7fd39a",
+      "block": "#f28b8b",
+      "done": "#e6c67f",
+      "quiet": "#a9a8c0"
+    },
+    "kit": "kaykit-space-base-bits",
+    "world": "terra",
+    "sky": "terra",
+    "lighting": { "timeOfDay": 0.38, "autoTime": false },
+    "filter": "none",
+    "sounds": "campus",
+    "badges": { "waiting": "?", "blocked": "!", "working": "⚒", "done": "✓", "asleep": "z" }
+  },
+  "names": {
+    "world": "campus",
+    "planet": "planet",
+    "centre": "campus",
+    "town": "town",
+    "building": "building",
+    "studio": "studio",
+    "agent": "agent",
+    "prospect": "prospect plot"
+  },
+  "rooms": [
+    { "id": "solution-studio", "name": "solution studio", "mirrors": "solution runs — architecture, platform fit, brief, scoping, SOW, proposal (ops_skill_runs)", "surface": "ops_skill_runs", "skills": ["solution", "platform-fit", "scoping", "sow", "proposal", "build-kickoff", "pipeline-conversion", "engagement-close", "milestone-close", "agentic-coding"] },
+    { "id": "research-lab", "name": "research lab", "mirrors": "research runs (ops_skill_runs)", "surface": "ops_skill_runs", "skills": ["research"] },
+    { "id": "content-studio", "name": "content studio", "mirrors": "✍️ Content — drafts and the signature gate (content_status)", "surface": "content_status", "skills": ["content", "linkedin", "media"] },
+    { "id": "finance-office", "name": "finance office", "mirrors": "Finance rows in Airtable HQ", "surface": "finance", "skills": ["finance"] },
+    { "id": "integration-yard", "name": "integration yard", "mirrors": "🔌 Integrations as pipes between buildings; 🗺️ Field Mappings as the wiring board", "surface": "integrations", "skills": ["integration", "data-map", "make", "hubspot", "airtable"] },
+    { "id": "board-room", "name": "board room", "mirrors": "🧠 Decisions with Status Pending (decision) and 🎯 Engagement Milestones", "surface": "decision", "skills": ["project-log", "project-context", "project-overview", "operating-layer"] },
+    { "id": "corner-office", "name": "corner office", "mirrors": "the in-tray: Pending Approval rows, pending Decisions, gate_waiting runs, 🎯 Today tasks — N is the next item", "surface": "pending_approval", "skills": ["daily-focus", "task-triage", "task-from-raw", "morning", "firm-pulse", "schedule", "meeting", "account-expansion"] }
+  ],
+  "default_room": "solution-studio",
+  "layout": { "home": "data/colony.json", "planet": "data/colony.<key>.json" }
+}

@@ -1,0 +1,25 @@
+{
+  "note": "The shape GET /world/substrate returns (U12W), reduced to what the zone map needs. ZZTEST names only — no real client here.",
+  "at": "2026-09-07T06:00:00.000Z",
+  "world_companies": {
+    "home": "zz-home",
+    "version": "0.3",
+    "companies": [
+      { "key": "zz-home", "name": "ZZTEST Home Co", "role": "home", "status": "active", "clients": "every Active row not claimed by another company", "substrate": { "ledger": "this instance" }, "world_pack": "tellefsen-campus", "colony_file": "data/colony.json" },
+      { "key": "zz-venture", "name": "ZZTEST Venture", "role": "venture", "status": "placeholder", "clients": [], "substrate": null, "world_pack": "neutral", "colony_file": "data/colony.zz-venture.json" },
+      { "key": "zz-claimer", "name": "ZZTEST Claimer", "role": "venture", "status": "active", "clients": ["ZZTEST Claimed Client"], "substrate": { "ledger": "shared" }, "colony_file": "data/colony.zz-claimer.json" },
+      { "key": "bad key!", "name": "ZZTEST Broken", "role": "venture", "status": "active", "clients": [], "substrate": null }
+    ]
+  },
+  "auto_run_policy": { "run_classes": {}, "skill_overrides": { "entries": {} } },
+  "deal_pipeline_stages": ["Lead", "Won", "Lost"],
+  "clients": [
+    { "id": "00000000-0000-4000-8000-000000000001", "name": "ZZTEST Client", "status": "Active" },
+    { "id": "00000000-0000-4000-8000-000000000002", "name": "ZZTEST Second Client", "status": "Active" },
+    { "id": "00000000-0000-4000-8000-000000000003", "name": "ZZTEST Claimed Client", "status": "Active" },
+    { "id": "00000000-0000-4000-8000-000000000004", "name": "ZZTEST Branded Client", "status": "Active", "world_branding": { "pack": "neutral" } },
+    { "id": "00000000-0000-4000-8000-000000000005", "name": "ZZTEST Former Client", "status": "Churned" },
+    { "id": "00000000-0000-4000-8000-000000000001", "name": "ZZTEST Client", "status": "Active" }
+  ],
+  "skills": [{ "id": "s1", "name": "zztest-approver", "type": "Operations", "status": "active" }]
+}

@@ -210,7 +210,7 @@
         "fixture: add a second ZZTEST client through the Compass MCP → restart → town appears; remove → gone; layout survives reload; flip the home company's world_pack to neutral (chat does it) → restart → skin, rooms and nouns swap with no code change; flip back"
       ],
       "check": "V-U12",
-      "passes": false,
+      "passes": true,
       "verified": null,
       "recut": "2026-09-07 — pack-driven (World Packs, RA Component 10, Decision 2026-09-06 🟡 Working; WORLD_COMPANIES v0.3 carries world_pack)"
     },

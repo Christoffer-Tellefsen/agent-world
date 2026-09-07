@@ -1,0 +1,47 @@
+{
+  "id": "neutral",
+  "version": "0.1",
+  "title": "Neutral",
+  "blurb": "Grayscale, generic names. For a prime or subcontracted town: the same rooms, none of the campus vocabulary.",
+  "skin": {
+    "palette": {
+      "accent": "#9a9a9a",
+      "ink": "#e4e4e4",
+      "panel": "rgba(18,18,18,.94)",
+      "line": "rgba(255,255,255,.14)",
+      "wait": "#d8d8d8",
+      "work": "#bdbdbd",
+      "block": "#f0f0f0",
+      "done": "#cfcfcf",
+      "quiet": "#8a8a8a"
+    },
+    "kit": "kaykit-space-base-bits",
+    "world": "moon",
+    "sky": "moon",
+    "lighting": { "timeOfDay": 0.45, "autoTime": false },
+    "filter": "grayscale(1)",
+    "sounds": "neutral",
+    "badges": { "waiting": "?", "blocked": "!", "working": "⚒", "done": "✓", "asleep": "z" }
+  },
+  "names": {
+    "world": "world",
+    "planet": "world",
+    "centre": "headquarters",
+    "town": "site",
+    "building": "unit",
+    "studio": "unit",
+    "agent": "agent",
+    "prospect": "prospect"
+  },
+  "rooms": [
+    { "id": "solution-studio", "name": "unit A — solutions", "mirrors": "solution runs (ops_skill_runs)", "surface": "ops_skill_runs", "skills": ["solution", "platform-fit", "scoping", "sow", "proposal", "build-kickoff", "pipeline-conversion", "engagement-close", "milestone-close", "agentic-coding"] },
+    { "id": "research-lab", "name": "unit B — research", "mirrors": "research runs (ops_skill_runs)", "surface": "ops_skill_runs", "skills": ["research"] },
+    { "id": "content-studio", "name": "unit C — content", "mirrors": "content drafts and the signature gate (content_status)", "surface": "content_status", "skills": ["content", "linkedin", "media"] },
+    { "id": "finance-office", "name": "unit D — finance", "mirrors": "finance rows", "surface": "finance", "skills": ["finance"] },
+    { "id": "integration-yard", "name": "unit E — integrations", "mirrors": "integrations and field mappings", "surface": "integrations", "skills": ["integration", "data-map", "make", "hubspot", "airtable"] },
+    { "id": "board-room", "name": "unit F — decisions", "mirrors": "pending decisions (decision) and milestones", "surface": "decision", "skills": ["project-log", "project-context", "project-overview", "operating-layer"] },
+    { "id": "corner-office", "name": "unit G — approvals", "mirrors": "the in-tray: approval rows, pending decisions, waiting runs, today's tasks", "surface": "pending_approval", "skills": ["daily-focus", "task-triage", "task-from-raw", "morning", "firm-pulse", "schedule", "meeting", "account-expansion"] }
+  ],
+  "default_room": "solution-studio",
+  "layout": { "home": "data/colony.json", "planet": "data/colony.<key>.json" }
+}
