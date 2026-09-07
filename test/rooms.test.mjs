@@ -134,7 +134,7 @@ test('U31: a failed panel read names its error on the panel and is retried after
   t = 10_000
   assert.equal((await s.stale('k', 5 * 60_000, fn, { rows: [] })).error, 'notion 401'); assert.equal(calls, 1, 'no retry inside 30 s')
   t = 31_000
-  await s.stale('k', 5 * 60_000, fn, { rows: [] })
+  await s.stale('k', 5 * 60_000, fn, { rows: [] }); await new Promise((r) => setTimeout(r, 20)) // the retry runs behind the stale answer
   assert.equal(calls, 2, 'retried after 30 s')
   t = 62_000
   await s.stale('k', 5 * 60_000, fn, { rows: [] }); await new Promise((r) => setTimeout(r, 20))
