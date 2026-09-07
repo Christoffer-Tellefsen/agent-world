@@ -436,7 +436,7 @@
         "npm test: a stream without parent_run_id renders exactly as before (snapshot)"
       ],
       "check": "V-U18",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

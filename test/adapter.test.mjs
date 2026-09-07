@@ -14,7 +14,7 @@ const transcriptProgress = (sizeBytes) => Math.min(1, Math.max(0.05, (Math.log10
 
 test('fold + threads: the standing ZZTEST set renders truthfully', { skip: !has('server/harnesses/compass/fold.mjs') || !has('server/harnesses/compass/threads.mjs') }, async () => {
   const { fold } = await import(path.join(root, 'server/harnesses/compass/fold.mjs'))
-  const { toThread } = await import(path.join(root, 'server/harnesses/compass/threads.mjs'))
+  const { toThread, linkSubagents } = await import(path.join(root, 'server/harnesses/compass/threads.mjs'))
   const { ownerViewer } = await import(path.join(root, 'server/harnesses/compass/viewer.mjs'))
   // fixture.events/.ledger stand in for what the Worker's /ledger/scan would return — the fold/thread
   // pipeline is identical either way; only supabase.mjs's transport changed (see compass/supabase.mjs).
@@ -23,10 +23,17 @@ test('fold + threads: the standing ZZTEST set renders truthfully', { skip: !has(
   const viewer = ownerViewer()
   // A fake surface: the signed ZZTEST blog reads as resolved on its surface; everything else stays open. No network.
   const surfaces = { progress: async () => 0.05, gateResolved: async (g) => /zztest-blog-signed/.test(g.ref_url || '') }
+  // every thread first, then the sub-agent link (U18) — as compass.mjs does after a scan
+  const threads = new Map()
+  for (const run of runs.values()) threads.set(run.id, await toThread(run, rows.get(run.id), viewer, surfaces, NOW, { claudeProjectUrl: 'https://claude.ai/project/zztest' }))
+  linkSubagents([...threads.values()], runs)
   for (const [runId, exp] of Object.entries(fixture.expect)) {
     if (exp.absent) { assert.ok(!runs.has(runId), `${runId} must not become a run`); continue }
     assert.ok(runs.has(runId), `${runId} missing`)
-    const t = await toThread(runs.get(runId), rows.get(runId), viewer, surfaces, NOW, { claudeProjectUrl: 'https://claude.ai/project/zztest' })
+    const t = threads.get(runId)
+    if (exp.subruns !== undefined) assert.equal((t.subruns || []).length, exp.subruns, `${runId}.subruns (the card says "n sub-runs")`)
+    if (exp.inherited !== undefined) assert.equal(Boolean(t.inheritedGate), exp.inherited, `${runId}.inheritedGate (the ? came from a child)`)
+    if (exp.parent !== undefined) assert.equal(t.parentId, exp.parent, `${runId}.parentId`)
     for (const k of ['project', 'unread', 'running', 'hasError']) assert.equal(t[k], exp[k], `${runId}.${k}`)
     if (exp.title) assert.equal(t.title, exp.title)
     if (exp.openUrl) assert.equal(t.ref.url, exp.openUrl)

@@ -1,5 +1,5 @@
 {
-  "_note": "The standing ZZTEST set as raw ops_run_events rows, plus two traps: an unmatched gate_passed (must be ignored) and a malformed payload (must be skipped, not thrown). Times are relative: 'now' is 2026-09-06T08:00:00Z. Two regressions from the first live run (2026-09-06): Epsilon — a gate pair written in one batch shares one timestamp and the stream returns gate_passed FIRST (so the array order below is deliberately close-before-open; the fold must still close it). Zeta — a real content-agent draft awaiting signature: surface content_status must render ? for the Owner. Eta — a live (non-terminal) run blocked on a gate, the Class B pattern (e.g. a Claude Code permission prompt): must render ? and NOT hammer; seen live 2026-09-06 when the seeded Alpha showed a hammer. Theta — a content run that left two drafts; the test's fake surface reports the blog signed and the mirror still In Review, so the title must read '(1 of 2 left)' and Open must go to the mirror (seen live 2026-09-06). Iota — a build session's own gate (trigger claude_project, class_b_gate, ref_url a Notion page): Open must go to the Claude Project and the Notion page must surface as ref.context (seen live 2026-09-06: Open landed on the Build Pack and the human didn't know what to do there). Epsilon-artist (U13, 44444444…11) — a completed run that left one Notion-page artifact (artifact_registered) and one Compass reference (run_completed.artifacts + the row): the card lists both, newest first; only the page opens; the bubble shows for 60 s after the artifact is new.",
+  "_note": "The standing ZZTEST set as raw ops_run_events rows, plus two traps: an unmatched gate_passed (must be ignored) and a malformed payload (must be skipped, not thrown). Times are relative: 'now' is 2026-09-06T08:00:00Z. Two regressions from the first live run (2026-09-06): Epsilon — a gate pair written in one batch shares one timestamp and the stream returns gate_passed FIRST (so the array order below is deliberately close-before-open; the fold must still close it). Zeta — a real content-agent draft awaiting signature: surface content_status must render ? for the Owner. Eta — a live (non-terminal) run blocked on a gate, the Class B pattern (e.g. a Claude Code permission prompt): must render ? and NOT hammer; seen live 2026-09-06 when the seeded Alpha showed a hammer. Theta — a content run that left two drafts; the test's fake surface reports the blog signed and the mirror still In Review, so the title must read '(1 of 2 left)' and Open must go to the mirror (seen live 2026-09-06). Iota — a build session's own gate (trigger claude_project, class_b_gate, ref_url a Notion page): Open must go to the Claude Project and the Notion page must surface as ref.context (seen live 2026-09-06: Open landed on the Build Pack and the human didn't know what to do there). Epsilon-artist (U13, 44444444…11) — a completed run that left one Notion-page artifact (artifact_registered) and one Compass reference (run_completed.artifacts + the row): the card lists both, newest first; only the page opens; the bubble shows for 60 s after the artifact is new. Zeta-lead (U18, 33333333…12) with two zztest-child runs carrying parent_run_id: the children stand with the lead; one child waits, so the lead inherits the ? (marked inherited — the in-tray and N land on the child); the other completed.",
   "now": "2026-09-06T08:00:00Z",
   "events": [
     {
@@ -428,6 +428,81 @@
           }
         ]
       }
+    },
+    {
+      "id": "z1",
+      "run_id": "33333333-0000-4000-8000-000000000012",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "skill": "zztest-lead",
+      "at": "2026-09-06T07:50:00Z",
+      "event_type": "run_started",
+      "payload": {
+        "run_class": "B_judge"
+      }
+    },
+    {
+      "id": "z2",
+      "run_id": "33333333-0000-4000-8000-000000000013",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "skill": "zztest-child",
+      "parent_run_id": "33333333-0000-4000-8000-000000000012",
+      "at": "2026-09-06T07:51:00Z",
+      "event_type": "run_started",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "z3",
+      "run_id": "33333333-0000-4000-8000-000000000013",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "skill": "zztest-child",
+      "parent_run_id": "33333333-0000-4000-8000-000000000012",
+      "at": "2026-09-06T07:52:00Z",
+      "event_type": "gate_waiting",
+      "payload": {
+        "gate": "child needs a yes",
+        "surface": "class_b_gate"
+      }
+    },
+    {
+      "id": "z4",
+      "run_id": "33333333-0000-4000-8000-000000000014",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "skill": "zztest-child",
+      "parent_run_id": "33333333-0000-4000-8000-000000000012",
+      "at": "2026-09-06T07:51:30Z",
+      "event_type": "run_started",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "z5",
+      "run_id": "33333333-0000-4000-8000-000000000014",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "skill": "zztest-child",
+      "parent_run_id": "33333333-0000-4000-8000-000000000012",
+      "at": "2026-09-06T07:53:00Z",
+      "event_type": "run_completed",
+      "payload": {
+        "outcome": "success"
+      }
     }
   ],
   "ledger": [
@@ -567,6 +642,30 @@
           "reference": false
         }
       ]
+    },
+    "33333333-0000-4000-8000-000000000012": {
+      "project": "ZZTEST Client",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-lead · a sub-run waits",
+      "subruns": 2,
+      "inherited": true
+    },
+    "33333333-0000-4000-8000-000000000013": {
+      "project": "ZZTEST Client",
+      "unread": true,
+      "running": false,
+      "hasError": false,
+      "parent": "33333333-0000-4000-8000-000000000012",
+      "gitBranch": "answer in session"
+    },
+    "33333333-0000-4000-8000-000000000014": {
+      "project": "ZZTEST Client",
+      "unread": false,
+      "running": false,
+      "hasError": false,
+      "parent": "33333333-0000-4000-8000-000000000012"
     }
   },
   "progress": [

@@ -8,7 +8,7 @@
 import { loadConfig } from './compass/config.mjs'
 import { createLedgerClient } from './compass/supabase.mjs'
 import { fold } from './compass/fold.mjs'
-import { toThread, residentThread } from './compass/threads.mjs'
+import { toThread, residentThread, linkSubagents } from './compass/threads.mjs'
 import { trustOf, staleSkills, ranSkillsOf, campusAlert, projectsByClient, STALE_DAYS } from './compass/signals.mjs'
 import { makeViewer } from './compass/viewer.mjs'
 import { createSurfaces } from './compass/surfaces.mjs'
@@ -101,6 +101,9 @@ async function scan(now = Date.now()) {
   for (const run of runs.values()) {
     threads.push(await toThread(run, rowById.get(run.id) || null, viewer, surfaces, now, { runningTtlMs: cfg.runningTtlMs, claudeProjectUrl: cfg.claudeProjectUrl, place, trustOf: trust }))
   }
+
+  // U18 — sub-agents: a child stands with its parent; the parent lists its children and inherits a waiting child's ?.
+  linkSubagents(threads, runs)
 
   // U17 — residents: Active skills silent for 30 days stand on the campus with a hand up.
   const ran = ranSkills(now)

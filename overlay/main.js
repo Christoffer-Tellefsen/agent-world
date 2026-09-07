@@ -25,6 +25,8 @@
 // U20 — prospect plots as decay: every Pipeline row neither Won nor Lost stands on the campus edge (a ring
 // outside every cell the map holds), fading by days since last touch — full ≤ 7 d, half ≤ 30 d, ghost after.
 // A render rule over the sidecar's rows: nothing stored, nothing written; Won or Lost and the plot is gone.
+// U18 — sub-agents: a run with parent_run_id stands with its parent (same plot); the parent's card says
+// "n sub-runs" and lists them; a waiting child gives the parent a ? by inheritance, and N lands on the child.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
@@ -77,6 +79,9 @@ const css = `
 #aw-panel .note{opacity:.75;margin:6px 0 8px}
 #aw-panel .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
 #aw-panel .arts{margin:6px 0 10px;border-top:1px solid var(--aw-line);padding-top:8px}
+#aw-panel .sub{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0;cursor:pointer}
+#aw-panel .sub:hover{text-decoration:underline}
+#aw-panel .sub .st{opacity:.6;font-size:11px;white-space:nowrap}
 #aw-panel .arts b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
 #aw-panel .art{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0}
 #aw-panel .art .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -237,6 +242,8 @@ function render(sel) {
   const chips = [
     `<span class="chip ${CHIP[status] || ''}">${esc(LABEL[status] || status)}</span>`,
     thread.hand ? '<span class="chip wait" title="Active in ops_skills, no run in 30 days">✋ hand raised</span>' : '',
+    thread.parentId ? `<span class="chip room" title="run ${esc(String(thread.parentId).slice(0, 8))}">sub-run of ${esc(thread.parentTitle || 'its parent')}</span>` : '',
+    thread.subruns?.length ? `<span class="chip room">${thread.subruns.length} sub-run${thread.subruns.length === 1 ? '' : 's'}</span>` : '',
     `<span class="chip" style="color:#${suit.hex.toString(16).padStart(6, '0')}" title="${esc(suit.hint)} · ${esc(thread.trust?.source || '')}">suit · ${esc(suit.label)}</span>`,
     room ? `<span class="chip room" title="${esc(room.mirrors || '')}">${esc(noun('studio', p))} · ${esc(room.name)}</span>` : '',
     p.id !== pack().id ? `<span class="chip room" title="this ${esc(noun('town', p))} wears its own World Pack">${esc(p.id)}</span>` : '',
@@ -249,7 +256,7 @@ function render(sel) {
   const cardRow = intrayRows([thread])[0] || null
   const aState = cardRow ? approvals.state(cardRow.id, cardRow.gate, cardRow.url) : ''
   const doBlock = gate
-    ? `<div class="do"><b>${thread.unread ? (aState === '⏳' ? '⏳ Approved here — waiting for the surface to show it' : aState === 'not seen yet' ? 'What it wants from you · not seen yet on the surface' : 'What it wants from you') : 'Waiting — not yours to tap'}</b>
+    ? `<div class="do"><b>${thread.inheritedGate ? 'A sub-run is waiting on you — N lands on it' : thread.unread ? (aState === '⏳' ? '⏳ Approved here — waiting for the surface to show it' : aState === 'not seen yet' ? 'What it wants from you · not seen yet on the surface' : 'What it wants from you') : 'Waiting — not yours to tap'}</b>
          <div class="gate">${esc(gate)}</div>
          <div>${esc(instruction || thread.gitBranch || '')}</div></div>`
     : thread.hasError
@@ -269,11 +276,18 @@ function render(sel) {
         )
         .join('')}</div>`
     : ''
+  const subs = Array.isArray(thread.subruns) ? thread.subruns : []
+  const subBlock = subs.length
+    ? `<div class="arts"><b>${subs.length} sub-run${subs.length === 1 ? '' : 's'}</b>${subs
+        .map((s) => `<div class="sub" data-sub="${esc(s.id)}" title="select this sub-run"><span>${esc(s.title)}</span><span class="st">${s.hasError ? '! failed' : s.unread ? '? ' + esc(s.gitBranch || 'waiting on you') : s.running ? '⚒ working' : 'done'}</span></div>`)
+        .join('')}</div>`
+    : ''
   panel.innerHTML = `
     <div class="h"><div><span class="skill">${esc(skill || 'Untitled run')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
       <span class="id">${esc(noun('agent', p))} · run ${esc(String(thread.id).slice(0, 8))}</span></div>
     <div class="chips">${chips}</div>
     ${doBlock}
+    ${subBlock}
     ${artBlock}
     <div class="row"><span class="hint">Enter opens · N flies to the next ? · ${thread.unread ? 'A is blocked on a waiting run' : 'A hides from this view only'}</span>
       <span>${thread.ref?.context ? `<a class="ctx" href="${esc(thread.ref.context)}" target="_blank" rel="noopener">Context ↗</a>` : ''}${cardRow?.url ? '<button class="ok" id="aw-approve">Approve</button> ' : ''}<button id="aw-open" ${url ? '' : 'disabled'}>${esc(openLabel(url))}</button></span></div>`
@@ -282,6 +296,7 @@ function render(sel) {
     if (url) window.open(url, '_blank', 'noopener')
   })
   panel.querySelector('#aw-approve')?.addEventListener('click', () => approve(cardRow))
+  panel.querySelectorAll('.sub[data-sub]').forEach((s) => s.addEventListener('click', () => window.botCrossing?.hud?.actions?.focusThread?.(s.dataset.sub)))
   panel.querySelectorAll('button[data-art]').forEach((b) =>
     b.addEventListener('click', () => {
       const r = arts[Number(b.dataset.art)]

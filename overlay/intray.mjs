@@ -12,10 +12,12 @@ const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0)
 
 /** Bot Crossing's precedence for a `?`: the same first-match order as statusFor, minus the states a Compass run never has. */
 export const wearsQuestion = (t) => Boolean(t && !t.hasError && !t.running && t.prState !== 'MERGED' && t.unread)
+/** A row is a ? of its own: a parent that only inherits a child's ? (U18) is not listed — N lands on the child. */
+const ownQuestion = (t) => wearsQuestion(t) && !t.inheritedGate
 
 /** The rows, in N's order. */
 export function intrayRows(threads) {
-  const list = (Array.isArray(threads) ? threads : []).filter(wearsQuestion)
+  const list = (Array.isArray(threads) ? threads : []).filter(ownQuestion)
   return list
     .map((t) => {
       const [skill] = String(t.title || '').split(' · ')

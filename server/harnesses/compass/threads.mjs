@@ -97,6 +97,57 @@ export function openUrlFor(run, row, gatesOpen, { claudeProjectUrl = '' } = {}) 
   return null
 }
 
+/**
+ * Sub-agents (U18). Pure, after every thread exists:
+ *   - a child (parent_run_id set, parent in the roster) stands where its parent stands — same zone, same
+ *     planet (placed by the parent's client, never by actor) — and says so on its card
+ *   - the parent lists its children ("n sub-runs") and inherits a waiting child's ? by precedence: a parent
+ *     that is not itself ! shows ?; running is suspended while a child waits, as for its own gates. The ?
+ *     is marked inherited so the in-tray and N land on the child, not the parent (ES-4.9)
+ *   - a stream with no parent_run_id leaves every thread exactly as it was (the snapshot test)
+ */
+export function linkSubagents(threads, runs) {
+  const byId = new Map(threads.map((t) => [t.id, t]))
+  const children = new Map() // parent id → [child threads]
+  // the plot is the root ancestor's — a grandchild stands with the whole crew, whatever order the roster came in
+  const rootOf = (id) => {
+    let cur = id
+    for (let hops = 0; hops < 8; hops++) {
+      const up = runs.get(cur)?.parentId || ''
+      if (!up || up === cur || !byId.has(up)) break
+      cur = up
+    }
+    return byId.get(cur)
+  }
+  for (const t of threads) {
+    const parentId = runs.get(t.id)?.parentId || ''
+    if (!parentId || !byId.has(parentId) || parentId === t.id) continue
+    const parent = byId.get(parentId)
+    const root = rootOf(t.id)
+    t.parentId = parentId
+    t.parentTitle = parent.title.split(' · ')[0]
+    t.project = root.project
+    t.planet = root.planet
+    t.pack = root.pack
+    if (!children.has(parentId)) children.set(parentId, [])
+    children.get(parentId).push(t)
+  }
+  for (const [parentId, kids] of children) {
+    const parent = byId.get(parentId)
+    parent.subruns = kids.map((k) => ({ id: k.id, title: k.title.split(' · ')[0], unread: k.unread, running: k.running, hasError: k.hasError, gitBranch: k.gitBranch }))
+    // a child that failed wears ! on the map, not ? — nothing to inherit from it
+    const waiting = kids.filter((k) => k.unread && !k.hasError)
+    if (waiting.length && !parent.hasError && !parent.unread) {
+      parent.unread = true
+      parent.inheritedGate = true
+      parent.running = false
+      parent.title = `${parent.title.split(' · ')[0]} · ${waiting.length === 1 ? 'a sub-run waits' : waiting.length + ' sub-runs wait'}`
+      parent.gitBranch = parent.gitBranch || 'a sub-run is waiting on you'
+    }
+  }
+  return threads
+}
+
 export async function toThread(run, row, viewer, surfaces, now = Date.now(), opts = {}) {
   const runningTtlMs = opts.runningTtlMs ?? 2 * 3600 * 1000
   // Gates still open on their surface. A gate the surface already resolved (U6) is not pending.

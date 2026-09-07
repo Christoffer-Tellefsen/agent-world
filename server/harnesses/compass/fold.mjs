@@ -49,6 +49,8 @@ function blank(id) {
     artifacts: [],
     subagents: [],
     events: 0,
+    /** U18: the run this one was spawned by — from the events' parent_run_id column (Worker passthrough live 2026-09-06). */
+    parentId: '',
   }
 }
 
@@ -97,6 +99,7 @@ export function fold(events) {
     if (run.client == null && str(e.client)) run.client = e.client
     if (run.project == null && str(e.project)) run.project = e.project
     if (!run.actor && str(e.actor)) run.actor = e.actor
+    if (!run.parentId && str(e.parent_run_id)) run.parentId = e.parent_run_id
 
     switch (e.event_type) {
       case 'run_started':
