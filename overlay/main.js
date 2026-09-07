@@ -9,6 +9,8 @@
 // what the human must do, in full; A is refused on a figure that is waiting on you.
 // U13 — artifacts: the card lists what a run made (Open on a real link; a Compass reference is a
 // label) and a speech bubble floats over the agent for a minute after a new one.
+// U14 — the in-tray: every open ? as one list in N's order (oldest gate first); I toggles it, a row
+// click flies to the figure, and N is taken over here so the key and the list can never disagree.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
@@ -17,6 +19,7 @@ import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
+import { intrayRows, nextRow } from './intray.mjs'
 
 const LABEL = {
   working: 'Working',
@@ -68,6 +71,23 @@ const css = `
 #aw-toast{position:fixed;left:50%;bottom:140px;transform:translateX(-50%);background:color-mix(in srgb,var(--aw-wait) 22%,#000);color:var(--aw-ink);
   padding:9px 15px;border-radius:10px;font:13px system-ui,sans-serif;z-index:41;opacity:0;transition:opacity .2s;pointer-events:none}
 #aw-toast.on{opacity:1}
+#aw-tray{position:fixed;left:84px;top:14px;width:min(440px,calc(100vw - 460px));max-height:min(60vh,520px);overflow:auto;z-index:40;
+  font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);
+  border:1px solid var(--aw-line);border-radius:14px;padding:10px 12px 8px;backdrop-filter:blur(10px);box-shadow:0 12px 40px rgba(0,0,0,.5);display:none}
+#aw-tray.on{display:block}
+#aw-tray .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+#aw-tray .h b{font-size:14px}
+#aw-tray .h .hint{opacity:.5;font-size:11px}
+#aw-tray .r{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+#aw-tray .r:hover{background:rgba(255,255,255,.05)}
+#aw-tray .r.sel{background:color-mix(in srgb,var(--aw-wait) 16%,transparent);border-color:color-mix(in srgb,var(--aw-wait) 40%,transparent)}
+#aw-tray .r .q{width:22px;height:22px;border-radius:6px;background:#1a2b46;color:var(--aw-wait);font-weight:700;display:grid;place-items:center;flex:none}
+#aw-tray .r .m{flex:1;min-width:0}
+#aw-tray .r .s{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aw-tray .r .g{opacity:.7;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aw-tray .r .z{opacity:.5;font-size:11px}
+#aw-tray .r .age{opacity:.55;font-size:11px;white-space:nowrap}
+#aw-tray .empty{opacity:.6;padding:6px 8px}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
   border-radius:999px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
@@ -96,6 +116,7 @@ const el = (id) => {
   return d
 }
 const panel = el('aw-panel')
+const tray = el('aw-tray')
 const toastEl = el('aw-toast')
 const switcher = el('aw-planets')
 const empty = el('aw-empty')
@@ -234,6 +255,78 @@ window.addEventListener(
     e.stopPropagation()
     e.preventDefault()
     toast('This run is waiting on you — clear its gate on its surface instead of hiding it')
+  },
+  true
+)
+
+// ── U14: the in-tray ─────────────────────────────────────────────────────────────────────────
+
+let trayOpen = false
+let lastTray = ''
+const selectedId = () => window.botCrossing?.colony?.astronauts?.selected?.id || null
+/** The rows N can land on: those with a figure on this planet's map (the roster caps at maxAgents). */
+const trayRows = () => {
+  const bc = window.botCrossing
+  const byId = bc?.colony?.astronauts?.byId
+  return intrayRows(bc?.threads || []).filter((r) => !byId || byId.has(r.id))
+}
+
+function renderTray(force = false) {
+  if (!trayOpen) {
+    tray.classList.remove('on')
+    lastTray = ''
+    return
+  }
+  const rows = trayRows()
+  const sel = selectedId()
+  const key = rows.map((r) => `${r.id}:${r.at}:${r.what}`).join('|') + '~' + sel
+  if (!force && key === lastTray) return
+  lastTray = key
+  tray.innerHTML =
+    `<div class="h"><b>In-tray · ${rows.length} waiting on you</b><span class="hint">N walks this list · I closes</span></div>` +
+    (rows.length
+      ? rows
+          .map(
+            (r) => `<div class="r${r.id === sel ? ' sel' : ''}" data-id="${esc(r.id)}"><span class="q">?</span>
+            <span class="m"><div class="s">${esc(r.skill)} <span class="z">· ${esc(r.zone)}</span></div>
+            <div class="g">${esc(r.gate)}${r.left > 1 ? ` (${r.left} left)` : ''} — ${esc(r.what)}</div></span>
+            <span class="age" title="oldest open gate">${esc(ago(r.at))}</span></div>`
+          )
+          .join('')
+      : '<div class="empty">Nothing is waiting on you.</div>')
+  tray.classList.add('on')
+  tray.querySelectorAll('.r').forEach((row) =>
+    row.addEventListener('click', () => {
+      window.botCrossing?.hud?.actions?.focusThread?.(row.dataset.id)
+      renderTray(true)
+    })
+  )
+}
+setInterval(() => renderTray(), 500)
+
+// I toggles the tray; N is taken over: the row after the selected one, in the tray's order, wrapping.
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
+    if (e.key === 'i' || e.key === 'I') {
+      trayOpen = !trayOpen
+      renderTray(true)
+      return
+    }
+    if (e.key !== 'n' && e.key !== 'N') return
+    e.stopPropagation()
+    e.preventDefault()
+    const rows = trayRows()
+    const row = nextRow(rows, selectedId())
+    if (!row) {
+      toast('Nobody is waiting on you right now')
+      return
+    }
+    window.botCrossing?.hud?.actions?.focusThread?.(row.id)
+    renderTray(true)
   },
   true
 )

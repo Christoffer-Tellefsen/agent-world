@@ -162,6 +162,9 @@ export async function toThread(run, row, viewer, surfaces, now = Date.now(), opt
     canArchive: false,
     // What the run made (U13): the overlay lists these on the card and bubbles the newest one.
     artifacts: artifactsOf(run, row),
+    // The gates still open on their surface (U14): the in-tray orders by the oldest one; each says who can tap it.
+    gates: pending.map((g) => ({ gate: g.gate, surface: g.surface, ref_url: isLink(g.ref_url) ? g.ref_url : '', at: g.at, canTap: viewer.canTap(g), what: whatToDo(g, run) })),
+    gateAt: pending.length ? Math.min(...pending.map((g) => g.at)) : 0,
     ref: { run_id: run.id, url: openUrl, context: contextUrl && contextUrl !== openUrl ? contextUrl : '' },
   }
 }

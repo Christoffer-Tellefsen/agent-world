@@ -256,7 +256,7 @@
         "npm test: for the standing set the in-tray order equals the N order; count equals number of ? on the map"
       ],
       "check": "V-U14",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {
