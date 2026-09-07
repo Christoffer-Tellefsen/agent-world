@@ -182,8 +182,8 @@ test('U12: two packs ship, each declaring skin, rooms, names and layout; rooms m
   const campus = loaded['tellefsen-campus']
   assert.deepEqual(
     campus.rooms.map((r) => r.name),
-    ['solution studio', 'research lab', 'content studio', 'finance office', 'integration yard', 'board room', 'corner office'],
-    'the Spatial grammar table'
+    ['solution studio', 'research lab', 'content studio', 'finance office', 'integration yard', 'board room', 'corner office', 'steering room'],
+    'the Spatial grammar table, plus the Steering Room (U19)'
   )
   assert.deepEqual(campus.names, { world: 'campus', planet: 'planet', centre: 'campus', town: 'town', building: 'building', studio: 'studio', agent: 'agent', prospect: 'prospect plot' })
   // the same rooms mirror the same surfaces under both packs

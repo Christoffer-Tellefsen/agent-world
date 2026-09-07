@@ -18,11 +18,16 @@
 // U17 — signals: the suit is the skill's trust status (one colour per run_mode), a resident with its hand
 // up is a skill silent 30 days, ! on the campus flag is a run_failed with no later success, ✓ over a town
 // is a milestone flipped Done in 24 h; a short cue on a NEW ? or ! only, M mutes (a render setting).
+// U19 — the Steering Room: R (or the room's button) opens three read-only panels from the sidecar's
+// GET /steering — Pipeline hot deals (Airtable, the hot-deals view's own order), the milestone board
+// (next milestone per Active project, Notion) and the last three 🧠 Decisions (Notion); 5-min caches,
+// nothing editable, an empty panel names its fix.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate } from './zones.mjs'
+import { pipelineRows, milestoneRows, decisionRows, panelNote } from './steering.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
@@ -109,6 +114,28 @@ const css = `
 #aw-intent .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 #aw-intent button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
 #aw-intent button.ghost{background:rgba(255,255,255,.1);color:var(--aw-ink)}
+#aw-room{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:43;width:min(1180px,calc(100vw - 40px));max-height:calc(100vh - 60px);overflow:auto;display:none;
+  font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
+  border-radius:16px;padding:16px 18px 14px;backdrop-filter:blur(12px);box-shadow:0 16px 60px rgba(0,0,0,.6)}
+#aw-room.on{display:block}
+#aw-room .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+#aw-room .h b{font-size:16px}
+#aw-room .h .hint{opacity:.5;font-size:11px}
+#aw-room .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+#aw-room .col{border:1px solid var(--aw-line);border-radius:12px;padding:10px 12px;min-height:120px}
+#aw-room .col h3{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+#aw-room .col h3 span{opacity:.6;text-transform:none;letter-spacing:0;margin-left:6px}
+#aw-room .r{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--aw-line)}
+#aw-room .r:first-of-type{border-top:0}
+#aw-room .r .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#aw-room .r .n a{color:inherit;text-decoration:none}
+#aw-room .r .n a:hover{text-decoration:underline}
+#aw-room .r .n small{display:block;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#aw-room .r .v{white-space:nowrap;opacity:.8;font-variant-numeric:tabular-nums}
+#aw-room .r .v.late{color:var(--aw-block)}
+#aw-room .r .v.stale{color:var(--aw-done)}
+#aw-room .note{opacity:.65;padding:6px 0;font-style:italic}
+#aw-room .foot{opacity:.45;font-size:11px;margin-top:10px}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
   border-radius:999px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
@@ -139,6 +166,7 @@ const el = (id) => {
 const panel = el('aw-panel')
 const tray = el('aw-tray')
 const intent = el('aw-intent')
+const room = el('aw-room')
 const toastEl = el('aw-toast')
 const switcher = el('aw-planets')
 const empty = el('aw-empty')
@@ -287,6 +315,84 @@ window.addEventListener(
   },
   true
 )
+
+// ── U19: the Steering Room ───────────────────────────────────────────────────────────────────
+const roomByIdName = (id) => (pack().rooms || []).find((r) => r.id === id)?.name || id
+let roomOpen = false
+let roomData = null
+let roomLoadedAt = 0
+let roomLoading = false
+
+function renderRoom() {
+  if (!roomOpen) {
+    room.classList.remove('on')
+    return
+  }
+  const d = roomData
+  const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text))
+  const p1 = d ? pipelineRows({ rows: d.pipeline?.hot || [] }) : []
+  const p2 = d ? milestoneRows(d.milestones) : []
+  const p3 = d ? decisionRows(d.decisions) : []
+  const col = (title, sub, rows, note) =>
+    `<div class="col"><h3>${esc(title)}${sub ? `<span>${esc(sub)}</span>` : ''}</h3>${rows.join('')}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`
+  room.innerHTML =
+    `<div class="h"><b>${esc(roomByIdName('steering-room'))}</b><span class="hint">read-only · refreshed every 5 min by the adapter · R or Esc closes</span></div>` +
+    (!d && roomLoading ? '<div class="note">reading the substrate…</div>' : '') +
+    `<div class="cols">` +
+    col(
+      'Pipeline · hot deals',
+      d?.pipeline?.view ? `view "${d.pipeline.view}"` : 'open stages',
+      p1.map((r) => `<div class="r"><span class="n">${link(r.url, r.name)}<small>${esc(r.stage)}${r.nextAction ? ' · ' + esc(r.nextAction) : ''}</small></span><span class="v${r.days != null && r.days > 30 ? ' stale' : ''}" title="days since last touch">${esc(r.daysLabel)}</span></div>`),
+      d ? panelNote({ rows: p1, error: d.pipeline?.error }, 'no open deals') : ''
+    ) +
+    col(
+      'Milestone board',
+      'next milestone per Active project',
+      p2.map((r) => `<div class="r"><span class="n">${link(r.url, r.project)}<small>${link(r.nextUrl, r.next)} · ${r.done}/${r.total} done</small></span><span class="v${r.late ? ' late' : ''}">${esc(r.due)}</span></div>`),
+      d ? panelNote(d.milestones, 'no Active project') : ''
+    ) +
+    col(
+      'Decisions',
+      'last three Active / Pending',
+      p3.map((r) => `<div class="r"><span class="n">${link(r.url, r.title)}<small>${esc(r.status)}${r.confidence ? ' · ' + esc(r.confidence) : ''}</small></span><span class="v">${esc(r.date)}</span></div>`),
+      d ? panelNote(d.decisions, 'no decision yet') : ''
+    ) +
+    `</div><div class="foot">${d?.at ? 'as of ' + esc(new Date(d.at).toLocaleTimeString()) : ''} · the Steering Room mirrors Airtable HQ Pipeline, 🎯 Engagement Milestones and 🧠 Decisions — change them there</div>`
+  room.classList.add('on')
+}
+async function refreshRoom(force = false) {
+  if (roomLoading) return
+  if (!force && roomData && Date.now() - roomLoadedAt < 5 * 60_000) return
+  roomLoading = true
+  renderRoom()
+  const d = await loadSteering()
+  roomLoading = false
+  if (d) {
+    roomData = d
+    roomLoadedAt = Date.now()
+  }
+  renderRoom()
+}
+function toggleRoom(open = !roomOpen) {
+  roomOpen = open
+  renderRoom()
+  if (roomOpen) refreshRoom()
+}
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
+    if (e.key === 'r' || e.key === 'R') toggleRoom()
+    else if (e.key === 'Escape' && roomOpen) {
+      e.stopPropagation()
+      toggleRoom(false)
+    }
+  },
+  true
+)
+setInterval(() => roomOpen && refreshRoom(), 60_000)
 
 // ── U17: signals ─────────────────────────────────────────────────────────────────────────────
 
@@ -628,8 +734,10 @@ function renderSwitcher() {
       .map((p) => `<button data-key="${esc(p.key)}" aria-pressed="${p.key === currentKey()}" class="${p.hasSubstrate ? '' : 'empty'}" title="${esc(p.hasSubstrate ? `${p.role} · ${p.pack}` : 'no substrate yet')}">${esc(p.name)}</button>`)
       .join('') +
     `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>` +
+    `<button id="aw-room-btn" title="the ${esc(roomFor('steering', pack())?.name || 'steering room')} · R">${esc(roomByIdName('steering-room'))}</button>` +
     `<span class="pack" id="aw-bench" title="skills Active in ops_skills with no run in 30 days: hands up on the campus; the rest wait on the bench under the figure cap (S → agents)"></span>`
-  switcher.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
+  switcher.querySelectorAll('button[data-key]').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
+  switcher.querySelector('#aw-room-btn')?.addEventListener('click', () => toggleRoom())
   switcher.classList.add('on')
 }
 
@@ -727,12 +835,17 @@ function syncQuietTowns() {
   }
 }
 
-ready.then(() => {
+function dressWorld() {
   const here = currentPlanet()
   wear(here?.pack || getWorld()?.viewer?.pack || '')
   document.title = here ? `${here.name} · ${pack().title}` : document.title
   renderSwitcher()
   renderEmpty()
+}
+onWorldLate(dressWorld)
+ready.then(() => {
+  dressWorld()
+  const here = currentPlanet()
   if (!isHome() && here?.hasSubstrate) console.info(`[world] on ${here.name} — layout ${here.colonyFile}`)
   // Quiet towns follow the roster: after every poll the plots may have changed.
   let lastRoster = ''

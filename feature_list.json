@@ -337,7 +337,7 @@
         "npm test: all three readers are GET-only; cache respected; a 404 degrades to an empty panel with the fix named"
       ],
       "check": "V-U19",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

@@ -68,6 +68,24 @@ reset_alpha() {
   echo "reset_alpha: $rec Status → Pending Approval · HTTP $code"
 }
 
+# reset_zeta — the ZZTEST Pipeline row (ZZTEST_PIPELINE_REC, default reclEgXG2t4ZnomCq): Stage → Lead, Last Viewed → 12 d ago,
+# so the Steering Room reads "12 d" (V-U19) and the prospect plot stands at half opacity (V-U20). GET first; the
+# Opportunity Name must start with ZZTEST or nothing is written. Never any other Pipeline row.
+reset_zeta() {
+  [ -n "${AIRTABLE_TOKEN:-}" ] || { echo "reset_zeta: AIRTABLE_TOKEN not set — row left as is" >&2; return 0; }
+  local base rec tbl title stage code day fields
+  base="${AIRTABLE_BASE_ID:-appixWl8C3bogLsvp}"; rec="${ZZTEST_PIPELINE_REC:-reclEgXG2t4ZnomCq}"; tbl="tbl5OkxwL3WqTK6Vz"
+  read -r title stage < <(curl -s -H "Authorization: Bearer $AIRTABLE_TOKEN" "https://api.airtable.com/v0/$base/$tbl/$rec" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const f=(JSON.parse(s).fields||{});process.stdout.write(String(f["Opportunity Name"]||"").split(" ")[0]+" "+String(f.Stage||""))})')
+  case "$title" in ZZTEST*) ;; *) echo "reset_zeta: row $rec is not a ZZTEST row (title '$title') — refusing to write" >&2; return 0 ;; esac
+  day=$(node -e 'process.stdout.write(new Date(Date.now()-12*864e5).toISOString().slice(0,10))')
+  # Stage is written only when it is not Lead: Airtable stamps "Stage Changed Date" on any write to Stage, even the same value
+  fields="{\"Last Viewed\":\"$day\"}"; [ "$stage" = "Lead" ] || fields="{\"Stage\":\"Lead\",\"Last Viewed\":\"$day\"}"
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "https://api.airtable.com/v0/$base/$tbl/$rec" \
+    -H "Authorization: Bearer $AIRTABLE_TOKEN" -H "Content-Type: application/json" --data "{\"fields\":$fields}")
+  echo "reset_zeta: $rec Stage $stage → Lead · Last Viewed → $day · HTTP $code"
+}
+
 if [ "${1:-}" = "--one" ]; then
   run "One-off (running)" zztest-builder "ZZTEST Client" claude_code 0 '[]'
   exit 0
@@ -76,6 +94,7 @@ fi
 
 : "${ZZTEST_PA_URL:?set ZZTEST_PA_URL in .env (the ZZTEST Alpha Pending Approval row)}"
 reset_alpha
+reset_zeta
 run "Alpha (waiting)"  zztest-approver "ZZTEST Client" cowork_scheduled 0.1 \
   "[{\"event_type\":\"gate_waiting\",\"payload\":{\"gate\":\"ZZTEST gate\",\"surface\":\"pending_approval\",\"ref_url\":\"$ZZTEST_PA_URL\"}},{\"event_type\":\"run_completed\",\"payload\":{\"outcome\":\"success\"}}]"
 run "Beta (running)"   zztest-builder  "ZZTEST Client" claude_code      0.05 '[]'

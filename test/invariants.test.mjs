@@ -55,11 +55,29 @@ test('the adapter never writes: no non-GET request and no supabase-js write chai
   // Two shapes of write: an HTTP verb on a request, or a supabase-js query chain (.from(...).insert/update/upsert/delete/rpc).
   // A Map or Set .delete() is not a write to anything; only chains that start at .from( count.
   const httpNeedles = [/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/i, /['"](POST|PUT|PATCH|DELETE)['"]\s*,\s*['"]\/rest\//i]
+  // The one allowed non-GET: Notion lists a database's rows only through POST /v1/data_sources/<id>/query —
+  // a read with a body (filter, sort, page size). steering.mjs (U19) makes it and nothing else may; the file
+  // must contain no other verb and must only ever build that path (design detail 2026-09-07, proposed Decision).
+  const ALLOWED_LINE = "init.method = 'POST'"
+  const notionQueryOnly = (text) => {
+    const lines = text.split('\n')
+    const allowed = lines.filter((l) => l.includes(ALLOWED_LINE))
+    // exactly one such line, it is the only `.method` assignment in the file, and the file only ever builds the /query path
+    const assignments = lines.filter((l) => /\.method\s*=/.test(l) || /method:\s*['"]/.test(l))
+    if (allowed.length !== 1 || assignments.length !== 1 || !/data_sources\/\$\{[A-Z_]+\}\/query/.test(text)) return null
+    return lines.filter((l) => !l.includes(ALLOWED_LINE)).join('\n') // the rest is checked like every other file
+  }
   const chainNeedle = /\.from\([^)]*\)[\s\S]{0,200}?\.(insert|update|upsert|delete|rpc)\(/
   const hits = []
   for (const f of files) {
-    const text = fs.readFileSync(f, 'utf8')
+    let text = fs.readFileSync(f, 'utf8')
+    if (path.basename(f) === 'steering.mjs') {
+      const rest = notionQueryOnly(text)
+      if (rest == null) hits.push('server/harnesses/compass/steering.mjs: more than the one Notion data-source query is written')
+      else text = rest
+    }
     for (const n of httpNeedles) if (n.test(text)) hits.push(`${path.relative(root, f)} matches ${n}`)
+    if (/\.method\s*=\s*['"](POST|PUT|PATCH|DELETE)['"]/i.test(text)) hits.push(`${path.relative(root, f)} assigns a write method`)
     if (chainNeedle.test(text)) hits.push(`${path.relative(root, f)} has a supabase-js write chain`)
   }
   assert.deepEqual(hits, [], `write calls found in the adapter:\n${hits.join('\n')}`)

@@ -49,6 +49,26 @@ async function loadWorld() {
 /** Resolves once the world is known (or known to be unavailable); the fetch seam waits on it. */
 export const ready = loadWorld()
 
+// A page that loads in the seconds after ./dev.sh starts finds the sidecar not listening yet (it starts on
+// the adapter's first detect). Keep asking for a minute; the first answer lights up the switcher, the
+// residents' bench and the planet filter — until then the seam passes everything through (home only).
+ready.then((w) => {
+  if (w) return
+  let tries = 0
+  const timer = setInterval(async () => {
+    if (world || ++tries > 12) return clearInterval(timer)
+    const got = await loadWorld()
+    if (got) {
+      clearInterval(timer)
+      console.info('[world] sidecar reached after a retry — planets, towns and signals are live')
+      for (const fn of lateListeners) fn(got)
+    }
+  }, 5000)
+})
+const lateListeners = new Set()
+/** Called once if the world arrives late (the sidecar was not up when the page loaded). */
+export const onWorldLate = (fn) => lateListeners.add(fn)
+
 /** The signals (U17) change with every scan: re-read GET /world on the poll's own cadence, keeping the shape stable. */
 const REFRESH_MS = 15_000
 async function refreshWorld() {
@@ -66,6 +86,17 @@ async function refreshWorld() {
 }
 ready.then(() => setInterval(refreshWorld, REFRESH_MS))
 export const signals = () => world?.signals || { campus: { alert: [] }, towns: {}, residents: [] }
+
+/** The Steering Room's three panels (U19), read from the sidecar; null when it is not there. Cached by the adapter, 5 min. */
+export async function loadSteering() {
+  try {
+    const res = await fetch(`${SIDECAR}/steering`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
 
 /** How many residents stand on this planet's map, of how many the adapter sent (the rest are "on the bench"). */
 let bench = { shown: 0, total: 0 }

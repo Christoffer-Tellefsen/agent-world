@@ -15,6 +15,7 @@ import { createSurfaces } from './compass/surfaces.mjs'
 import { createSubstrate } from './compass/substrate.mjs'
 import { deriveWorld, worldDescriptor } from './compass/zones.mjs'
 import { createOverlayApi, startOverlayApi } from './compass/overlay-api.mjs'
+import { createSteering } from './compass/steering.mjs'
 import { CAMPUS } from './compass/config.mjs'
 
 const cfg = loadConfig()
@@ -22,6 +23,7 @@ const log = cfg.debug ? (...a) => console.error('[world]', ...a) : () => {}
 const viewer = makeViewer({ tenant: cfg.tenant, preset: cfg.viewerPreset })
 const surfaces = createSurfaces(cfg, { log })
 const substrate = createSubstrate(cfg, { log })
+const steering = createSteering(cfg, { surfaces, substrate, log }) // U19: three panels, 5-min caches, served by the sidecar
 let ledger = null
 let world = null // the derived zone map from the last substrate read (U12)
 let overlayApi = null
@@ -46,6 +48,7 @@ function ensureOverlayApi() {
   const handle = createOverlayApi({
     getWorld: async () => world || currentWorld(),
     // Awaited: a page that loads right after a restart must not see a town-less world (seen 2026-09-07 — "plot" for a town).
+    steering: () => steering.all(),
     descriptor: async () => ({ ...worldDescriptor(world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }))), viewer), signals }),
     log,
   })
@@ -137,4 +140,4 @@ const setArchived = async () => ({ ok: false, error: 'The world is a mirror; run
 export default { id: 'compass', name: 'Compass', detect, scanThreads, openThread, newSession, setArchived }
 
 /** Exposed for tests and the console — never for the browser. */
-export const _internals = { scan, cfg, viewer, world: () => world, currentWorld, signals: () => signals, invalidate: () => (scanCache = { at: 0, threads: scanCache.threads }) }
+export const _internals = { scan, cfg, viewer, world: () => world, currentWorld, signals: () => signals, steering, invalidate: () => (scanCache = { at: 0, threads: scanCache.threads }) }

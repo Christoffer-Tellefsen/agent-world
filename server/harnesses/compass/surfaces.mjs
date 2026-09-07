@@ -72,11 +72,12 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
   /** One read per project per 5 min: progress (U4) and the newest time a milestone was edited while Done (U17's ✓). */
   async function milestones(projectId) {
     const id = dash(projectId)
-    if (!id) return { value: 0.05, doneAt: 0 }
+    if (!id) return { value: 0.05, doneAt: 0, list: [] }
     const hit = progressCache.get(id)
     if (hit && now() - hit.at < 5 * 60_000) return hit
     let value = 0.05
     let doneAt = 0
+    let list = []
     try {
       const page = await notion(`pages/${id}`)
       const rel = page.properties?.Milestones
@@ -86,8 +87,27 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
         ids = (more.results || []).map((r) => r.relation?.id).filter(Boolean)
       }
       if (ids.length) {
-        const pages = await Promise.all(ids.map((m) => notion(`pages/${m}`).then((p) => ({ status: selectName(p.properties?.Status), edited: Date.parse(p.last_edited_time) || 0 })).catch(() => ({ status: '', edited: 0 }))))
-        const done = pages.filter((p) => DONE.test(p.status))
+        const pages = await Promise.all(
+          ids.map((m) =>
+            notion(`pages/${m}`)
+              .then((p) => {
+                const pr = p.properties || {}
+                const title = Object.values(pr).find((x) => x?.type === 'title')
+                return {
+                  id: m,
+                  name: (title?.title || []).map((t) => t.plain_text).join('') || m,
+                  status: selectName(pr.Status),
+                  edited: Date.parse(p.last_edited_time) || 0,
+                  committed: Date.parse(pr['Committed Date']?.date?.start || '') || 0,
+                  sequence: typeof pr.Sequence?.number === 'number' ? pr.Sequence.number : null,
+                  url: p.url || '',
+                }
+              })
+              .catch(() => ({ id: m, name: m, status: '', edited: 0, committed: 0, sequence: null, url: '' }))
+          )
+        )
+        list = pages.map((p) => ({ ...p, done: DONE.test(p.status) }))
+        const done = list.filter((p) => p.done)
         value = Math.max(0.05, done.length / ids.length)
         doneAt = done.reduce((m, p) => Math.max(m, p.edited), 0)
       }
@@ -95,7 +115,7 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     } catch (err) {
       warn(`progress:${id}`, `milestone progress unavailable for project ${id} — ${err.message}`)
     }
-    const entry = { at: now(), value, doneAt }
+    const entry = { at: now(), value, doneAt, list }
     progressCache.set(id, entry)
     return entry
   }

@@ -7,7 +7,8 @@
  * routes a non-home planet's state here and leaves data/colony.json to the API.
  *
  *   OPTIONS *                      CORS preflight (local origins only)
- *   GET  /world                    { at, viewer, home, planets, towns, campus }
+ *   GET  /world                    { at, viewer, home, planets, towns, campus, signals }
+ *   GET  /steering                 { at, pipeline, milestones, decisions } — the Steering Room's three panels (U19), 5-min caches
  *   GET  /planets/<key>/state      that planet's data/colony.<key>.json — created empty on first read
  *   PUT  /planets/<key>/state      write it (same field whitelist as api.mjs; the browser is the one writer)
  *
@@ -79,7 +80,7 @@ function readJsonBody(req, limit = 4 * 1024 * 1024) {
  * @param descriptor () => the JSON for GET /world (may be async)
  * @param dataDir   where colony.<key>.json files live
  */
-export function createOverlayApi({ getWorld, descriptor, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
+export function createOverlayApi({ getWorld, descriptor, steering = null, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
   const fileFor = (key) => path.join(dataDir, `colony.${key}.json`)
 
   async function readState(key) {
@@ -133,6 +134,7 @@ export function createOverlayApi({ getWorld, descriptor, dataDir = DEFAULT_DATA_
 
     try {
       if (url.pathname === '/world' && req.method === 'GET') return send(200, await descriptor())
+      if (url.pathname === '/steering' && req.method === 'GET') return steering ? send(200, await steering()) : send(404, { error: 'No steering room on this adapter' })
 
       const m = url.pathname.match(/^\/planets\/([^/]+)\/state$/)
       if (m) {
