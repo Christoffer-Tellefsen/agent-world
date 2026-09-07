@@ -234,7 +234,7 @@
         "npm test: bubble appears on the Epsilon fixture; Compass-reference artifact has no Open target"
       ],
       "check": "V-U13",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

@@ -7,6 +7,8 @@
 //
 // U11 — the panel: the run, its zone, its state, and for a pending gate the gate's name and exactly
 // what the human must do, in full; A is refused on a figure that is waiting on you.
+// U13 — artifacts: the card lists what a run made (Open on a real link; a Compass reference is a
+// label) and a speech bubble floats over the agent for a minute after a new one.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
@@ -14,6 +16,7 @@
 import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo } from './zones.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { allocateCells, createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
+import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
 
 const LABEL = {
   working: 'Working',
@@ -52,6 +55,13 @@ const css = `
 #aw-panel .do .gate{font-weight:600;margin-bottom:2px}
 #aw-panel .note{opacity:.75;margin:6px 0 8px}
 #aw-panel .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#aw-panel .arts{margin:6px 0 10px;border-top:1px solid var(--aw-line);padding-top:8px}
+#aw-panel .arts b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:4px}
+#aw-panel .art{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0}
+#aw-panel .art .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#aw-panel .art .sys{opacity:.55;font-size:11px;margin-left:8px}
+#aw-panel .art .lbl{opacity:.5;font-size:11px;white-space:nowrap}
+#aw-panel .art button{padding:3px 10px;font-size:12px;background:rgba(255,255,255,.1)}
 #aw-panel .hint{opacity:.5;font-size:11px}
 #aw-panel button{font:inherit;border:0;border-radius:8px;padding:7px 13px;cursor:pointer;background:var(--aw-accent);color:#fff}
 #aw-panel button:disabled{opacity:.35;cursor:default}
@@ -168,24 +178,42 @@ function render(sel) {
         ? `<div class="note">${esc(preview)}</div>`
         : ''
 
+  const arts = artifactRows(thread)
+  const artBlock = arts.length
+    ? `<div class="arts"><b>Artifacts · ${arts.length}</b>${arts
+        .map(
+          (r, i) =>
+            `<div class="art"><span class="n" title="${esc(r.open || r.name)}">${esc(r.name)}<span class="sys">${esc(r.system)}</span></span>${
+              r.open ? `<button data-art="${i}">Open</button>` : '<span class="lbl">reference · nothing to open</span>'
+            }</div>`
+        )
+        .join('')}</div>`
+    : ''
   panel.innerHTML = `
     <div class="h"><div><span class="skill">${esc(skill || 'Untitled run')}</span><span class="zone">${esc(zoneLabel(thread, p))}</span></div>
       <span class="id">${esc(noun('agent', p))} · run ${esc(String(thread.id).slice(0, 8))}</span></div>
     <div class="chips">${chips}</div>
     ${doBlock}
+    ${artBlock}
     <div class="row"><span class="hint">Enter opens · N flies to the next ? · ${thread.unread ? 'A is blocked on a waiting run' : 'A hides from this view only'}</span>
       <span>${thread.ref?.context ? `<a class="ctx" href="${esc(thread.ref.context)}" target="_blank" rel="noopener">Context ↗</a>` : ''}<button id="aw-open" ${url ? '' : 'disabled'}>${esc(openLabel(url))}</button></span></div>`
   panel.classList.add('on')
   panel.querySelector('#aw-open')?.addEventListener('click', () => {
     if (url) window.open(url, '_blank', 'noopener')
   })
+  panel.querySelectorAll('button[data-art]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const r = arts[Number(b.dataset.art)]
+      if (r?.open) window.open(r.open, '_blank', 'noopener')
+    })
+  )
 }
 
 // Poll the handle rather than hook main.js: no src/ edits, and 4×/s is nothing.
 let lastKey = ''
 setInterval(() => {
   const sel = selection()
-  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt].join('|') : ''
+  const key = sel ? [sel.agent.id, sel.agent.status, sel.thread.title, sel.thread.gitBranch, sel.thread.unread, sel.thread.lastActivityAt, (sel.thread.artifacts || []).length, newestArtifactAt(sel.thread)].join('|') : ''
   syncQuietLabels()
   if (key === lastKey) return
   lastKey = key
@@ -209,6 +237,65 @@ window.addEventListener(
   },
   true
 )
+
+// ── U13: artifact bubbles ────────────────────────────────────────────────────────────────────
+//
+// A speech bubble over the agent whose run just left an artifact: a name plate (the same kind the
+// zones wear) drawn above the badge, following the figure, for BUBBLE_MS after the artifact is new.
+// Which agents bubble is decided in overlay/artifacts.mjs from the roster alone — no second data path.
+const bubbles = new Map() // thread id → { mesh, title }
+const tracker = new BubbleTracker()
+let bubbleGroup = null
+const BUBBLE_Y = 2.35 // the badge floats at 1.52 (src/agents/astronauts.js); the bubble sits above it
+
+function syncBubbles() {
+  const bc = window.botCrossing
+  const colony = bc?.colony
+  if (!colony?.scene || !colony.astronauts) return
+  const THREE_GROUP = colony.plotGroup?.constructor
+  if (!THREE_GROUP) return
+  if (!bubbleGroup) {
+    bubbleGroup = new THREE_GROUP()
+    bubbleGroup.name = 'aw:bubbles'
+    colony.scene.add(bubbleGroup)
+  }
+  const active = tracker.update(bc.threads || [])
+  for (const [id, b] of bubbles) {
+    if (active.has(id) && colony.astronauts.byId?.has(id)) continue
+    bubbleGroup.remove(b.mesh)
+    b.mesh.userData?.dispose?.()
+    bubbles.delete(id)
+  }
+  for (const [id, info] of active) {
+    if (bubbles.has(id) || !colony.astronauts.byId?.has(id)) continue
+    const text = `💬 ${info.title.length > 34 ? info.title.slice(0, 33) + '…' : info.title}`
+    try {
+      const mesh = createLabel(text, getComputedStyle(document.documentElement).getPropertyValue('--aw-done').trim() || '#e6c67f')
+      mesh.renderOrder = 9
+      mesh.visible = true
+      mesh.material.opacity = 0.95
+      bubbleGroup.add(mesh)
+      bubbles.set(id, { mesh, title: info.title })
+    } catch (err) {
+      console.warn('[world] bubble not drawn:', id, err?.message || err)
+    }
+  }
+}
+function followBubbles() {
+  const colony = window.botCrossing?.colony
+  if (colony?.astronauts && bubbles.size) {
+    const show = Boolean(colony.uiVisible ?? true)
+    for (const [id, b] of bubbles) {
+      const agent = colony.astronauts.byId?.get(id)
+      if (!agent) continue
+      b.mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y, agent.pos.z)
+      b.mesh.visible = show
+    }
+  }
+  requestAnimationFrame(followBubbles)
+}
+requestAnimationFrame(followBubbles)
+setInterval(syncBubbles, 1000)
 
 // ── U12: planets, pack, quiet towns ───────────────────────────────────────────────────────────
 

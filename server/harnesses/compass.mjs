@@ -39,7 +39,8 @@ function ensureOverlayApi() {
   if (overlayApi || !cfg.overlayPort) return
   const handle = createOverlayApi({
     getWorld: async () => world || currentWorld(),
-    descriptor: () => worldDescriptor(world || deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }), viewer),
+    // Awaited: a page that loads right after a restart must not see a town-less world (seen 2026-09-07 — "plot" for a town).
+    descriptor: async () => worldDescriptor(world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }))), viewer),
     log,
   })
   overlayApi = startOverlayApi(handle, { port: cfg.overlayPort, log })

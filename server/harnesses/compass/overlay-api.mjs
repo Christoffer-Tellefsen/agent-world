@@ -76,7 +76,7 @@ function readJsonBody(req, limit = 4 * 1024 * 1024) {
 
 /**
  * @param getWorld  async () => the derived world (zones.mjs) — planets decide which files exist
- * @param descriptor () => the JSON for GET /world
+ * @param descriptor () => the JSON for GET /world (may be async)
  * @param dataDir   where colony.<key>.json files live
  */
 export function createOverlayApi({ getWorld, descriptor, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
@@ -132,7 +132,7 @@ export function createOverlayApi({ getWorld, descriptor, dataDir = DEFAULT_DATA_
     if (req.method !== 'GET' && req.method !== 'HEAD' && !originLocal) return send(403, { error: 'Origin required' })
 
     try {
-      if (url.pathname === '/world' && req.method === 'GET') return send(200, descriptor())
+      if (url.pathname === '/world' && req.method === 'GET') return send(200, await descriptor())
 
       const m = url.pathname.match(/^\/planets\/([^/]+)\/state$/)
       if (m) {

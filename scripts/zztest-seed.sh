@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Agent World — seed the standing ZZTEST test set into ops_run_events via the Compass Worker.
-#   scripts/zztest-seed.sh          → Alpha (waiting), Beta (running), Gamma (failed), Delta (asleep)
+#   scripts/zztest-seed.sh          → Alpha (waiting), Beta (running), Gamma (failed), Delta (asleep),
+#                                     Epsilon (U13: completed, one Notion-page artifact + one Compass reference)
 #   scripts/zztest-seed.sh --clean  → DELETE $W/ledger/zztest first (skill LIKE 'zztest-%' rows only — the ledger's
 #                                     one named exception to append-only, Decision 2026-09-06), then the same seed.
 #                                     Without the flag nothing is deleted, ever.
@@ -78,4 +79,9 @@ run "Gamma (failed)"   zztest-faulty   null            cowork_manual    0.2 \
   '[{"event_type":"run_failed","payload":{"reason":"ZZTEST fault"}}]'
 run "Delta (asleep)"   zztest-sleeper  "ZZTEST Client" chat             96 \
   '[{"event_type":"run_completed","payload":{"outcome":"success"}}]'
+# Epsilon (U13): the page it "wrote" is ZZTEST_ARTIFACT_URL (default: the Agent World project page in Notion — read only, nothing is written there);
+# the second artifact is a Compass reference, which the card shows as a label with no Open.
+: "${ZZTEST_ARTIFACT_URL:=https://app.notion.com/p/3d1c0af9c97481ce8a25f4bdeadd54ab}"
+run "Epsilon (artist)"  zztest-artist   "ZZTEST Client" cowork_manual    0 \
+  "[{\"event_type\":\"artifact_registered\",\"payload\":{\"type\":\"notion_page\",\"title\":\"ZZTEST artifact page\",\"notion_url\":\"$ZZTEST_ARTIFACT_URL\"}},{\"event_type\":\"run_completed\",\"payload\":{\"outcome\":\"success\",\"artifacts\":[{\"title\":\"ZZTEST config reference\",\"url\":\"ops_config:ZZTEST_REF\",\"system\":\"compass\"}]}}]"
 echo "seeded — look at the world after the next poll (≤ 15 s)"

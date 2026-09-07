@@ -1,5 +1,5 @@
 {
-  "_note": "The standing ZZTEST set as raw ops_run_events rows, plus two traps: an unmatched gate_passed (must be ignored) and a malformed payload (must be skipped, not thrown). Times are relative: 'now' is 2026-09-06T08:00:00Z. Two regressions from the first live run (2026-09-06): Epsilon — a gate pair written in one batch shares one timestamp and the stream returns gate_passed FIRST (so the array order below is deliberately close-before-open; the fold must still close it). Zeta — a real content-agent draft awaiting signature: surface content_status must render ? for the Owner. Eta — a live (non-terminal) run blocked on a gate, the Class B pattern (e.g. a Claude Code permission prompt): must render ? and NOT hammer; seen live 2026-09-06 when the seeded Alpha showed a hammer. Theta — a content run that left two drafts; the test's fake surface reports the blog signed and the mirror still In Review, so the title must read '(1 of 2 left)' and Open must go to the mirror (seen live 2026-09-06). Iota — a build session's own gate (trigger claude_project, class_b_gate, ref_url a Notion page): Open must go to the Claude Project and the Notion page must surface as ref.context (seen live 2026-09-06: Open landed on the Build Pack and the human didn't know what to do there).",
+  "_note": "The standing ZZTEST set as raw ops_run_events rows, plus two traps: an unmatched gate_passed (must be ignored) and a malformed payload (must be skipped, not thrown). Times are relative: 'now' is 2026-09-06T08:00:00Z. Two regressions from the first live run (2026-09-06): Epsilon — a gate pair written in one batch shares one timestamp and the stream returns gate_passed FIRST (so the array order below is deliberately close-before-open; the fold must still close it). Zeta — a real content-agent draft awaiting signature: surface content_status must render ? for the Owner. Eta — a live (non-terminal) run blocked on a gate, the Class B pattern (e.g. a Claude Code permission prompt): must render ? and NOT hammer; seen live 2026-09-06 when the seeded Alpha showed a hammer. Theta — a content run that left two drafts; the test's fake surface reports the blog signed and the mirror still In Review, so the title must read '(1 of 2 left)' and Open must go to the mirror (seen live 2026-09-06). Iota — a build session's own gate (trigger claude_project, class_b_gate, ref_url a Notion page): Open must go to the Claude Project and the Notion page must surface as ref.context (seen live 2026-09-06: Open landed on the Build Pack and the human didn't know what to do there). Epsilon-artist (U13, 44444444…11) — a completed run that left one Notion-page artifact (artifact_registered) and one Compass reference (run_completed.artifacts + the row): the card lists both, newest first; only the page opens; the bubble shows for 60 s after the artifact is new.",
   "now": "2026-09-06T08:00:00Z",
   "events": [
     {
@@ -377,6 +377,57 @@
       "payload": {
         "outcome": "partial"
       }
+    },
+    {
+      "id": "ar1",
+      "run_id": "44444444-0000-4000-8000-000000000011",
+      "skill": "zztest-artist",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "at": "2026-09-06T07:58:30Z",
+      "event_type": "run_started",
+      "payload": {
+        "run_class": "A_gather_sync_check_propose"
+      }
+    },
+    {
+      "id": "ar2",
+      "run_id": "44444444-0000-4000-8000-000000000011",
+      "skill": "zztest-artist",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "at": "2026-09-06T07:59:20Z",
+      "event_type": "artifact_registered",
+      "payload": {
+        "type": "notion_page",
+        "title": "ZZTEST artifact page",
+        "notion_url": "https://app.notion.com/p/zztest-artifact-page"
+      }
+    },
+    {
+      "id": "ar3",
+      "run_id": "44444444-0000-4000-8000-000000000011",
+      "skill": "zztest-artist",
+      "trigger": "cowork_manual",
+      "client": "ZZTEST Client",
+      "project": null,
+      "actor": "zztest",
+      "at": "2026-09-06T07:59:40Z",
+      "event_type": "run_completed",
+      "payload": {
+        "outcome": "success",
+        "artifacts": [
+          {
+            "title": "ZZTEST config reference",
+            "url": "ops_config:ZZTEST_REF",
+            "system": "compass"
+          }
+        ]
+      }
     }
   ],
   "ledger": [
@@ -395,6 +446,23 @@
       "notes": "ZZTEST fault",
       "artifacts": [],
       "duration_s": 3
+    },
+    {
+      "id": "44444444-0000-4000-8000-000000000011",
+      "model": "claude-sonnet-5",
+      "outcome": "success",
+      "notes": "ZZTEST artist left two artifacts",
+      "artifacts": [
+        {
+          "url": "https://app.notion.com/p/zztest-artifact-page",
+          "system": "notion"
+        },
+        {
+          "url": "ops_config:ZZTEST_REF",
+          "system": "compass"
+        }
+      ],
+      "duration_s": 70
     }
   ],
   "expect": {
@@ -478,6 +546,27 @@
       "context": "https://app.notion.com/p/zztest-build-pack",
       "gitBranch": "answer in the Claude Project",
       "previewStartsWith": "V-Uxx: confirm the thing — A Claude session in the Claude Project is waiting for your answer"
+    },
+    "44444444-0000-4000-8000-000000000011": {
+      "project": "ZZTEST Client",
+      "unread": false,
+      "running": false,
+      "hasError": false,
+      "title": "zztest-artist",
+      "openUrl": "https://app.notion.com/p/zztest-artifact-page",
+      "gitBranch": "",
+      "artifacts": [
+        {
+          "name": "ZZTEST config reference",
+          "open": "",
+          "reference": true
+        },
+        {
+          "name": "ZZTEST artifact page",
+          "open": "https://app.notion.com/p/zztest-artifact-page",
+          "reference": false
+        }
+      ]
     }
   },
   "progress": [

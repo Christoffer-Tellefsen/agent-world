@@ -2,7 +2,7 @@
  * Run → Thread. The one place Tellefsen's ontology meets Bot Crossing's thread shape
  * (server/harnesses/README.md is the contract). Pure apart from the two awaited surface reads.
  */
-import { openGates } from './fold.mjs'
+import { openGates, normaliseArtifact } from './fold.mjs'
 import { CAMPUS } from './config.mjs'
 
 const STALE_MS = 3 * 24 * 60 * 60 * 1000 // the renderer's own sleep threshold, for reference only
@@ -63,6 +63,22 @@ export function failedText(run, row) {
 
 /** Where Open should land, first match wins (SPEC.md §4.4). */
 const isLink = (u) => typeof u === 'string' && /^https?:\/\//i.test(u)
+
+/**
+ * Every artifact the run left, from the events (artifact_registered, run_completed.artifacts) and the
+ * ops_skill_runs row ([{ url, system }]) — one list, newest first, deduped (U13). Each row carries
+ * `url` (a real link: Open lands there) or `ref` (a Compass reference: a label, not openable).
+ */
+export function artifactsOf(run, row) {
+  const out = [...run.artifacts]
+  for (const a of Array.isArray(row?.artifacts) ? row.artifacts : []) {
+    const art = normaliseArtifact(a, run.lastAt)
+    if (!art) continue
+    const key = art.url || art.ref || art.title
+    if (!out.some((x) => (x.url || x.ref || x.title) === key)) out.push(art)
+  }
+  return out.sort((a, b) => b.at - a.at).map(({ type, title, url, ref, system, at }) => ({ type, title, url, ref, system, at, openable: isLink(url) }))
+}
 
 export function openUrlFor(run, row, gatesOpen, { claudeProjectUrl = '' } = {}) {
   // A class_b_gate on a run that lives in a Claude session opens that session — the answer goes
@@ -144,6 +160,8 @@ export async function toThread(run, row, viewer, surfaces, now = Date.now(), opt
     source: run.trigger || '',
     canOpen: openUrl != null,
     canArchive: false,
+    // What the run made (U13): the overlay lists these on the card and bubbles the newest one.
+    artifacts: artifactsOf(run, row),
     ref: { run_id: run.id, url: openUrl, context: contextUrl && contextUrl !== openUrl ? contextUrl : '' },
   }
 }

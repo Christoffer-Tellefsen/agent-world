@@ -52,6 +52,32 @@ function blank(id) {
   }
 }
 
+/** A real link opens; anything else (ops_config:KEY, ops_skills:<id> …) is a Compass reference — a label, never an Open target. */
+export const isLink = (u) => typeof u === 'string' && /^https?:\/\//i.test(u)
+
+/**
+ * One artifact, whichever shape the writer used (U13). notion_url / drive_url / url — the first real
+ * link is the Open target; a bare reference is kept as `ref` so the card can still name it.
+ * Deduped by link or reference: a row and an event that name the same page are one artifact.
+ */
+export function normaliseArtifact(a, at = 0) {
+  const p = obj(a)
+  const links = [p.notion_url, p.drive_url, p.url, p.href].map(str).filter(Boolean)
+  const url = links.find(isLink) || ''
+  const ref = url ? '' : links[0] || ''
+  const title = str(p.title) || str(p.name)
+  if (!url && !ref && !title) return null
+  const system = str(p.system) || (/notion\.(com|so)/i.test(url) ? 'notion' : /drive\.google|docs\.google/i.test(url) ? 'drive' : ref ? 'compass' : '')
+  return { type: str(p.type), title, url, ref, system, notion_url: /notion\.(com|so)/i.test(url) ? url : '', drive_url: /google/i.test(url) ? url : '', at }
+}
+export function addArtifact(run, payload, at) {
+  const art = normaliseArtifact(payload, at)
+  if (!art) return
+  const key = art.url || art.ref || art.title
+  if (run.artifacts.some((x) => (x.url || x.ref || x.title) === key)) return
+  run.artifacts.push(art)
+}
+
 export function fold(events) {
   const runs = new Map()
   const sorted = [...(Array.isArray(events) ? events : [])]
@@ -108,13 +134,13 @@ export function fold(events) {
         run.subagents.push({ role: str(payload.role), model: str(payload.model), at })
         break
       case 'artifact_registered':
-        if (str(payload.title) || str(payload.notion_url) || str(payload.drive_url)) {
-          run.artifacts.push({ type: str(payload.type), title: str(payload.title), notion_url: str(payload.notion_url), drive_url: str(payload.drive_url), at })
-        }
+        addArtifact(run, payload, at)
         break
       case 'run_completed':
         run.terminal = 'run_completed'
         run.outcome = str(payload.outcome)
+        // A run_completed may carry what it made (U13): payload.artifacts = [{ title, url | notion_url | drive_url, system, type }].
+        for (const a of Array.isArray(payload.artifacts) ? payload.artifacts : []) addArtifact(run, obj(a), at)
         break
       case 'run_failed':
         run.terminal = 'run_failed'
