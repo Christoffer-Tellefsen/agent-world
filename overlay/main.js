@@ -33,14 +33,14 @@
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate, prospectRows } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, onWorldLate, loadRoom, rooms as roomsOf } from './zones.mjs'
 import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
 import { altitudeOf, labelRule, plateText, placeCounts } from './lod.mjs'
 import { homeTarget, homeDistance } from './home.mjs'
-import { pipelineRows, milestoneRows, decisionRows, panelNote } from './steering.mjs'
+import { roomSections, skillRowsOf } from './rooms.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
-import { createLabel, Plot, PLOT_PALETTE, hashString } from '../src/world/plots.js'
+import { createLabel, Plot, PLOT_PALETTE, hashString, worldToHex } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt } from './artifacts.mjs'
 import { intrayRows, nextRow } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
@@ -406,67 +406,66 @@ window.addEventListener(
   true
 )
 
-// ── U19: the Steering Room ───────────────────────────────────────────────────────────────────
-const roomByIdName = (id) => (pack().rooms || []).find((r) => r.id === id)?.name || id
-let roomOpen = false
+// ── U31: room panels (the Steering Room of U19 is retired — its three panels live here) ─────────────
+//
+// Every room plot has a read-only panel from the sidecar's GET /rooms/<id> (the adapter's 5-min caches): the board
+// room's Decisions, the strategy room's Pipeline with warmth, the marketing studio's week wall and signatures, the
+// research lab's briefs, the finance office's four buckets, the integration yard's drift, the workshop's Build projects
+// and benches, the records office's automations / connectors / silent skills / last twenty runs, the corner office's
+// Big 3, four numbers and milestone heat. Skills are rows in their room with a state. R opens the board room; a click
+// on a room plot opens its panel; Esc closes. Nothing here edits anything; a part the substrate cannot give says SKIPPED.
+const roomNameOf = (id) => roomsOf().find((r) => r.id === id)?.name || (pack().rooms || []).find((r) => r.id === id)?.name || id
+let roomOpen = ''
 let roomData = null
 let roomLoadedAt = 0
 let roomLoading = false
+const STATE_CLS = { lit: 'work', dark: '', dusty: 'stale', red: 'late' }
 
 function renderRoom() {
   if (!roomOpen) {
     room.classList.remove('on')
     return
   }
-  const d = roomData
+  const d = roomData?.id === roomOpen ? roomData : null
   const link = (url, text) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text))
-  const p1 = d ? pipelineRows({ rows: d.pipeline?.hot || [] }) : []
-  const p2 = d ? milestoneRows(d.milestones) : []
-  const p3 = d ? decisionRows(d.decisions) : []
+  const sections = d ? roomSections(roomOpen, d, Date.now()) : []
+  const skills = d ? skillRowsOf(d) : []
   const col = (title, sub, rows, note) =>
     `<div class="col"><h3>${esc(title)}${sub ? `<span>${esc(sub)}</span>` : ''}</h3>${rows.join('')}${note ? `<div class="note">${esc(note)}</div>` : ''}</div>`
+  const meta = roomsOf().find((r) => r.id === roomOpen)
   room.innerHTML =
-    `<div class="h"><b>${esc(roomByIdName('steering-room'))}</b><span class="hint">read-only · refreshed every 5 min by the adapter · R or Esc closes</span></div>` +
-    (!d && roomLoading ? '<div class="note">reading the substrate…</div>' : '') +
+    `<div class="h"><b>${esc(roomNameOf(roomOpen))}</b><span class="hint">${esc(meta?.mirrors || '')} · read-only · 5-min cache · Esc closes</span></div>` +
+    (!d && roomLoading ? '<div class="note">reading the substrate…</div>' : !d ? '<div class="note">the sidecar did not answer — is ./dev.sh running?</div>' : '') +
     `<div class="cols">` +
-    col(
-      'Pipeline · hot deals',
-      d?.pipeline?.view ? `view "${d.pipeline.view}"` : 'open stages',
-      p1.map((r) => `<div class="r"><span class="n">${link(r.url, r.name)}<small>${esc(r.stage)}${r.nextAction ? ' · ' + esc(r.nextAction) : ''}</small></span><span class="v${r.days != null && r.days > 30 ? ' stale' : ''}" title="days since last touch">${esc(r.daysLabel)}</span></div>`),
-      d ? panelNote({ rows: p1, error: d.pipeline?.error }, 'no open deals') : ''
-    ) +
-    col(
-      'Milestone board',
-      'next milestone per Active project',
-      p2.map((r) => `<div class="r"><span class="n">${link(r.url, r.project)}<small>${link(r.nextUrl, r.next)} · ${r.done}/${r.total} done</small></span><span class="v${r.late ? ' late' : ''}">${esc(r.due)}</span></div>`),
-      d ? panelNote(d.milestones, 'no Active project') : ''
-    ) +
-    col(
-      'Decisions',
-      'last three Active / Pending',
-      p3.map((r) => `<div class="r"><span class="n">${link(r.url, r.title)}<small>${esc(r.status)}${r.confidence ? ' · ' + esc(r.confidence) : ''}</small></span><span class="v">${esc(r.date)}</span></div>`),
-      d ? panelNote(d.decisions, 'no decision yet') : ''
-    ) +
-    `</div><div class="foot">${d?.at ? 'as of ' + esc(new Date(d.at).toLocaleTimeString()) : ''} · the Steering Room mirrors Airtable HQ Pipeline, 🎯 Engagement Milestones and 🧠 Decisions — change them there</div>`
+    sections.map((sec) => col(sec.title, sec.sub || '', sec.rows.map((r) => `<div class="r"><span class="n">${link(r.url, r.text)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</span><span class="v${r.cls ? ' ' + esc(r.cls) : ''}">${esc(r.value || '')}</span></div>`), sec.note)).join('') +
+    (skills.length && roomOpen !== 'workshop'
+      ? col(`Skills · ${skills.length}`, 'by ops_skills.type, with the pack\'s overrides', skills.map((k) => `<div class="r"><span class="n"><span class="v ${STATE_CLS[k.state] || ''}">${esc(k.glyph)}</span> ${esc(k.name)}<small>${esc(k.hint)}${k.wants ? ' · wants ' + esc(k.wants) : ''}</small></span><span class="v">${esc(k.type)}</span></div>`), '')
+      : '') +
+    `</div><div class="foot">${d?.at ? 'as of ' + esc(new Date(d.at).toLocaleTimeString()) : ''} · the room mirrors its surface — change things there, never here</div>`
   room.classList.add('on')
 }
+let roomLoadingId = ''
 async function refreshRoom(force = false) {
-  if (roomLoading) return
-  if (!force && roomData && Date.now() - roomLoadedAt < 5 * 60_000) return
+  if (!roomOpen) return
+  if (roomLoadingId === roomOpen) return // this room is already on its way
+  if (!force && roomData?.id === roomOpen && Date.now() - roomLoadedAt < 5 * 60_000) return
+  const id = roomOpen
+  roomLoadingId = id
   roomLoading = true
   renderRoom()
-  const d = await loadSteering()
-  roomLoading = false
-  if (d) {
+  const d = await loadRoom(id)
+  if (roomLoadingId === id) { roomLoadingId = ''; roomLoading = false }
+  // a room switched away from while it loaded: keep its answer only if it is the one open now
+  if (d && roomOpen === id) {
     roomData = d
     roomLoadedAt = Date.now()
   }
   renderRoom()
 }
-function toggleRoom(open = !roomOpen) {
-  roomOpen = open
+function openRoom(id) {
+  roomOpen = roomOpen === id ? '' : id
   renderRoom()
-  if (roomOpen) refreshRoom()
+  if (roomOpen) refreshRoom(roomData?.id !== roomOpen)
 }
 window.addEventListener(
   'keydown',
@@ -474,15 +473,39 @@ window.addEventListener(
     if (e.metaKey || e.ctrlKey || e.altKey) return
     const t = e.target
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
-    if (e.key === 'r' || e.key === 'R') toggleRoom()
+    if (e.key === 'r' || e.key === 'R') openRoom('board-room')
     else if (e.key === 'Escape' && roomOpen) {
       e.stopPropagation()
-      toggleRoom(false)
+      openRoom(roomOpen)
     }
   },
   true
 )
-setInterval(() => roomOpen && refreshRoom(), 60_000)
+setInterval(() => roomOpen && refreshRoom(true), 60_000) // the sidecar's caches decide the cost; the panel never holds a stale copy of its own
+// a console handle for the verifier and the checks: open a room by id, read what is open. No state, no write.
+window.agentWorld = Object.assign(window.agentWorld || {}, { openRoom, roomOpen: () => roomOpen, rooms: () => roomsOf().map((r) => r.id) })
+// a click on a room plot (no figure under the pointer) opens its panel — the hex under the pointer against the rooms' cells
+let downAt = null
+window.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY } }, true)
+window.addEventListener(
+  'pointerup',
+  (e) => {
+    const bc = window.botCrossing
+    if (!downAt || !bc?.rig || !bc.colony) return
+    const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y)
+    downAt = null
+    if (moved > 4 || !(e.target instanceof HTMLCanvasElement)) return
+    const ast = bc.colony.astronauts
+    if (ast?.hoverRing?.visible) return // a figure is under the pointer: Bot Crossing selects it
+    const p = new (bc.rig.target.constructor)()
+    if (!bc.rig.groundPoint(e.clientX, e.clientY, p)) return
+    const cell = worldToHex(p.x, p.z)
+    const hit = [...bc.colony.plots.values()].find((plot) => plot.cellKeys?.has(`${cell.q},${cell.r}`))
+    const roomHit = hit && roomsOf().find((r) => r.name === hit.name)
+    if (roomHit) openRoom(roomHit.id)
+  },
+  true
+)
 
 // ── U20 → U29: prospect plots are retired (ES-6.4). Prospects are rows with a warmth column in the strategy
 // room panel; the Pipeline rows still ride with GET /world for that panel. Nothing stands on the campus edge.
@@ -840,9 +863,6 @@ requestAnimationFrame(followMarkers)
 setInterval(() => {
   syncSuits()
   syncSignals()
-  const b = residentsInfo()
-  const el = document.getElementById('aw-bench')
-  if (el) el.textContent = b.total ? `✋ ${b.shown} of ${b.total} silent skills${b.shown < b.total ? ' (rest on the bench)' : ''}` : ''
 }, 1000)
 
 // Sound: a cue on a NEW ? or ! since the last roster; M mutes, remembered as a render setting in the colony file.
@@ -1063,10 +1083,9 @@ function renderSwitcher() {
       .map((p) => `<button data-key="${esc(p.key)}" aria-pressed="${p.key === currentKey()}" class="${p.hasSubstrate ? '' : 'empty'}" title="${esc(p.hasSubstrate ? `${p.role} · ${p.pack}` : 'no substrate yet')}">${esc(p.name)}</button>`)
       .join('') +
     `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>` +
-    `<button id="aw-room-btn" title="the ${esc(roomFor('steering', pack())?.name || 'steering room')} · R">${esc(roomByIdName('steering-room'))}</button>` +
-    `<span class="pack" id="aw-bench" title="skills Active in ops_skills with no run in 30 days: hands up on the campus; the rest wait on the bench under the figure cap (S → agents)"></span>`
+    `<button id="aw-room-btn" title="the board room · R (every room opens on a click on its plot)">${esc(roomNameOf('board-room'))}</button>`
   switcher.querySelectorAll('button[data-key]').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
-  switcher.querySelector('#aw-room-btn')?.addEventListener('click', () => toggleRoom())
+  switcher.querySelector('#aw-room-btn')?.addEventListener('click', () => openRoom('board-room'))
   switcher.classList.add('on')
 }
 

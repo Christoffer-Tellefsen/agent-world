@@ -94,12 +94,18 @@ export function createSurfaces(cfg, { fetchImpl = globalThis.fetch, log = () => 
     } while (offset)
     return out
   }
-  /** A cache with two lifetimes: a good answer lives `ms`; a stale one is handed back at once and refreshed behind it. */
-  const swr = new Map() // key → { at, value, refreshing }
+  /**
+   * A cache with two lifetimes: a good answer lives `ms`; a stale one is handed back at once and refreshed behind it.
+   * A failed read names its error on the fallback (an object gains `error`) and is retried after ERROR_MS, never
+   * held for the full period (an empty panel names its fix).
+   */
+  const ERROR_MS = 30_000
+  const swr = new Map() // key → { at, value, refreshing, failed }
+  const withError = (fallback, err) => (fallback && typeof fallback === 'object' && !Array.isArray(fallback) && !(fallback instanceof Map) ? { ...fallback, error: err.message || String(err) } : fallback)
   async function stale(key, ms, fn, fallback) {
     const hit = swr.get(key)
-    if (hit && now() - hit.at < ms) return hit.value
-    const refresh = () => fn().then((value) => { swr.set(key, { at: now(), value }); return value }).catch((err) => { warn(key, `${key} unavailable — ${err.message}`); if (!hit) swr.set(key, { at: now(), value: fallback }); else hit.at = now(); return hit ? hit.value : fallback })
+    if (hit && now() - hit.at < (hit.failed ? ERROR_MS : ms)) return hit.value
+    const refresh = () => fn().then((value) => { swr.set(key, { at: now(), value, failed: false }); return value }).catch((err) => { warn(key, `${key} unavailable — ${err.message}`); const v = hit && !hit.failed ? hit.value : withError(fallback, err); swr.set(key, { at: now(), value: v, failed: true }); return v })
     if (hit) {
       if (!hit.refreshing) hit.refreshing = refresh().finally(() => (hit.refreshing = null))
       return hit.value

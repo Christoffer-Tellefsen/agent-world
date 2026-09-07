@@ -1,0 +1,320 @@
+{
+  "board-room": {
+    "id": "board-room",
+    "pending": [
+      {
+        "id": "b1",
+        "title": "ZZTEST pending decision",
+        "status": "Pending",
+        "confidence": "🟠 Provisional",
+        "date": "2026-09-06",
+        "url": "https://app.notion.com/p/b1"
+      }
+    ],
+    "working": [
+      {
+        "id": "b2",
+        "title": "ZZTEST working decision",
+        "status": "Active",
+        "confidence": "🟡 Working",
+        "date": "2026-09-01",
+        "url": ""
+      }
+    ],
+    "reviews": [
+      {
+        "id": "b3",
+        "title": "ZZTEST review",
+        "status": "Active",
+        "confidence": "🟢 Settled",
+        "date": "2026-08-01",
+        "reviewDue": "2026-10-16",
+        "url": ""
+      }
+    ],
+    "recent": [],
+    "total": 3,
+    "error": "",
+    "skills": [],
+    "overdueReviews": 2
+  },
+  "strategy-room": {
+    "id": "strategy-room",
+    "pipeline": {
+      "rows": [
+        {
+          "id": "p1",
+          "name": "ZZTEST Prospect — Zeta",
+          "stage": "Lead",
+          "days": 12,
+          "warmth": 0.5,
+          "nextAction": "",
+          "url": "https://airtable.com/x"
+        },
+        {
+          "id": "p2",
+          "name": "ZZTEST Warm",
+          "stage": "Scoping",
+          "days": 2,
+          "warmth": 1,
+          "nextAction": "call",
+          "url": ""
+        }
+      ],
+      "view": "Active pipeline",
+      "error": ""
+    },
+    "research": {
+      "rows": [],
+      "skipped": "SKIPPED:ENV — set NOTION_DS_RESEARCH in .env",
+      "error": ""
+    },
+    "skills": [
+      {
+        "name": "scoping",
+        "type": "Commercial",
+        "state": "dark"
+      }
+    ]
+  },
+  "marketing-studio": {
+    "id": "marketing-studio",
+    "week": [],
+    "signatures": [
+      {
+        "id": "c1",
+        "title": "signature",
+        "url": "https://app.notion.com/p/c1",
+        "at": 1757160000000
+      }
+    ],
+    "skipped": "SKIPPED:ENV — set NOTION_DS_CONTENT in .env",
+    "skills": [
+      {
+        "name": "content-agent",
+        "type": "Content",
+        "state": "lit"
+      }
+    ]
+  },
+  "research-lab": {
+    "id": "research-lab",
+    "rows": [],
+    "skipped": "SKIPPED:ENV — set NOTION_DS_RESEARCH in .env",
+    "skills": []
+  },
+  "finance-office": {
+    "id": "finance-office",
+    "table": "tblWqMHn47lcJFQkM",
+    "month": "2026-09",
+    "unpaid": {
+      "n": 1,
+      "omr": 100,
+      "rows": [
+        {
+          "id": "f1",
+          "name": "INV-1",
+          "status": "Invoiced",
+          "amount": 100,
+          "currency": "OMR",
+          "omr": 100,
+          "due": "2026-09-20",
+          "issued": "2026-09-01",
+          "url": ""
+        }
+      ]
+    },
+    "overdue": {
+      "n": 0,
+      "omr": 0,
+      "rows": []
+    },
+    "paid": {
+      "n": 1,
+      "omr": 200,
+      "rows": [
+        {
+          "id": "f2",
+          "name": "INV-4",
+          "status": "Paid",
+          "amount": 200,
+          "currency": "OMR",
+          "omr": 200,
+          "due": "",
+          "issued": "2026-09-02",
+          "url": ""
+        }
+      ]
+    },
+    "thisMonth": {
+      "n": 2,
+      "omr": 300,
+      "rows": []
+    },
+    "error": "",
+    "skills": [
+      {
+        "name": "finance-invoice",
+        "type": "Finance",
+        "state": "dark"
+      }
+    ]
+  },
+  "integration-yard": {
+    "id": "integration-yard",
+    "rows": [],
+    "skipped": "SKIPPED:ENV — set NOTION_DS_INTEGRATIONS in .env",
+    "skills": []
+  },
+  "workshop": {
+    "id": "workshop",
+    "projects": [
+      {
+        "id": "pr1",
+        "name": "ZZTEST Build project",
+        "clientName": "ZZTEST Client",
+        "internal": false,
+        "url": "",
+        "done": 1,
+        "total": 2,
+        "next": {
+          "name": "M2",
+          "status": "⚪ Not Started",
+          "committed": 1790726400000,
+          "url": ""
+        }
+      }
+    ],
+    "benches": [
+      {
+        "name": "agent-world-build",
+        "type": "Delivery",
+        "state": "lit"
+      },
+      {
+        "name": "build-kickoff",
+        "type": "Delivery",
+        "state": "dark"
+      }
+    ],
+    "error": "",
+    "skills": [
+      {
+        "name": "agent-world-build",
+        "type": "Delivery",
+        "state": "lit"
+      },
+      {
+        "name": "build-kickoff",
+        "type": "Delivery",
+        "state": "dark"
+      }
+    ]
+  },
+  "records-office": {
+    "id": "records-office",
+    "automations": {
+      "rows": [],
+      "skipped": "SKIPPED:WORKER-NEEDED — automations (next fire, last fire, missed) arrives with /world/substrate v2 (Prompt B-2)"
+    },
+    "connectors": {
+      "rows": [],
+      "skipped": "SKIPPED:WORKER-NEEDED — connectors arrives with /world/substrate v2 (Prompt B-2)"
+    },
+    "silent": {
+      "rows": [
+        {
+          "name": "zztest-stale-expert",
+          "dusty": true
+        },
+        {
+          "name": "zztest-quiet",
+          "dusty": false
+        }
+      ],
+      "of": 43
+    },
+    "runs": [
+      {
+        "id": "r1",
+        "skill": "zztest-builder",
+        "client": "ZZTEST Client",
+        "state": "running",
+        "at": 1757246400000,
+        "gates": 0,
+        "artifacts": 0
+      },
+      {
+        "id": "r2",
+        "skill": "zztest-faulty",
+        "client": "",
+        "state": "failed",
+        "at": 1757240000000,
+        "gates": 0,
+        "artifacts": 0
+      },
+      {
+        "id": "r3",
+        "skill": "zztest-artist",
+        "client": "ZZTEST Client",
+        "state": "completed",
+        "at": 1757230000000,
+        "gates": 1,
+        "artifacts": 2
+      }
+    ],
+    "rows": [
+      {
+        "name": "zztest-stale-expert",
+        "type": "Operations",
+        "state": "dusty"
+      }
+    ],
+    "error": "",
+    "skills": [
+      {
+        "name": "zztest-stale-expert",
+        "type": "Operations",
+        "state": "dusty"
+      }
+    ]
+  },
+  "corner-office": {
+    "id": "corner-office",
+    "big3": {
+      "rows": [],
+      "skipped": "SKIPPED:ENV — the Action Items database exposes no data source to the integration (GET /v1/databases → data_sources [])"
+    },
+    "numbers": {
+      "skipped": "SKIPPED:WORKER-NEEDED — the four numbers (LAST_RUN_GOVERNANCE) and LAST_GATE_RECONCILIATION arrives with /world/substrate v2 (Prompt B-2)"
+    },
+    "heat": {
+      "rows": [
+        {
+          "project": "ZZTEST Build project",
+          "url": "",
+          "done": 1,
+          "total": 2,
+          "next": {
+            "name": "M2",
+            "committed": 1790726400000
+          }
+        }
+      ],
+      "error": ""
+    },
+    "error": "",
+    "skills": [],
+    "tray": [
+      {
+        "id": "r1",
+        "title": "? Approve · Airtable",
+        "skill": "zztest-approver",
+        "zone": "ZZTEST Client",
+        "at": 1788739200000,
+        "url": "https://airtable.com/x",
+        "badge": "?"
+      }
+    ]
+  }
+}

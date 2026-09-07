@@ -53,6 +53,20 @@ export function intrayRows(threads) {
     .sort((a, b) => (a.badge === b.badge ? 0 : a.badge === '!' ? -1 : 1) || a.at - b.at || String(a.id).localeCompare(String(b.id)))
 }
 
+/**
+ * U33 (ES-6.8): the hand-raise as a tray line. A skill silent 30 d that the pack wants (its override names a wants value
+ * an Active project's Tech Stack contains) is a dusty row in its room panel and a lowest-precedence line here — never a
+ * figure, so N never lands on it. `dusty` are the sidecar's dusty skill rows: [{ name, room, wants }].
+ */
+export function handLines(dusty) {
+  return (Array.isArray(dusty) ? dusty : [])
+    .filter((d) => d && d.name)
+    .map((d) => ({ id: `hand:${d.name}`, badge: '✋', skill: d.name, zone: d.room || '', gate: '', surface: '', what: `silent 30 d and wanted${d.wants ? ' — ' + d.wants + ' is in an Active project\'s stack' : ''}`, url: '', at: 0, left: 0, hand: true }))
+    .sort((a, b) => a.skill.localeCompare(b.skill))
+}
+/** The tray with the hand lines after every request: N walks `rows` only (nextRow is fed the request rows). */
+export const withHands = (rows, dusty) => [...rows, ...handLines(dusty)]
+
 /** The row N lands on: the one after `selectedId` in the list, wrapping; the first when nothing (or something else) is selected. */
 export function nextRow(rows, selectedId) {
   if (!rows.length) return null

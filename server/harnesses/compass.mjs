@@ -23,6 +23,9 @@ import { createSubstrate } from './compass/substrate.mjs'
 import { deriveWorld, worldDescriptor } from './compass/zones.mjs'
 import { createOverlayApi, startOverlayApi } from './compass/overlay-api.mjs'
 import { createSteering } from './compass/steering.mjs'
+import { createRooms, wantedSkills } from './compass/rooms.mjs'
+import { roomForSkill, roomName } from './compass/pack.mjs'
+import { createArchive } from './compass/archive.mjs'
 import { CAMPUS } from './compass/config.mjs'
 
 const cfg = loadConfig()
@@ -31,6 +34,10 @@ const viewer = makeViewer({ tenant: cfg.tenant, preset: cfg.viewerPreset })
 const surfaces = createSurfaces(cfg, { log })
 const substrate = createSubstrate(cfg, { log })
 const steering = createSteering(cfg, { surfaces, substrate, log }) // U19: three panels, 5-min caches, served by the sidecar
+/** What the last scan saw — the room panels (U31) and the archive (U32) read it, never the ledger again. */
+let lastScan = null
+const rooms = createRooms(cfg, { surfaces, substrate, steering, pack: () => homePack(), lastScan: () => lastScan, log })
+const archive = createArchive(cfg, { surfaces, lastScan: () => lastScan, homeName: () => world?.planets.find((p) => p.home)?.name || CAMPUS, log })
 let ledger = null
 let world = null // the derived zone map from the last substrate read (U12)
 let overlayApi = null
@@ -98,6 +105,8 @@ function ensureOverlayApi() {
     getWorld: async () => world || currentWorld(),
     // Awaited: a page that loads right after a restart must not see a town-less world (seen 2026-09-07 — "plot" for a town).
     steering: () => steering.all(),
+    rooms, // U31: GET /rooms, GET /rooms/<id>
+    archive, // U32: GET /archive
     // U20: the prospect rows ride with the world (one Airtable GET a minute); the overlay decides who stands and how faded.
     descriptor: async () => {
       const w = world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant })))
@@ -176,6 +185,15 @@ async function scan(now = Date.now()) {
   const ran = ranSkills(now)
   const stale = ran ? staleSkills(substrateNow.skills, ran) : []
 
+  // U31/U32 — what the panels and the archive read from this scan: the runs, the rows, the projects, the skill states.
+  const live = new Set(), failed = new Set()
+  for (const r of runs.values()) {
+    const t = threadOf.get(r.id)
+    if (r.started && r.terminal == null && now - r.lastAt < cfg.runningTtlMs && !(t?.gates || []).length) live.add(r.skill)
+  }
+  for (const a of campusAlert(runs, now)) failed.add(a.skill) // a run_failed in 24 h with no later completion of the skill (U17's rule)
+  lastScan = { at: now, runs, rowById, threads, projects, silent: stale.map((s) => s.name), live, failed }
+
   // Signals served with GET /world: the strip's counts (U28), the campus alert list (the ! requests stand in the
   // records office; the list feeds its panel), a ✓ per town whose project shipped a milestone (the mark is on the fixture).
   const byClient = projectsByClient(runs)
@@ -186,7 +204,11 @@ async function scan(now = Date.now()) {
     for (const p of projects) if (await surfaces.recentDone(p)) check = true
     if (projects.length) townSignals[town.name] = { check, projects }
   }
-  signals = { at: new Date(now).toISOString(), campus: { name: campus.name, alert: campusAlert(runs, now) }, towns: townSignals, residents: stale.map((s) => s.name), counts: still.counts }
+  // U33 (ES-6.8) — the hand-raise: a silent skill raises only when the pack wants it and an Active project's Tech Stack
+  // names the value; it is a dusty row in its room and a tray line, never a figure. Served as signals.dusty.
+  const wanted = wantedSkills(homePack(), projects)
+  const dusty = stale.filter((s) => wanted.has(s.name)).map((s) => { const r = roomForSkill(homePack(), s.name, s.type); return { name: s.name, room: roomName(homePack(), r.room), roomId: r.room, wants: r.wants } })
+  signals = { at: new Date(now).toISOString(), campus: { name: campus.name, alert: campusAlert(runs, now) }, towns: townSignals, residents: stale.map((s) => s.name), dusty, counts: still.counts }
 
   log(`scan: ${runs.size} runs → ${threads.length} threads (${threads.filter((t) => t.kind === 'fixture').length} fixtures, ${threads.filter((t) => t.kind === 'request').length} requests: ${still.counts.needYou} need you, ${still.counts.blocked} blocked; ${still.counts.running} running, ${stale.length} silent skills)`)
   return threads

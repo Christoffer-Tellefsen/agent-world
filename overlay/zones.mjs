@@ -110,6 +110,26 @@ export const signals = () => world?.signals || { campus: { alert: [] }, towns: {
 /** The Pipeline rows the prospect plots stand on (U20), as the sidecar last read them. */
 export const prospectRows = () => world?.prospects || { rows: [], stages: [], error: '' }
 
+/** One room's panel (U31) or the archive (U32), read from the sidecar; null when it is not there. Cached by the adapter, 5 min. */
+export async function loadRoom(id) {
+  try {
+    const res = await fetch(`${SIDECAR}/rooms/${encodeURIComponent(id)}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(30_000) })
+    return res.ok ? await res.json() : null
+  } catch {
+    return null
+  }
+}
+export async function loadArchive() {
+  try {
+    const res = await fetch(`${SIDECAR}/archive`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(30_000) })
+    return res.ok ? await res.json() : null
+  } catch {
+    return null
+  }
+}
+/** The rooms the sidecar declares (the pack's, with ring and spoke) — the plots the room panels hang off. */
+export const rooms = () => world?.rooms || []
+
 /** The Steering Room's three panels (U19), read from the sidecar; null when it is not there. Cached by the adapter, 5 min. */
 export async function loadSteering() {
   try {
