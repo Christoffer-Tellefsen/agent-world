@@ -49,7 +49,8 @@ function ensureOverlayApi() {
     getWorld: async () => world || currentWorld(),
     // Awaited: a page that loads right after a restart must not see a town-less world (seen 2026-09-07 — "plot" for a town).
     steering: () => steering.all(),
-    descriptor: async () => ({ ...worldDescriptor(world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }))), viewer), signals }),
+    // U20: the prospect rows ride with the world (one Airtable GET a minute); the overlay decides who stands and how faded.
+    descriptor: async () => ({ ...worldDescriptor(world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant }))), viewer), signals, prospects: await steering.prospectRows() }),
     log,
   })
   overlayApi = startOverlayApi(handle, { port: cfg.overlayPort, log })
@@ -62,15 +63,25 @@ const detect = async () => {
   return on
 }
 
-/** The skills with any event in the last STALE_DAYS days (U17 hand-raise). Last-good on failure; null until the first read. */
-async function ranSkills(now) {
-  if (ranCache.ran && now - ranCache.at < RAN_MS) return ranCache.ran
-  try {
-    const { events } = await ledger.scanSince(new Date(now - STALE_DAYS * 24 * 3600 * 1000).toISOString())
-    ranCache = { at: now, ran: ranSkillsOf(events) }
-  } catch (err) {
-    console.warn('bot-crossing: compass — 30-day scan unavailable —', err?.message || err)
-    ranCache.at = now
+/**
+ * The skills with any event in the last STALE_DAYS days (U17 hand-raise). The Worker takes 6–9 s per scan
+ * (measured 2026-09-07), so this never sits on the poll's path: a stale set is refreshed in the background
+ * and the poll uses the last good one — null until the first refresh lands (no hands yet, honestly).
+ */
+let ranRefreshing = null
+function ranSkills(now) {
+  if ((!ranCache.ran || now - ranCache.at >= RAN_MS) && !ranRefreshing) {
+    ranRefreshing = ledger
+      .scanSince(new Date(now - STALE_DAYS * 24 * 3600 * 1000).toISOString())
+      .then(({ events }) => {
+        ranCache = { at: now, ran: ranSkillsOf(events) }
+        log(`30-day scan: ${ranCache.ran.size} skills ran`)
+      })
+      .catch((err) => {
+        console.warn('bot-crossing: compass — 30-day scan unavailable —', err?.message || err)
+        ranCache.at = now
+      })
+      .finally(() => (ranRefreshing = null))
   }
   return ranCache.ran
 }
@@ -92,7 +103,7 @@ async function scan(now = Date.now()) {
   }
 
   // U17 — residents: Active skills silent for 30 days stand on the campus with a hand up.
-  const ran = await ranSkills(now)
+  const ran = ranSkills(now)
   const stale = ran ? staleSkills(substrateNow.skills, ran) : []
   for (const skill of stale) threads.push(residentThread(skill, { now, place, trust: trust(skill.name, '') }))
 

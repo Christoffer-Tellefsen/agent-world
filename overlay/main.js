@@ -22,11 +22,15 @@
 // GET /steering — Pipeline hot deals (Airtable, the hot-deals view's own order), the milestone board
 // (next milestone per Active project, Notion) and the last three 🧠 Decisions (Notion); 5-min caches,
 // nothing editable, an empty panel names its fix.
+// U20 — prospect plots as decay: every Pipeline row neither Won nor Lost stands on the campus edge (a ring
+// outside every cell the map holds), fading by days since last touch — full ≤ 7 d, half ≤ 30 d, ghost after.
+// A render rule over the sidecar's rows: nothing stored, nothing written; Won or Lost and the plot is gone.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, residentsInfo, loadSteering, onWorldLate, prospectRows } from './zones.mjs'
+import { prospects as prospectsOf, edgeRing, decayLabel } from './prospects.mjs'
 import { pipelineRows, milestoneRows, decisionRows, panelNote } from './steering.mjs'
 import { suitFor, SignalDiff, AW_MUTED } from './signals.mjs'
 import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
@@ -393,6 +397,70 @@ window.addEventListener(
   true
 )
 setInterval(() => roomOpen && refreshRoom(), 60_000)
+
+// ── U20: prospect plots ──────────────────────────────────────────────────────────────────────
+const prospectPlots = new Map() // row id → { plot, label, signature }
+let prospectGroup = null
+function fadePlot(plot, opacity) {
+  plot.group.traverse((o) => {
+    if (!o.isMesh || !o.material) return
+    o.material.transparent = true
+    o.material.opacity = opacity
+    o.material.depthWrite = opacity >= 0.99
+    o.material.needsUpdate = true
+  })
+}
+function syncProspects() {
+  const bc = window.botCrossing
+  const colony = bc?.colony
+  if (!colony?.scene || !colony.plotCells || !isHome()) return
+  const THREE_GROUP = colony.plotGroup?.constructor
+  if (!THREE_GROUP) return
+  if (!prospectGroup) {
+    prospectGroup = new THREE_GROUP()
+    prospectGroup.name = 'aw:prospects'
+    colony.scene.add(prospectGroup)
+  }
+  const list = prospectsOf(prospectRows().rows)
+  const wanted = new Set(list.map((p) => p.id))
+  for (const [id, entry] of prospectPlots) {
+    if (wanted.has(id)) continue
+    prospectGroup.remove(entry.plot.group, entry.label)
+    entry.label.userData?.dispose?.()
+    entry.plot.dispose?.()
+    prospectPlots.delete(id)
+  }
+  if (!list.length) return
+  // the ring sits outside every cell the map holds — real plots and quiet towns alike
+  const used = []
+  for (const cells of colony.plotCells.values()) for (const c of cells) used.push(c)
+  const ring = edgeRing(used, list.length)
+  list.forEach((p, i) => {
+    const cell = ring[i]
+    const signature = `${cell.q},${cell.r}|${p.opacity}|${p.name}|${p.stage}|${p.days}`
+    const have = prospectPlots.get(p.id)
+    if (have?.signature === signature) return
+    if (have) {
+      prospectGroup.remove(have.plot.group, have.label)
+      have.label.userData?.dispose?.()
+      have.plot.dispose?.()
+    }
+    try {
+      const accent = PLOT_PALETTE[hashString(p.id) % PLOT_PALETTE.length]
+      const plot = new Plot({ id: `prospect:${p.id}`, name: p.name, index: 90 + i, cells: [cell], accent })
+      fadePlot(plot, p.opacity)
+      const label = createLabel(`${noun('prospect')} · ${p.name} · ${p.stage} · ${p.days == null ? 'never touched' : p.days + ' d'} · ${decayLabel(p.opacity)}`, accent)
+      label.position.set(plot.labelAnchor.x, 3.2, plot.labelAnchor.z)
+      label.visible = true
+      label.material.opacity = Math.max(0.35, p.opacity)
+      prospectGroup.add(plot.group, label)
+      prospectPlots.set(p.id, { plot, label, signature })
+    } catch (err) {
+      console.warn('[world] prospect plot not drawn:', p.name, err?.message || err)
+    }
+  })
+}
+setInterval(syncProspects, 3000)
 
 // ── U17: signals ─────────────────────────────────────────────────────────────────────────────
 

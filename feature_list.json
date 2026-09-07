@@ -362,7 +362,7 @@
         "npm test: opacity function against three fixture dates; no write"
       ],
       "check": "V-U20",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

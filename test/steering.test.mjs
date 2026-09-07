@@ -131,3 +131,27 @@ test('U19: the panels format without editing anything — days label, due label,
   assert.equal(panelNote({ rows: [] }), 'nothing here')
   assert.equal(panelNote({ rows: [1] }), '')
 })
+
+test('U20: the prospect rows — one Airtable GET a poll at most, every stage, no write; a Stage change shows on the next read', async () => {
+  const { createSteering, PROSPECTS_MS } = await import(path.join(root, 'server/harnesses/compass/steering.mjs'))
+  let stage = 'Lead'
+  let gets = 0
+  const fetchImpl = async (url, init = {}) => {
+    assert.equal(init.method, undefined, 'GET only')
+    gets += 1
+    return { ok: true, status: 200, json: async () => ({ records: [{ id: 'reclEgXG2t4ZnomCq', fields: { 'Opportunity Name': 'ZZTEST Prospect — Zeta', Stage: stage, 'Last Viewed': '2026-09-06' } }, { id: 'rL', fields: { 'Opportunity Name': 'Gone', Stage: 'Lost' } }] }) }
+  }
+  let t = NOW
+  const st = createSteering({ airtableToken: 'a', airtableBaseId: 'appX', notionToken: '' }, { surfaces: {}, substrate: { read: async () => ({ deal_pipeline_stages: STAGES }) }, fetchImpl, now: () => t })
+  const a = await st.prospectRows()
+  assert.equal(a.rows.length, 2, 'every stage — the overlay decides who stands')
+  assert.deepEqual(a.rows.map((r) => [r.won, r.lost]), [[false, false], [false, true]])
+  assert.equal(a.rows[0].days, 12)
+  await st.prospectRows()
+  assert.equal(gets, 1, 'cached for a poll')
+  stage = 'Won'
+  t += PROSPECTS_MS + 1
+  const b = await st.prospectRows()
+  assert.equal(gets, 2)
+  assert.equal(b.rows[0].won, true, 'Won on the next read')
+})

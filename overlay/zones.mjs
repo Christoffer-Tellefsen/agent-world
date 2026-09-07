@@ -78,6 +78,7 @@ async function refreshWorld() {
     if (!res.ok) return
     const next = await res.json()
     world.signals = next.signals || world.signals
+    world.prospects = next.prospects || world.prospects
     world.towns = next.towns || world.towns
     world.at = next.at
   } catch {
@@ -86,6 +87,8 @@ async function refreshWorld() {
 }
 ready.then(() => setInterval(refreshWorld, REFRESH_MS))
 export const signals = () => world?.signals || { campus: { alert: [] }, towns: {}, residents: [] }
+/** The Pipeline rows the prospect plots stand on (U20), as the sidecar last read them. */
+export const prospectRows = () => world?.prospects || { rows: [], stages: [], error: '' }
 
 /** The Steering Room's three panels (U19), read from the sidecar; null when it is not there. Cached by the adapter, 5 min. */
 export async function loadSteering() {

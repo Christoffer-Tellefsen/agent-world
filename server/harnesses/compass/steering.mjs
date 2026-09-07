@@ -26,6 +26,8 @@ export const PROJECTS_DATA_SOURCE = '33dc0af9-c974-80e9-9d5d-000ba4bd72ea'
 export const DECISIONS_DATA_SOURCE = 'f73d4f92-426c-4c11-990e-ae14403b4e28'
 export const CACHE_MS = 5 * 60_000
 export const ERROR_MS = 30_000
+/** Prospect plots (U20) follow a Stage change "on the next poll": their own read of the same table, cached for the poll's own 15 s. */
+export const PROSPECTS_MS = 15_000
 export const CLOSED_STAGES = /^(won|lost|parked)$/i
 /** The Airtable view that IS the hot-deals list (V-U19 compares against it): its rows, its order. Overridable by env. */
 export const HOT_VIEW = process.env.PIPELINE_HOT_VIEW || 'Active pipeline'
@@ -195,10 +197,39 @@ export function createSteering(cfg, { surfaces, substrate, fetchImpl = globalThi
     })
   }
 
+  // ── U20: the rows the prospect plots stand on — one GET a minute at most, the whole table, every stage ──
+  async function prospectRows() {
+    const hit = caches.get('prospects')
+    if (hit && now() - hit.at < (hit.value?.error ? ERROR_MS : PROSPECTS_MS)) return hit.value
+    const stages = (await substrate.read()).deal_pipeline_stages || []
+    let value = { rows: [], stages, error: '' }
+    if (!cfg.airtableToken) value.error = 'AIRTABLE_TOKEN is not set in .env'
+    else {
+      try {
+        const records = []
+        let offset = ''
+        do {
+          const url = `https://api.airtable.com/v0/${cfg.airtableBaseId}/${PIPELINE_TABLE}?pageSize=100${offset ? `&offset=${encodeURIComponent(offset)}` : ''}`
+          const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${cfg.airtableToken}` } })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(fixAirtable(res.status))
+          for (const r of json.records || []) records.push({ ...r, baseId: cfg.airtableBaseId })
+          offset = json.offset || ''
+        } while (offset)
+        const t = now()
+        value.rows = records.map((r) => pipelineRow(r, stages, t)).map(({ id, name, stage, stageIndex, open, won, lost, days, clientIds, url }) => ({ id, name, stage, stageIndex, open, won, lost, days, clientIds, url }))
+      } catch (err) {
+        value.error = err.message
+      }
+    }
+    caches.set('prospects', { at: now(), value })
+    return value
+  }
+
   async function all() {
     const [p, m, d] = await Promise.all([pipeline(), milestoneBoard(), decisions()])
     return { at: new Date(now()).toISOString(), pipeline: p, milestones: m, decisions: d }
   }
 
-  return { pipeline, milestoneBoard, decisions, all, _caches: caches }
+  return { pipeline, milestoneBoard, decisions, all, prospectRows, _caches: caches }
 }
