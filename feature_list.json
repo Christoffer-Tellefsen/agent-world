@@ -1,7 +1,7 @@
 {
   "_rules": "Edit ONLY the `passes` flags, and only after the steps have been run end-to-end. Never remove or weaken a feature or its steps. Order is the build order. `passes: true` means Built (automated + steps green); Verified is set by Christoffer in the Notion unit table, never here. M2 units carry depends_on / prereq / repo / check / verified: the loop skips a unit whose prereq is missing and says which; repo=worker units are built in tellefsen-compass-mcp, repo=human units are Christoffer's; verified is null until his cold check and is written only on his reply.",
   "project": "Agent World — Bot Crossing fork with Compass adapter (M1 Mirror closed 2026-09-07; M2 Ontology skin in build)",
-  "milestone": "M1 — Mirror (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176, closed 2026-09-07) + M2 — The world speaks Tellefsen's ontology (units U12–U21, cut 2026-09-06, re-issued 2026-09-07 with the post-cut decisions folded in; build order U12 → U13 → U14 → U15 → U17 → U19 → U20 → U16 → U18 → U21; U16W is built in tellefsen-compass-mcp, U21 is Christoffer's)",
+  "milestone": "M1 — Mirror (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176, closed 2026-09-07) + M2 — The world speaks Tellefsen's ontology (units U12–U21, cut 2026-09-06, re-issued 2026-09-07 with the post-cut decisions folded in; build order U12 → U13 → U14 → U15 → U17 → U19 → U20 → U16 → U18 → U21; U16W is built in tellefsen-compass-mcp, U21 is Christoffer's) + M2b — The still map (units U28–U34, Decision 2026-09-07; build order U28 → U29 → U30 → U31 → U32 → U33 → U34 → U16; U19 absorbed by U31, U20 by U29; U13, U17, U18 amended by U32 / U33 / U33)",
   "features": [
     {
       "id": "U1",
@@ -235,7 +235,8 @@
       ],
       "check": "V-U13",
       "passes": true,
-      "verified": null
+      "verified": null,
+      "amended_by": "U32"
     },
     {
       "id": "U14",
@@ -311,7 +312,8 @@
       ],
       "check": "V-U17",
       "passes": true,
-      "verified": null
+      "verified": null,
+      "amended_by": "U33"
     },
     {
       "id": "U19",
@@ -338,7 +340,8 @@
       ],
       "check": "V-U19",
       "passes": true,
-      "verified": null
+      "verified": null,
+      "absorbed_by": "U31"
     },
     {
       "id": "U20",
@@ -363,7 +366,8 @@
       ],
       "check": "V-U20",
       "passes": true,
-      "verified": null
+      "verified": null,
+      "absorbed_by": "U29"
     },
     {
       "id": "U16W",
@@ -437,6 +441,230 @@
       ],
       "check": "V-U18",
       "passes": true,
+      "verified": null,
+      "amended_by": "U33"
+    },
+    {
+      "id": "U28",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "The still map (fold re-cut) — a thread is a fixture (an Active Notion Project on its client's town or the workshop; a room board on its room) or a request (an open ? — a gate, a Pending Approval row, a Pending Decision, an In Review draft — or a ! — a failed run inside 24 h, an open System Health finding); nothing else is a thread; fixtures are idle and still, requests carry the badge and the motion; the in-tray lists exactly the request threads and N cycles them; nothing new is stored",
+      "delivers": [
+        "ES-6.1",
+        "ES-6.2",
+        "ES-6.3",
+        "ES-6.10"
+      ],
+      "depends_on": [
+        "U12",
+        "U14"
+      ],
+      "prereq": [
+        "U12 Built",
+        "U14 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "compass/fold.mjs",
+        "compass/threads.mjs",
+        "compass/surfaces.mjs",
+        "overlay strip"
+      ],
+      "steps": [
+        "automated: local fixture test/fixtures/m2b-still.json — an Active project with one live run → one fixture thread, n running 1, no request; a completed run → no thread; Alpha → a request in the ZZTEST town; a Pending Decision → a request in the board room; an In Review draft → a request in the marketing studio; the fold names any thread that is neither and the test fails on one",
+        "live: Beta shows no figure, its project fixture reads ⚒ · 1 running",
+        "live: N cycles Alpha, Gamma and the real content ? only",
+        "npm test green"
+      ],
+      "check": "V-U28",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U29",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Places with space — the pack declares rooms with ring positions (corner office centre; six rooms on ring 1; yard, archive, records office on alternating ring-2 spoke cells; ring 3 empty; towns from ring 4 on spoke cells with a gap); compass/layout.mjs generates the colony file once per planet and never moves an existing plot; prospects are a warmth column in the strategy room, not plots; internal projects are workshop fixtures; the neutral pack declares the same geometry with generic names",
+      "delivers": [
+        "ES-6.4"
+      ],
+      "depends_on": [
+        "U28"
+      ],
+      "prereq": [
+        "U28 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "overlay/packs/tellefsen-campus/pack.json (rooms with mirror and ring, nouns, lod, layout, figure: character, skill overrides incl. zztest-stale-expert wants \"Airtable\")",
+        "overlay/packs/neutral/pack.json (same geometry, generic names)",
+        "compass/layout.mjs",
+        "data/colony*.json regenerated once"
+      ],
+      "steps": [
+        "automated: the generator is deterministic for a given pack + client list",
+        "automated: no two non-campus plots adjacent",
+        "automated: a client added to the list takes the next free spoke cell and no existing plot moves",
+        "live: look from above: corner office centre, six rooms on ring 1, three on ring 2, an empty ring, towns on spokes with a gap; zero prospect plots; the same cells after reload",
+        "npm test green"
+      ],
+      "check": "V-U29",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U30",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Altitudes — three altitudes from the pack's lod: above lod.orbit plates only (name · need you · running), between lod.orbit and lod.desk request labels always and fixture labels on hover or selection, below lod.desk the panel; H flies to the corner office and a fresh load opens there; the strip reads need you · blocked · running · shipped today over the HUD's crew count",
+      "delivers": [
+        "ES-6.5"
+      ],
+      "depends_on": [
+        "U29"
+      ],
+      "prereq": [
+        "U29 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "overlay/lod.mjs",
+        "overlay/home.mjs",
+        "the strip"
+      ],
+      "steps": [
+        "automated: the label rule as a pure function of camera height and thread kind",
+        "automated: H and the initial target resolve to the corner office plot",
+        "live: zoom out to orbit: plates only, no thread labels; zoom in: request labels always, fixture labels on hover; H lands on the corner office; reload opens there",
+        "npm test green"
+      ],
+      "check": "V-U30",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U31",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Room panels — every room plot has a read-only panel from the surface the pack maps it to (5-min cache, no edit affordance): board room Decisions; strategy room Pipeline in the view's order with stage and warmth plus Research briefs; marketing studio the Sun–Thu week wall; research lab briefs with refresh due; finance office unpaid / overdue / paid / this month; integration yard open drift; workshop Active Build projects with next milestone and the Delivery skills as benches; records office automations, connectors, the silent-skills list, the last twenty ledger runs; corner office the in-tray, today's Big 3, the four numbers, the milestone heat; skills are rows in their room by ops_skills.type with pack overrides (lit / dark / dusty / red); R opens the board room; absorbs U19 (its three panels re-homed) and U20 (the warmth column); substrate v2 parts SKIPPED:WORKER-NEEDED until Prompt B-2 lands (retry U31)",
+      "delivers": [
+        "ES-6.6"
+      ],
+      "depends_on": [
+        "U29",
+        "U30"
+      ],
+      "prereq": [
+        "U29 Built",
+        "U30 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "overlay/rooms/*.mjs",
+        "compass/surfaces.mjs",
+        "compass/notion-sources.mjs"
+      ],
+      "steps": [
+        "automated: each panel's model built from captured fixtures",
+        "automated: no panel exposes an edit affordance",
+        "automated: the skill→room map covers every ops_skills.type value in the live substrate",
+        "live: click each room plot in turn (R for the board room): each panel as ES-6.6, three spot checks per panel against its Notion or Airtable view; the ZZTEST deal in the strategy room with warmth 0.5 at 12 d; skills as rows with a state",
+        "npm test green"
+      ],
+      "check": "V-U31",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U32",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Archive — the archive plot's panel lists, per client and per venture, a shelf — Deliverables, Sent Documents, settled Decisions, Research briefs, Integration pages, Field Mappings — newest first with Open PDF / Open in Notion / Open in Drive where the row carries the link; every project fixture's panel has an Archive tab (the shelf scoped to the project plus its milestones); U13's bubble fires only when the artifact's run has an open gate (the seed gives Epsilon one open gate)",
+      "delivers": [
+        "ES-6.7"
+      ],
+      "depends_on": [
+        "U31"
+      ],
+      "prereq": [
+        "U31 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "overlay/rooms/archive.mjs",
+        "the project panel's Archive tab",
+        "compass/surfaces.mjs"
+      ],
+      "steps": [
+        "automated: shelf model from fixtures, newest first, Open targets only where a link exists",
+        "automated: the bubble predicate: an artifact bubbles only on a run with an open gate",
+        "live: click the archive plot: a shelf per client with the sections newest first; a project fixture's Archive tab lists its milestones and deliverables; Epsilon's bubble fires (open gate); no bubble on an ungated artifact",
+        "npm test green"
+      ],
+      "check": "V-U32",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U33",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Signals re-cut — hand-raise = wanted + dusty + a tray line, never a figure (a silent skill raises only when the pack's override names a wants value that an Active project's Tech Stack contains); ✓ is a state on the project fixture, never a flash; the two sounds on a new ? or ! stay and M mutes; sub-agent children are a count on the parent's fixture or request and a child gets its own request only when it waits, N landing on it; amends U17 and U18",
+      "delivers": [
+        "ES-6.8"
+      ],
+      "depends_on": [
+        "U31"
+      ],
+      "prereq": [
+        "U31 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "compass/fold.mjs",
+        "compass/threads.mjs",
+        "overlay signals"
+      ],
+      "steps": [
+        "automated: the hand predicate against a fixture with 40 silent skills of which 2 are wanted",
+        "automated: a Done milestone yields a fixture mark and no thread",
+        "automated: Zeta's working child yields no thread, its waiting child one",
+        "live: hands only on wanted skills (Eta wanted via the pack override → dusty + a tray line, no figure); the ZZTEST project fixture shows the ✓ mark and nothing moves; Zeta's parent reads \"2 sub-runs\", its waiting child stands as a request and N lands on it, its working child has no figure; a sound on the new ?, silence after M",
+        "npm test green"
+      ],
+      "check": "V-U33",
+      "passes": false,
+      "verified": null
+    },
+    {
+      "id": "U34",
+      "category": "still-map",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6)",
+      "description": "Contract v1 — spec/world-substrate.v1.json, spec/ledger-scan.v1.json and spec/pack.v1.json (JSON Schema) exist; npm test validates a captured live response of each Worker route against its schema and fails if the adapter reads any Worker route other than /ledger/scan and /world/substrate; pack.v1 declares skin, rooms (name, mirror, ring), nouns, lod, layout, figure ∈ {character, marker}; docs/CONTRACT.md names the two documents and the pack schema as the product boundary",
+      "delivers": [
+        "ES-6.9"
+      ],
+      "depends_on": [
+        "U12"
+      ],
+      "prereq": [
+        "U12 Built"
+      ],
+      "repo": "agent-world",
+      "files": [
+        "spec/*.json",
+        "the tests",
+        "docs/CONTRACT.md"
+      ],
+      "steps": [
+        "automated: the three schemas validate the captured responses and the two packs",
+        "automated: the route-guard test is present and green",
+        "automated: pack.v1 carries figure",
+        "live: npm test; open docs/CONTRACT.md",
+        "npm test green"
+      ],
+      "check": "V-U34",
+      "passes": false,
       "verified": null
     },
     {

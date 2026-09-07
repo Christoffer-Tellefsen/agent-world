@@ -10,9 +10,8 @@
  *   decisions   the last three 🧠 Decisions with Status Active or Pending, newest first.
  *
  * Notion has no GET that lists a database's rows: listing is POST /v1/data_sources/<id>/query, a read
- * with a body (filter, sort, page size). That is the one non-GET request the adapter makes, and the
- * write guard in npm test allows exactly that endpoint and nothing else (design detail 2026-09-07,
- * proposed as a Decision in claude-progress.txt).
+ * with a body (filter, sort, page size). Since M2b (B5) that one request lives in compass/notion.mjs and is
+ * allowed only for the ids in compass/notion-sources.mjs; this file calls it and builds no request of its own.
  *
  * Last touch of a deal, first field that is set wins: `Last Touch` (a date the skills write, when the base
  * has one — proposed), else `Last Viewed` (the prospect opening the interactive page), else `Stage Changed
@@ -20,10 +19,10 @@
  * else `Created Date`. A chain, not a max: the stamp would otherwise hide every human-set date. The seed sets
  * the ZZTEST row's Last Viewed twelve days back so the panels read "12 d" (V-U19/V-U20).
  */
-const NOTION_VERSION = '2025-09-03'
+import { createNotion } from './notion.mjs'
+import { PROJECTS as PROJECTS_DATA_SOURCE, DECISIONS as DECISIONS_DATA_SOURCE } from './notion-sources.mjs'
 export const PIPELINE_TABLE = 'tbl5OkxwL3WqTK6Vz'
-export const PROJECTS_DATA_SOURCE = '33dc0af9-c974-80e9-9d5d-000ba4bd72ea'
-export const DECISIONS_DATA_SOURCE = 'f73d4f92-426c-4c11-990e-ae14403b4e28'
+export { PROJECTS_DATA_SOURCE, DECISIONS_DATA_SOURCE }
 export const CACHE_MS = 5 * 60_000
 export const ERROR_MS = 30_000
 /** Prospect plots (U20) follow a Stage change "on the next poll": their own read of the same table, cached for the poll's own 15 s. */
@@ -91,19 +90,12 @@ export function createSteering(cfg, { surfaces, substrate, fetchImpl = globalThi
   const fixAirtable = (status) =>
     status === 404 ? `Airtable Pipeline: base or table not found — check AIRTABLE_BASE_ID (${cfg.airtableBaseId}) and that the token can see the HQ base` : status === 401 || status === 403 ? 'Airtable Pipeline: the token was refused — check AIRTABLE_TOKEN in .env and its data.records:read scope' : `Airtable Pipeline: read failed (${status})`
 
-  async function notion(path, body) {
-    if (!cfg.notionToken) throw Object.assign(new Error('NOTION_TOKEN is not set in .env'), { status: 0 })
-    const init = { headers: { Authorization: `Bearer ${cfg.notionToken}`, 'Notion-Version': NOTION_VERSION } }
-    if (body) {
-      // the one non-GET read: a data source query (Notion offers no GET that lists rows)
-      init.method = 'POST'
-      init.headers['Content-Type'] = 'application/json'
-      init.body = JSON.stringify(body)
-    }
-    const res = await fetchImpl(`https://api.notion.com/v1/${path}`, init)
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) throw Object.assign(new Error(json.message || json.code || `notion ${res.status}`), { status: res.status })
-    return json
+  const notionClient = createNotion(cfg, { fetchImpl })
+  /** A data-source query through the shared client (compass/notion.mjs) — one page, as before. */
+  const notion = (path, body) => {
+    const m = String(path).match(/^data_sources\/([^/]+)\/query$/)
+    if (!m || !body) throw Object.assign(new Error(`steering reads only data-source queries, not ${path}`), { status: 0 })
+    return notionClient.queryPage(m[1], body)
   }
 
   // ── panel 1: Pipeline ──────────────────────────────────────────────────────────────────────

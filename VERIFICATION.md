@@ -1,4 +1,4 @@
-# VERIFICATION — Agent World (M1 closed 2026-09-07 · M2 checks V-U12W–V-U21 below)
+# VERIFICATION — Agent World (M1 closed 2026-09-07 · M2 checks V-U12W–V-U21 · M2b checks V-U28–V-U34, the still map, Decision 2026-09-07)
 
 The verifier is Christoffer. He runs these checks cold, from this file, through the real surfaces (the browser at 127.0.0.1:5274, Airtable, Notion, the Compass MCP). A check that cannot be followed as written is a defect in the check — fix the check first. Pass → the unit is **Verified** in the Notion unit table with the date and evidence. Fail → one-line defect note on the unit, status stays **Built**, back to the builder. Never build the next dependent unit past a failing check.
 
@@ -47,6 +47,7 @@ Cleanup: none — this is a real governed run.
 Setup: V-U10 passing (this unit shows nothing real without it); the ZZTEST Alpha Pending Approval row exists; run `scripts/zztest-seed.sh`.
 Do: open the world, wait one poll (≤ 15 s).
 See: a **ZZTEST Client** plot with three agents — Alpha holding `?`, Beta hammering `⚒`, Delta asleep with no badge; on **Tellefsen HQ** Gamma slumped with `!`; HUD "need you" = 1; the sidebar's ZZTEST Client zone reads 3 threads, 1 need you.
+*Re-based 2026-09-07 (ES-6.1 / ES-6.2 — the still map): a run is a thread only while it is a request. Beta (running) and Delta (asleep) have no figure; Beta counts as "⚒ · 1 running" on its project fixture; Gamma's `!` stands at the records office (no client). Alpha's `?` on the ZZTEST town is unchanged. Check this sentence through V-U28 instead.*
 Fail looks like: all four on one plot with an empty name (client mapping); Beta showing `?` (a gate leaked across runs); Gamma still hammering (terminal event ignored); Delta awake (window or sleep threshold wrong).
 Cleanup: at milestone close (see above).
 
@@ -106,7 +107,8 @@ Cleanup: none.
 ## V-U12 — World Packs and the ontology skin
 - **Setup:** `./dev.sh`; seed run; `WORLD_COMPANIES` v0.3 in Compass (Tellefsen + two placeholder planets, `world_pack` on each). The adapter's sidecar answers on `http://localhost:5275/world` (names and packs only — no token in it). Plots are not draggable in Bot Crossing; the map is sticky by allocation, so the layout check is a reload.
 - **Do:** open the world. Read the planet pills top right (the switcher). Read the name plates (a quiet town's plate is always on; it has no sidebar, nothing runs there); click an agent and read the panel. Reload the page. Click AI Drilling; then click Tellefsen SPC. Add a second ZZTEST client to `ops_clients` through the Compass MCP (chat does it), restart `dev.sh`. Then, in chat, set the home company's `world_pack` to `neutral`, restart `dev.sh`; set it back, restart.
-- **See:** every Active client in `ops_clients` is a named town — a deck with its name plate — even one with no run in the window (a quiet town: deck and plate, no crew); Tellefsen HQ is the centre; the switcher lists the three companies from Compass and, beside them, the pack id the planet on screen wears; AI Drilling and AI Football open as empty planets carrying their name and "no substrate yet" (no crew, no towns; `data/colony.<key>.json` appears on first visit); back on Tellefsen SPC every plot — real and quiet — is on the cells it had before the reload and the switch; the panel says `campus · Tellefsen HQ` or `town · <client>` and shows a `studio · <room>` chip (solution studio, research lab, content studio, finance office, integration yard, board room, corner office); a run in a town that wears its own pack (`ops_clients.world_branding.pack`, none today) speaks that pack's nouns and rooms on the panel and shows the pack id. The new ZZTEST client is a town after restart; removing the row removes it. On `neutral`: the canvas goes grayscale on the moon, the nouns read world / site / unit, the rooms read unit A–G, and no client or company name is in any pack file; on the way back the campus returns.
+- **See:** every Active client in `ops_clients` is a named town — a deck with its name plate — even one with no run in the window (a quiet town: deck and plate, no crew); Tellefsen HQ is the centre; the switcher lists the three companies from Compass and, beside them, the pack id the planet on screen wears; AI Drilling and AI Football open as empty planets carrying their name and "no substrate yet" (no crew, no towns; `data/colony.<key>.json` appears on first visit); back on Tellefsen SPC every plot — real and quiet — is on the cells it had before the reload and the switch; the panel says `campus · Tellefsen HQ` or `town · <client>` and shows a `studio · <room>` chip (solution studio, research lab, content studio, finance office, integration yard, board room, corner office); a run in a town that wears its own pack (`ops_clients.world_branding.pack`, none today) speaks that pack's nouns and rooms on the panel and shows the pack id. The new ZZTEST client is a town after restart; removing the row removes it.
+*Re-based 2026-09-07 (ES-6.1 / ES-6.4): "click an agent" means a request or a fixture — there is no figure per run. Tellefsen HQ is no longer one plot: the campus is the corner office at the centre and the rooms around it (V-U29); the `studio · <room>` chip still reads the room the skill belongs to. A town is on a spoke cell from ring 4 outward; the new ZZTEST client takes the next free spoke cell and nothing else moves.* On `neutral`: the canvas goes grayscale on the moon, the nouns read world / site / unit, the rooms read unit A–G, and no client or company name is in any pack file; on the way back the campus returns.
 - **Also (re-cut 2026-09-07):** set the home company's world_pack to neutral in Compass (chat does it), restart ./dev.sh → skin, rooms and nouns swap with no code change and no client name appears anywhere; set it back → the campus returns.
 - **Fail looks like:** a client with no town; a town whose name is in code or in a pack; a planet that shows another planet's runs; a plot on different cells after a reload; a swap that needs a commit; the switcher missing (the sidecar is down — `curl -s localhost:5275/world`; a second copy of the world on the same port).
 - **Cleanup:** remove the second ZZTEST client row; `world_pack` back to `tellefsen-campus`; `data/colony.ai-drilling.json` / `data/colony.ai-football.json` may stay (empty layouts) or be deleted.
@@ -115,6 +117,7 @@ Cleanup: none.
 - **Setup:** seed run (Epsilon completed with one Notion-URL artifact and one Compass-reference artifact).
 - **Do:** watch Epsilon's plot for one poll; open its card; press Open on the first artifact; try the second.
 - **See:** bubble on Epsilon within 15 s; card lists two artifacts; the first opens the Notion page in the browser; the second is a label with no Open.
+- *Re-based 2026-09-07 (ES-6.7): a completed run is not a figure, so the bubble stands on Epsilon's request — the seed now leaves Epsilon one open gate — and fires only because that gate is open; an artifact on a run without a gate appears on the archive shelf only (V-U32). The card is the request's panel.*
 - **Fail looks like:** no bubble; Open on the Compass reference; the bubble on the wrong agent.
 - **Cleanup:** none.
 
@@ -150,6 +153,7 @@ Cleanup: none.
 - **Setup:** seed run (Eta stale; Gamma failed).
 - **Do:** look at Eta, Gamma, the campus flag, and Beta's suit. Flip a ZZTEST Engagement Milestone to Done in Notion, wait 5 min. Trigger a new `?` (seed Alpha again), then press M and trigger another.
 - **See:** Eta's hand is up; the campus flag shows `!` (Gamma); Beta's suit colour matches its trust status under `AUTO_RUN_POLICY` (a `zztest-` skill is in neither list, so the run's own `run_class` decides); `✓` over the ZZTEST town after the cache; a sound on the first new `?`, silence after M.
+- *Re-based 2026-09-07 (ES-6.8): Eta raises no figure — it is a dusty row in the records office panel and a lowest-precedence tray line, and only because the pack override says it wants "Airtable" and an Active project's Tech Stack contains it; Gamma's `!` is a request at the records office, not a flag; Beta has no figure, so read the suit colour on a request (Alpha); `✓` is a static mark on the project fixture, not a flash over the town. Check these through V-U33.*
 - **Fail looks like:** a hand up on a skill that ran last week; `!` on the flag with no failed run in 24 h; a colour not in the run_mode table; sound on every poll.
 - **Cleanup:** flip the ZZTEST milestone back.
 
@@ -157,22 +161,15 @@ Cleanup: none.
 - **Setup:** seed run (Zeta lead + two children with `parent_run_id`, one waiting).
 - **Do:** find Zeta. Open its card. Press N until it lands on the waiting child.
 - **See:** two crew beside Zeta's plot; card says "2 sub-runs" and lists them; Zeta shows `?` by inheritance; N lands on the child, not the parent.
+- *Re-based 2026-09-07 (ES-6.8): the running lead and its working child have no figure; "2 sub-runs" is a count on the project fixture's running list (or on the parent's request when the parent is one); only the waiting child stands, as a request, and N lands on it. Check through V-U33.*
 - **Fail looks like:** children on their own plots; the parent with no badge while a child waits; N stopping on the parent.
 - **Cleanup:** none.
 
 ## V-U19 — Steering Room
-- **Setup:** tokens in `.env`; seed run (the ZZTEST Pipeline row at 12 d since last touch).
-- **Do:** press R (or walk into the room). Compare panel 1 with the Airtable Pipeline hot-deals view, panel 2 with the HQ Milestone Heat Map, panel 3 with the Decisions DB sorted by date.
-- **See:** the same rows in the same order in each pair; the ZZTEST deal in panel 1 with "12 d"; nothing on the panels is editable.
-- **Fail looks like:** a row present in one and missing in the other; an edit control anywhere; panels blank without a named fix.
-- **Cleanup:** none.
+Absorbed 2026-09-07 by U31 (ES-6.6): its three panels live in the room panels — Pipeline in the strategy room, the milestone board in the workshop and the corner office, the last Decisions in the board room. Check through **V-U31**.
 
 ## V-U20 — Prospect decay
-- **Setup:** ZZTEST Pipeline row at 12 d since last touch.
-- **Do:** find the ZZTEST prospect plot on the campus edge. Set its Stage to Won in Airtable, wait one poll. Set it to Lost, wait one poll.
-- **See:** plot at half opacity; on Won it becomes a ZZTEST town; on Lost the plot is gone.
-- **Fail looks like:** opacity that does not change with the date; a Lost prospect still standing; a Won prospect still on the edge.
-- **Cleanup:** reset Stage to Lead.
+Absorbed 2026-09-07 by U29 (ES-6.4): prospects are not plots; the warmth (1.0 / 0.5 / 0.2 by days since last touch) is a column in the strategy room panel. Check through **V-U29** (zero prospect plots) and **V-U31** (the ZZTEST deal at warmth 0.5 at 12 d).
 
 ## V-U21 — The second film
 - **Setup:** V-U12 to V-U20 verified in one sitting the same day; `scripts/zztest-seed.sh --clean`.
@@ -181,5 +178,45 @@ Cleanup: none.
 - **Fail looks like:** a beat that needed a fixture staged by hand outside `zztest-seed.sh`.
 - **Cleanup:** `scripts/zztest-seed.sh --clean` before the next film; nothing else.
 
+## V-U28 — The still map
+- **Setup:** `scripts/zztest-seed.sh --clean`; Ctrl-C and `./dev.sh`.
+- **Do:** read the 5274 thread list; watch the map for 30 s; press N repeatedly; press I.
+- **See:** every thread is a fixture (a project name, a room board) or a request (a badge title); Beta has no figure and its project fixture reads ⚒ · 1 running; Delta is nowhere; Alpha ? in the ZZTEST town, Gamma ! at its zone; nothing without a badge moves; N visits only badged threads; the tray rows equal the request threads; the strip reads need you · blocked · running · shipped today.
+- **Fail looks like:** a figure named after a skill with no badge; a hammering figure; "crew 89".
+- **Cleanup:** none.
+
+## V-U29 — Places with space
+- **Setup:** fresh `./dev.sh` after U29.
+- **Do:** look from above; reload; cue `add client` → restart; cue `remove client` → restart; cue `flip to neutral` → restart; cue `flip back` → restart.
+- **See:** corner office centre, six rooms on ring 1, three on ring 2, an empty ring, towns on spokes with a gap between each, Agent World as a fixture in the workshop, zero prospect plots; the same cells after reload; the new town on the next free spoke cell with nothing else moved; gone after removal; neutral = same geometry, generic names, grayscale; the campus back.
+- **Fail looks like:** two plots touching outside the campus; a prospect plot; a town that moved.
+- **Cleanup:** none (the backups stay in data/ unread).
+
+## V-U30 — Altitudes
+- **Do:** zoom out to orbit (or press O); zoom in; hover a project; press H; reload.
+- **See:** at orbit plates only — name · need you · running — no thread labels, no cards; at district request labels always and fixture labels on hover; H lands on the corner office; a fresh load opens there.
+- **Fail looks like:** overlapping labels at orbit; H doing nothing; a bubble at orbit.
+
+## V-U31 — Room panels
+- **Do:** click each room plot in turn (R for the board room); cue `decision pending` (chat sets Kappa to Pending); cue `decision settled` (chat sets Kappa Active); cue `draft review` (chat moves Mu to 👀 In Review); cue `draft signed` (Mu → 📅 Scheduled).
+- **See:** each panel as ES-6.6 — three spot checks per panel against its Notion or Airtable view; the ZZTEST deal in the strategy room with warmth 0.5 at 12 d; skills as rows with a state; the four numbers on the corner office (or the SKIPPED note); within a poll of `decision pending` a request stands at the board room and the tray gains a row; gone after `decision settled`; the same for Mu at the marketing studio.
+- **Fail looks like:** an edit affordance; a panel that disagrees with its view; a skill in no room.
+
+## V-U32 — Archive
+- **Do:** click the archive plot; open a project fixture's Archive tab; cue `register` (chat writes Nu, a ZZTEST Deliverable with a Notion link); re-run the seed.
+- **See:** a shelf per client with the six sections newest first; Open opens the link; the project tab lists its milestones and deliverables; within 5 min Nu is on the ZZTEST shelf and no bubble appears; Epsilon's bubble fires (its run has an open gate).
+- **Fail looks like:** a bubble on an ungated artifact; a shelf with a write affordance.
+
+## V-U33 — Signals
+- **Setup:** the seed.
+- **Do:** read the records office silent list and the tray; cue `milestone done` (chat flips the ZZTEST milestone) → wait ≤ 5 min; cue `milestone back`; find Zeta; re-run the seed with sound on; press M; re-run.
+- **See:** hands only on wanted skills (far fewer than 16; Eta wanted via the pack override → dusty + a tray line, no figure); the ZZTEST project fixture shows the ✓ mark and nothing moves; Zeta's parent reads "2 sub-runs", its waiting child stands as a request and N lands on it, its working child has no figure; a sound on the new ?, silence after M.
+- **Fail looks like:** a figure for a hand; a flash for ✓; a working child with a body.
+
+## V-U34 — Contract v1
+- **Do:** `npm test`; open docs/CONTRACT.md.
+- **See:** the three schemas, the captured responses validating, the route-guard test present and green; pack.v1 with figure.
+- **Fail looks like:** an adapter read of a third Worker route passing the tests.
+
 ## Cadence and evidence
-Per unit: the check above, minutes each. Per milestone: when U8 verifies, re-run V-U1 … V-U7 and V-U9 in one sitting (the regression pass) before `milestone-close` flips M1 to Done. **Regression before milestone-close M2:** re-run V-U1–V-U6, V-U9–V-U11, V-U12W and V-U12–V-U20 in one sitting. Evidence per unit in the Notion unit table: the date, plus a link — the Compass `run_id` for V-U2, a screenshot for V-U3/V-U6, the recording for V-U8.
+Per unit: the check above, minutes each. Per milestone: when U8 verifies, re-run V-U1 … V-U7 and V-U9 in one sitting (the regression pass) before `milestone-close` flips M1 to Done. **Regression before milestone-close M2:** re-run V-U1–V-U6, V-U9–V-U11, V-U12W and V-U12–V-U20 in one sitting. **M2b batch sitting (2026-09-07):** first the re-based V-U12, V-U13, V-U14, V-U15, V-U18, then V-U28 … V-U34. Evidence per unit in the Notion unit table: the date, plus a link — the Compass `run_id` for V-U2, a screenshot for V-U3/V-U6, the recording for V-U8.

@@ -56,24 +56,25 @@ test('the adapter never writes: no non-GET request and no supabase-js write chai
   // A Map or Set .delete() is not a write to anything; only chains that start at .from( count.
   const httpNeedles = [/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/i, /['"](POST|PUT|PATCH|DELETE)['"]\s*,\s*['"]\/rest\//i]
   // The one allowed non-GET: Notion lists a database's rows only through POST /v1/data_sources/<id>/query —
-  // a read with a body (filter, sort, page size). steering.mjs (U19) makes it and nothing else may; the file
-  // must contain no other verb and must only ever build that path (design detail 2026-09-07, proposed Decision).
+  // a read with a body (filter, sort, page size). Since M2b (B5) compass/notion.mjs makes it, only for an id
+  // compass/notion-sources.mjs allows (checked before the request is built), and nothing else may: the file
+  // must contain exactly one `.method` assignment, guarded by isAllowed, building only the /query path.
   const ALLOWED_LINE = "init.method = 'POST'"
   const notionQueryOnly = (text) => {
     const lines = text.split('\n')
     const allowed = lines.filter((l) => l.includes(ALLOWED_LINE))
-    // exactly one such line, it is the only `.method` assignment in the file, and the file only ever builds the /query path
     const assignments = lines.filter((l) => /\.method\s*=/.test(l) || /method:\s*['"]/.test(l))
-    if (allowed.length !== 1 || assignments.length !== 1 || !/data_sources\/\$\{[A-Z_]+\}\/query/.test(text)) return null
+    const guarded = /isAllowed\(id/.test(text) && text.indexOf('isAllowed(id') < text.indexOf(ALLOWED_LINE)
+    if (allowed.length !== 1 || assignments.length !== 1 || !guarded || !/data_sources\/\$\{id\}\/query/.test(text)) return null
     return lines.filter((l) => !l.includes(ALLOWED_LINE)).join('\n') // the rest is checked like every other file
   }
   const chainNeedle = /\.from\([^)]*\)[\s\S]{0,200}?\.(insert|update|upsert|delete|rpc)\(/
   const hits = []
   for (const f of files) {
     let text = fs.readFileSync(f, 'utf8')
-    if (path.basename(f) === 'steering.mjs') {
+    if (path.basename(f) === 'notion.mjs') {
       const rest = notionQueryOnly(text)
-      if (rest == null) hits.push('server/harnesses/compass/steering.mjs: more than the one Notion data-source query is written')
+      if (rest == null) hits.push('server/harnesses/compass/notion.mjs: more than the one guarded Notion data-source query is written')
       else text = rest
     }
     for (const n of httpNeedles) if (n.test(text)) hits.push(`${path.relative(root, f)} matches ${n}`)
@@ -92,4 +93,32 @@ test('harness registry is exactly [compass]', async () => {
 test('never-touch files are unchanged vs upstream', () => {
   const diff = sh('git diff --stat upstream/main -- server/scan.mjs server/api.mjs server/harnesses/claude-code.mjs')
   assert.equal(diff, '', `never-touch files differ from upstream:\n${diff}`)
+})
+
+// M2b B5 — the allowed query is POST /v1/data_sources/<id>/query for an id in compass/notion-sources.mjs and nothing else.
+test('the Notion client queries only allowed data sources: a listed id goes out as the query, a refused id never builds a request', async () => {
+  const { createNotion } = await import(path.join(root, 'server/harnesses/compass/notion.mjs'))
+  const sources = await import(path.join(root, 'server/harnesses/compass/notion-sources.mjs'))
+  const calls = []
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url, method: init.method || 'GET' })
+    return { ok: true, status: 200, json: async () => ({ results: [{ id: 'row' }], has_more: false }) }
+  }
+  const env = { NOTION_DS_CONTENT: '11111111222233334444555555555555' }
+  const notion = createNotion({ notionToken: 't' }, { fetchImpl, env })
+  assert.deepEqual((await notion.query(sources.PROJECTS, { page_size: 1 })).map((r) => r.id), ['row'])
+  await notion.query(sources.DECISIONS)
+  await notion.query(env.NOTION_DS_CONTENT) // an env-named source is allowed once the name is set
+  assert.deepEqual(calls.map((c) => c.method), ['POST', 'POST', 'POST'])
+  assert.ok(calls.every((c) => /\/v1\/data_sources\/[0-9a-f-]+\/query$/.test(c.url)), 'every POST is a data-source query')
+  await assert.rejects(() => notion.query('deadbeefdeadbeefdeadbeefdeadbeef'), /not one the adapter may query/)
+  await assert.rejects(() => notion.query(''), /not one the adapter may query/)
+  assert.equal(calls.length, 3, 'a refused id never reaches fetch')
+  // a GET carries no body and no method
+  await notion.get('pages/x')
+  assert.equal(calls.at(-1).method, 'GET')
+  // env names: a missing name is undefined, reported by name only
+  assert.equal(sources.envSources({}).RESEARCH, undefined)
+  assert.deepEqual(sources.missingEnvNames({ NOTION_DS_CONTENT: env.NOTION_DS_CONTENT }).length, 5)
+  assert.equal(sources.isAllowed('33dc0af9c97480e99d5d000ba4bd72ea', {}), true, 'dashed and undashed forms are the same id')
 })
