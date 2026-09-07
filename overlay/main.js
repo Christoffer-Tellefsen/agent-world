@@ -17,9 +17,9 @@
 // first, then opens the gate's surface (the same link Open uses). The row wears ⏳ until U6's cross-check
 // clears the ? on a later poll; three polls without that and it is a ? again, "not seen yet". Nothing is
 // written from here — the tap lands on the surface (Decision 2026-09-06; the write path is M3's /actions).
-// U17 — signals: the suit is the skill's trust status (one colour per run_mode), a resident with its hand
-// up is a skill silent 30 days, ! on the campus flag is a run_failed with no later success, ✓ over a town
-// is a milestone flipped Done in 24 h; a short cue on a NEW ? or ! only, M mutes (a render setting).
+// U17 → U33 — signals: the suit is the skill's trust status (one colour per run_mode); a hand is a tray line and a
+// dusty row for a silent skill the pack wants (never a figure); a ! is a request standing in a room; ✓ is a static
+// state on the project fixture; a short cue on a NEW ? or ! only, M mutes (a render setting).
 // U19 — the Steering Room: R (or the room's button) opens three read-only panels from the sidecar's
 // GET /steering — Pipeline hot deals (Airtable, the hot-deals view's own order), the milestone board
 // (next milestone per Active project, Notion) and the last three 🧠 Decisions (Notion); 5-min caches,
@@ -27,8 +27,8 @@
 // U20 — prospect plots as decay: every Pipeline row neither Won nor Lost stands on the campus edge (a ring
 // outside every cell the map holds), fading by days since last touch — full ≤ 7 d, half ≤ 30 d, ghost after.
 // A render rule over the sidecar's rows: nothing stored, nothing written; Won or Lost and the plot is gone.
-// U18 — sub-agents: a run with parent_run_id stands with its parent (same plot); the parent's card says
-// "n sub-runs" and lists them; a waiting child gives the parent a ? by inheritance, and N lands on the child.
+// U18 → U33 — sub-agents: children are a count on the parent's fixture running list or on the parent's request
+// ("n sub-runs"); a child gets its own request only when it waits, on its root ancestor's plot, and N lands on it.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
@@ -622,6 +622,7 @@ function ensureMarkerGroup(colony) {
   }
   return markerGroup
 }
+const MARKER_LIFT = { check: 0.55 } // a ✓ plate rides above a ⚒ plate on a fixture that wears both
 function wantMarker(colony, key, text, accent, at, follow = null) {
   const have = markers.get(key)
   if (have && have.text === text) {
@@ -639,7 +640,7 @@ function wantMarker(colony, key, text, accent, at, follow = null) {
     mesh.material.opacity = 0.95
     if (at) mesh.position.set(at.x, at.y, at.z)
     markerGroup.add(mesh)
-    markers.set(key, { mesh, text, follow })
+    markers.set(key, { mesh, text, follow, lift: MARKER_LIFT[key.split(':')[0]] || 0 })
   } catch (err) {
     console.warn('[world] marker not drawn:', key, err?.message || err)
   }
@@ -932,7 +933,7 @@ function followMarkers() {
     for (const mk of markers.values()) {
       if (mk.follow) {
         const agent = colony.astronauts.byId?.get(mk.follow)
-        if (agent) mk.mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y, agent.pos.z)
+        if (agent) mk.mesh.position.set(agent.pos.x, agent.pos.y + BUBBLE_Y + (mk.lift || 0), agent.pos.z)
       }
       mk.mesh.visible = show
     }
@@ -956,7 +957,7 @@ const muted = () => Boolean(window.botCrossing?.settings?.get(AW_MUTED))
 let lastSoundRoster = null
 setInterval(() => {
   const bc = window.botCrossing
-  if (!bc?.threads || bc.threads === lastSoundRoster) return
+  if (!bc?.threads || bc.threads === lastSoundRoster || !bc.threads.length) return // the empty roster before the first poll primes nothing: the world opening is not an event
   lastSoundRoster = bc.threads
   const d = diff.update(bc.threads)
   if (muted()) return
