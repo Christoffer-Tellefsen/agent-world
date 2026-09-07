@@ -7,6 +7,8 @@ const DAY_MS = 24 * 3600 * 1000
 const str = (v) => (typeof v === 'string' ? v : '')
 export const daysLabel = (days) => (days == null ? '—' : days === 0 ? 'today' : `${days} d`)
 export const warmthLabel = (w) => (w >= 1 ? 'warm' : w >= 0.5 ? 'cooling' : 'cold')
+/** An ISO timestamp as "YYYY-MM-DD HH:MM Z"; the input when it is not a date. */
+export const stampOf = (iso) => { const t = Date.parse(str(iso)); return Number.isFinite(t) ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') + ' Z' : str(iso) }
 export const STATE_GLYPH = Object.freeze({ lit: '●', dark: '○', dusty: '◌', red: '●' })
 export const STATE_LABEL = Object.freeze({ lit: 'a run is live', dark: 'idle', dusty: 'silent 30 d and wanted', red: 'failed in 24 h' })
 
@@ -45,34 +47,47 @@ export function roomSections(id, panel, now = Date.now()) {
         { title: 'By status', rows: Object.entries(panel.byStatus || {}).map(([k, v]) => ({ text: k, value: String(v), url: '' })), note: panel.skipped ? '' : sectionNote({ rows: Object.keys(panel.byStatus || {}) }, '') },
       ]
     }
-    case 'research-lab':
-      return [{ title: 'Briefs · refresh due', rows: (panel.rows || []).map((b) => ({ text: b.title, small: b.status, value: b.refreshDue || '—', cls: b.refreshDue && b.refreshDue < new Date(now).toISOString().slice(0, 10) ? 'late' : '', url: link(b.url) })), note: sectionNote(panel, 'no brief') }]
+    case 'research-lab': {
+      const today = new Date(now).toISOString().slice(0, 10)
+      const rows = (panel.rows || []).map((b) => ({ text: b.title, small: [b.type, b.status, b.handoff ? 'handoff ready' : ''].filter(Boolean).join(' · '), value: b.refreshDue ? `refresh ${b.refreshDue}` : '—', cls: b.due || (b.refreshDue && b.refreshDue < today) ? 'late' : '', url: link(b.url) }))
+      return [{ title: `Briefs · ${rows.length}${panel.due ? ` · ${panel.due} due a refresh` : ''}`, sub: 'by "Refresh due", the due ones first', rows, note: sectionNote(panel, 'no brief') }]
+    }
     case 'finance-office': {
       const bucket = (title, b) => ({ title: `${title} · ${b?.n || 0} · ${(b?.omr || 0).toLocaleString('en', { maximumFractionDigits: 0 })} OMR`, rows: (b?.rows || []).map((r) => ({ text: r.name, small: `${r.status}${r.due ? ' · due ' + r.due : ''}`, value: `${r.amount.toLocaleString('en')} ${r.currency}`, cls: /overdue/i.test(title) ? 'late' : '', url: link(r.url) })), note: sectionNote({ rows: b?.rows, error: panel.error }, 'none') })
       return [bucket('Unpaid', panel.unpaid), bucket('Overdue', panel.overdue), bucket('Paid', panel.paid), bucket(`This month · ${panel.month || ''}`, panel.thisMonth)]
     }
-    case 'integration-yard':
-      return [{ title: 'Integrations · open drift findings', rows: (panel.open || panel.rows || []).map((i) => ({ text: i.title, small: i.status, value: String(i.drift ?? ''), url: link(i.url) })), note: sectionNote(panel, 'no open drift finding') }]
+    case 'integration-yard': {
+      const row = (i) => ({ text: i.title, small: [i.status, i.platform, i.direction && i.source && i.target ? `${i.source} ${i.direction.replace(/^[^→⇄]*/, '').trim() || '→'} ${i.target}` : ''].filter(Boolean).join(' · '), value: [i.drift, i.mappings != null ? `${i.mappings} mapping${i.mappings === 1 ? '' : 's'}` : '', i.lastDriftCheck ? `checked ${i.lastDriftCheck}` : ''].filter(Boolean).join(' · '), cls: /drift detected/i.test(str(i.drift)) ? 'late' : '', url: link(i.url) })
+      return [
+        { title: `Open drift findings · ${(panel.open || []).length}`, sub: '"Drift Status" = 🔴 Drift detected', rows: (panel.open || []).map(row), note: sectionNote({ rows: panel.open, skipped: panel.skipped, error: panel.error }, 'no open drift finding') },
+        { title: `Integration pages · ${(panel.rows || []).length}${panel.unchecked ? ` · ${panel.unchecked} unchecked` : ''}`, rows: (panel.rows || []).map(row), note: panel.skipped || panel.error ? '' : sectionNote({ rows: panel.rows }, 'no integration page') },
+      ]
+    }
     case 'workshop': {
       const proj = (panel.projects || []).map((p) => { const due = p.next?.committed ? Math.round((p.next.committed - now) / DAY_MS) : null; return { text: p.name, small: `${p.internal ? 'internal' : p.clientName} · next: ${p.next ? p.next.name : p.total ? 'all milestones done' : 'no milestones yet'} · ${p.done}/${p.total} done`, value: due == null ? '' : due < 0 ? `${-due} d late` : due === 0 ? 'due today' : `in ${due} d`, cls: due != null && due < 0 ? 'late' : '', url: link(p.url) } })
       return [{ title: 'Active Build projects · next milestone', rows: proj, note: sectionNote({ rows: proj, error: panel.error }, 'no Active Build project') }, { title: 'Benches · Delivery skills', rows: skillRowsOf({ skills: panel.benches }).map((s) => ({ text: `${s.glyph} ${s.name}`, small: s.hint, value: s.type, cls: s.state, url: '' })), note: '' }]
     }
     case 'records-office':
       return [
-        { title: 'Automations · next fire · last fire · missed', rows: (panel.automations?.rows || []).map((a) => ({ text: a.name || a.id, small: [a.next_fire && 'next ' + a.next_fire, a.last_fire && 'last ' + a.last_fire].filter(Boolean).join(' · '), value: a.missed ? `${a.missed} missed` : '', url: '' })), note: sectionNote(panel.automations, 'no automation') },
-        { title: 'Connectors', rows: (panel.connectors?.rows || []).map((c) => ({ text: c.name || c.id, small: c.status || '', value: '', url: '' })), note: sectionNote(panel.connectors, 'no connector') },
+        // substrate v2: no status on either table (none exists); connectors keyed by service; last fire only where a rollup names it
+        { title: `Automations${(panel.automations?.rows || []).length ? ` · ${panel.automations.rows.length}` : ''} · last fire`, sub: panel.automations?.rows?.length ? 'ops_automations · next fire and missed: see the note' : '', rows: (panel.automations?.rows || []).map((a) => ({ text: a.name, small: [a.platform, a.trigger].filter(Boolean).join(' · '), value: a.lastFire ? `last ${stampOf(a.lastFire)}` : a.updated ? `row ${a.updated}` : '', url: '' })), note: sectionNote(panel.automations, 'no automation') || str(panel.automations?.missing) },
+        { title: `Connectors${(panel.connectors?.rows || []).length ? ` · ${panel.connectors.rows.length}` : ''} · by service`, rows: (panel.connectors?.rows || []).map((c) => ({ text: c.service, small: c.via || '', value: c.updated ? `row ${c.updated}` : '', url: '' })), note: sectionNote(panel.connectors, 'no connector') },
         { title: `Silent skills · ${(panel.silent?.rows || []).length} of ${panel.silent?.of ?? '?'} silent 30 d`, rows: (panel.silent?.rows || []).map((s) => ({ text: `${s.dusty ? '◌ ' : ''}${s.name}`, small: s.dusty ? 'wanted — dusty' : 'silent', value: '', cls: s.dusty ? 'dusty' : '', url: '' })), note: sectionNote({ rows: panel.silent?.rows }, 'every Active skill ran in the last 30 days') },
         { title: 'Last twenty ledger runs', rows: (panel.runs || []).map((r) => ({ text: r.skill, small: `${r.client || 'no client'} · ${r.state}${r.gates ? ` · ${r.gates} gate${r.gates === 1 ? '' : 's'}` : ''}${r.artifacts ? ` · ${r.artifacts} artifact${r.artifacts === 1 ? '' : 's'}` : ''}`, value: r.at ? new Date(r.at).toLocaleString() : '', cls: r.state === 'failed' ? 'late' : '', url: '' })), note: sectionNote({ rows: panel.runs }, 'no run in the window') },
         { title: '🩺 System Health · the ! requests standing here', rows: (panel.health?.rows || []).map((h) => ({ text: h.title, small: 'open finding', value: h.at ? `${Math.max(0, Math.round((now - h.at) / DAY_MS))} d` : '', cls: 'late', url: link(h.url) })), note: sectionNote(panel.health, 'no open finding') },
       ]
     case 'corner-office': {
       const n = panel.numbers || {}
-      const numbers = n.skipped ? [] : [['unattended share', n.unattendedShare], ['failure rate', n.failureRate], ['median time-to-tap', n.medianTimeToTap], ['open gates', n.openGates], ['last gate reconciliation', n.lastReconciliation]].map(([k, v]) => ({ text: k, value: v == null ? '—' : String(v), url: '' }))
+      // the four numbers: "not yet" until the first sweep writes LAST_RUN_GOVERNANCE (never zeros); the last gate reconciliation reads now
+      const four = n.skipped ? [] : [['unattended share', n.unattendedShare], ['failure rate', n.failureRate], ['median time-to-tap', n.medianTimeToTap], ['open gates', n.openGates]].map(([k, v]) => ({ text: k, small: n.ready ? '' : 'not yet', value: n.ready ? (v == null ? '—' : String(v)) : 'not yet', cls: n.ready ? '' : 'stale', url: '' }))
+      const rec = n.reconciliation
+      const numbers = n.skipped ? [] : [...four, { text: 'last gate reconciliation', small: rec ? `${rec.gatesChecked} gate${rec.gatesChecked === 1 ? '' : 's'} checked · ${rec.resolved} resolved · ${rec.stillOpen} still open${rec.couldNotRead ? ` · ${rec.couldNotRead} unreadable` : ''}` : 'no reconciliation sweep has finished yet', value: rec?.at ? stampOf(rec.at) : '—', url: '' }]
+      const numbersNote = n.skipped ? n.skipped : !n.ready ? n.notYet || 'not yet' : [n.governanceAt ? `sweep finished ${stampOf(n.governanceAt)}` : '', (n.unnamed || []).length ? `not carried by the rollup under an expected name: ${n.unnamed.join(', ')}` : ''].filter(Boolean).join(' · ')
       const heat = (panel.heat?.rows || []).map((r) => { const due = r.next?.committed ? Math.round((r.next.committed - now) / DAY_MS) : null; return { text: r.project, small: `${r.next ? r.next.name : r.total ? 'all done' : 'no milestones'} · ${r.done}/${r.total}`, value: due == null ? '' : due < 0 ? `${-due} d late` : `in ${due} d`, cls: due != null && due < 0 ? 'late' : '', url: link(r.url) } })
       return [
         { title: `In-tray · ${(panel.tray || []).length} request${(panel.tray || []).length === 1 ? '' : 's'}`, sub: 'the same list as I opens · N walks it', rows: (panel.tray || []).map((t) => ({ text: t.title, small: [t.skill, t.zone].filter(Boolean).join(' · '), value: t.at ? `${Math.max(0, Math.round((now - t.at) / DAY_MS))} d` : '', cls: t.badge === '!' ? 'late' : '', url: link(t.url) })), note: sectionNote({ rows: panel.tray }, 'nothing is waiting on you') },
         { title: "Today's Big 3", rows: (panel.big3?.rows || []).map((t) => ({ text: t.title, small: t.status, value: t.priority, url: link(t.url) })), note: sectionNote(panel.big3, 'no Big 3 set today') },
-        { title: 'The four numbers · last Run Governance sweep', rows: numbers, note: n.skipped || '' },
+        { title: 'The four numbers · last Run Governance sweep', rows: numbers, note: numbersNote },
         { title: 'Milestone heat', rows: heat, note: sectionNote({ rows: heat, error: panel.heat?.error }, 'no Active project') },
       ]
     }

@@ -6,16 +6,24 @@
  *
  * What each room reads (GET, or the one guarded data-source query):
  *   board-room        🧠 Decisions — Pending (the requests standing here), 🟡 Working (folders), next review dates
- *   strategy-room     Pipeline "Active pipeline" rows in the view's order with stage and warmth; Research briefs (NOTION_DS_RESEARCH)
+ *   strategy-room     Pipeline "Active pipeline" rows in the view's order with stage and warmth; Research briefs with "Handoff ready"
+ *                     (NOTION_DS_RESEARCH — property names from the source's schema, notion-rows.mjs, 2026-09-07)
  *   marketing-studio  ✍️ Content week wall Sun–Thu (NOTION_DS_CONTENT); signatures pending = the content_status requests
- *   research-lab      Research briefs with refresh due (NOTION_DS_RESEARCH)
+ *   research-lab      Research briefs by "Refresh due" (NOTION_DS_RESEARCH): due first, 🔄 Needs Refresh and overdue flagged
  *   finance-office    Airtable Finance (table resolved by name): unpaid, overdue, paid, this month
- *   integration-yard  Integrations with open drift findings (NOTION_DS_INTEGRATIONS)
+ *   integration-yard  Integrations with open drift findings — "Drift Status" = 🔴 Drift detected (NOTION_DS_INTEGRATIONS); the
+ *                     unchecked ones counted; every page listed with status, platform, mappings and last drift check
  *   workshop          Active Build projects with their next milestone; the Delivery-type skills as benches
- *   records-office    automations, connectors (substrate v2 — SKIPPED:WORKER-NEEDED on v1), the silent skills, the last twenty ledger runs
+ *   records-office    automations and connectors (substrate v2 — live 2026-09-07; SKIPPED:WORKER-NEEDED on a v1 body), the
+ *                     silent skills, the last twenty ledger runs. ops_automations carries id, name, platform, trigger_desc,
+ *                     updated_at and no status — none is read or shown; "last fire" comes only from a rollup that names the
+ *                     automation (Gate Reconciliation Sweep ← LAST_GATE_RECONCILIATION.finished_at, Run Governance Sweep ←
+ *                     LAST_RUN_GOVERNANCE.finished_at); next fire and missed are SKIPPED:WORKER-NEEDED by field name.
+ *                     ops_mcp_connectors carries id, service, via, updated_at and no status — rows are keyed by service.
  *   corner-office     today's Big 3 (✅ Tasks, NOTION_DS_TASKS — Status "🎯 Today" and the Big 3 priority, both matched by option
- *                     name from the source's own schema, never assumed), the four numbers (rollups — v2), the milestone
- *                     heat; the in-tray is the overlay's own list
+ *                     name from the source's own schema, never assumed), the four numbers (rollups.LAST_RUN_GOVERNANCE — null
+ *                     until the first Saturday 05:30 sweep: the panel says "not yet", never zeros) and LAST_GATE_RECONCILIATION's
+ *                     last run (finished_at, gates checked, still open), the milestone heat; the in-tray is the overlay's own list
  * A name that is set but unreadable (Notion 404 — the database is not shared with the integration) names itself on its
  * panel (SKIPPED:ENV — <name> is set but unreadable: …); an absent name says SKIPPED:ENV — set <name>.
  * Skills are rows in their room by ops_skills.type with the pack's overrides; each row is lit (a run live),
@@ -26,10 +34,74 @@ import { nextMilestone } from './steering.mjs'
 import { PANEL_MS } from './surfaces.mjs'
 import { DECISIONS, envSources, unreadableNote } from './notion-sources.mjs'
 import { titleOf, selectName, dateStart, multiNames, relationIds } from './notion.mjs'
+import { researchRow, needsRefresh, integrationRow, isDriftOpen, isUnchecked } from './notion-rows.mjs'
 
 const DAY_MS = 24 * 3600 * 1000
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
-export const SKIP = Object.freeze({ env: (name) => `SKIPPED:ENV — set ${name} in .env`, worker: (what) => `SKIPPED:WORKER-NEEDED — ${what} arrives with /world/substrate v2 (Prompt B-2)` })
+export const SKIP = Object.freeze({
+  env: (name) => `SKIPPED:ENV — set ${name} in .env`,
+  worker: (what) => `SKIPPED:WORKER-NEEDED — ${what} arrives with /world/substrate v2 (Prompt B-2)`,
+  field: (what, fields) => `SKIPPED:WORKER-NEEDED — ${what}: /world/substrate v2 carries no ${fields}`,
+})
+/** The four numbers before the first Run Governance sweep has written LAST_RUN_GOVERNANCE (Saturday 05:30 Muscat). */
+export const NOT_YET = 'not yet — first Run Governance sweep Saturday 05:30'
+export const isV2 = (sub) => Number(sub?.version) >= 2
+
+/** Pure: the first clause of a trigger description (they run to paragraphs in ops_automations), for a row's small text. */
+export const triggerClause = (desc, max = 96) => { const first = str(desc).split(/(?<=[.!?])\s|\s—\s|\n/)[0].trim(); return first.length > max ? first.slice(0, max - 1).trimEnd() + '…' : first }
+
+/**
+ * Pure: ops_automations → rows for the records office. No status is read (the table has none). "last fire" only where a
+ * rollup names the automation; next fire and missed are not in the substrate (SKIP.field says which fields).
+ */
+export function automationRows(sub) {
+  if (!isV2(sub)) return { rows: [], skipped: SKIP.worker('automations (next fire, last fire, missed)'), missing: '' }
+  const r = sub.rollups || {}
+  const lastFireOf = (name) => (/gate reconciliation/i.test(name) ? str(r.LAST_GATE_RECONCILIATION?.finished_at) : /run governance/i.test(name) ? str(r.LAST_RUN_GOVERNANCE?.finished_at) : '')
+  const rows = (sub.automations || []).filter((a) => a && (str(a.name) || str(a.id))).map((a) => ({ id: str(a.id), name: str(a.name) || str(a.id), platform: str(a.platform), trigger: triggerClause(a.trigger_desc), lastFire: lastFireOf(str(a.name)), updated: str(a.updated_at).slice(0, 10) })).sort((a, b) => a.name.localeCompare(b.name))
+  return { rows, skipped: '', missing: SKIP.field('next fire and missed', 'schedule or fire fields on ops_automations (next_run_at, last_run_at, missed)') }
+}
+
+/** Pure: ops_mcp_connectors → rows keyed by service (never by name — the table has no name); no status is read or shown. */
+export function connectorRows(sub) {
+  if (!isV2(sub)) return { rows: [], skipped: SKIP.worker('connectors') }
+  const byService = new Map()
+  for (const c of sub.connectors || []) {
+    const service = str(c?.service)
+    if (!service) continue
+    const row = { key: service, service, via: str(c.via), updated: str(c.updated_at).slice(0, 10), ids: [str(c.id)].filter(Boolean) }
+    const have = byService.get(service)
+    if (have) { have.ids.push(...row.ids); if (row.updated > have.updated) { have.updated = row.updated; have.via = row.via || have.via } } else byService.set(service, row)
+  }
+  return { rows: [...byService.values()].sort((a, b) => a.service.localeCompare(b.service)), skipped: '' }
+}
+
+/**
+ * Pure: the four numbers (unattended share, failure rate, median time-to-tap, open gates) from rollups.LAST_RUN_GOVERNANCE
+ * and the last gate reconciliation from rollups.LAST_GATE_RECONCILIATION. A null LAST_RUN_GOVERNANCE is "not yet" (the first
+ * Saturday 05:30 sweep writes it) — never zeros, never an empty panel. The four keys are read by the names the rollup is
+ * expected to carry; a key it does not carry reads "—" and the panel says which.
+ */
+export function fourNumbers(sub) {
+  if (!isV2(sub)) return { skipped: SKIP.worker('the four numbers (LAST_RUN_GOVERNANCE) and LAST_GATE_RECONCILIATION') }
+  const r = sub.rollups || {}
+  const g = r.LAST_RUN_GOVERNANCE && typeof r.LAST_RUN_GOVERNANCE === 'object' ? r.LAST_RUN_GOVERNANCE : null
+  const pick = (o, names) => { for (const n of names) if (o && o[n] != null && o[n] !== '') return { value: o[n], key: n }; return { value: null, key: '' } }
+  const keys = { unattendedShare: ['unattended_share', 'unattended_share_pct', 'unattended'], failureRate: ['failure_rate', 'failure_rate_pct', 'failures'], medianTimeToTap: ['median_time_to_tap', 'median_time_to_tap_minutes', 'median_ttt', 'time_to_tap_median'], openGates: ['open_gates', 'gates_open', 'open'] }
+  const numbers = {}
+  const unnamed = []
+  for (const [k, names] of Object.entries(keys)) { const { value, key } = pick(g, names); numbers[k] = value; if (g && !key) unnamed.push(names[0]) }
+  const rec = r.LAST_GATE_RECONCILIATION && typeof r.LAST_GATE_RECONCILIATION === 'object' ? r.LAST_GATE_RECONCILIATION : null
+  return {
+    skipped: '',
+    ready: Boolean(g),
+    notYet: g ? '' : NOT_YET,
+    ...numbers,
+    governanceAt: g ? str(g.finished_at || g.at) : '',
+    unnamed, // keys the rollup did not carry under an expected name (shown as — with a note)
+    reconciliation: rec ? { at: str(rec.finished_at || rec.at), gatesChecked: Number(rec.gates_checked) || 0, stillOpen: Number(rec.still_open) || 0, resolved: Array.isArray(rec.resolved) ? rec.resolved.length : Number(rec.resolved) || 0, couldNotRead: Array.isArray(rec.could_not_read) ? rec.could_not_read.length : 0, runId: str(rec.run_id) } : null,
+  }
+}
 
 /** Pure: a Date's local calendar day as YYYY-MM-DD (toISOString would give the UTC day — the wall was a day early east of Greenwich, seen 2026-09-07). */
 export const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -159,8 +231,8 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
 
   const researchBriefs = () =>
     surfaces.stale('room:research', PANEL_MS, async () => {
-      const rows = await surfaces.client.query(env.RESEARCH, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('RESEARCH', err)) })
-      return { rows: rows.map((p) => { const pr = p.properties || {}; return { id: p.id, title: titleOf(p), status: selectName(pr.Status), refreshDue: dateStart(pr['Refresh Due'] || pr['Review Due'] || pr['Next Refresh']), handoff: Boolean(relationIds(pr.Handoff).length || selectName(pr.Handoff) || relationIds(pr.Project).length), url: p.url || '', edited: p.last_edited_time || '' } }), error: '' }
+      const rows = await surfaces.client.query(env.RESEARCH, { page_size: 100 }, { maxPages: 3 }).catch((err) => { throw new Error(unreadableNote('RESEARCH', err)) })
+      return { rows: rows.map(researchRow), error: '' }
     }, { rows: [], error: 'reading…' })
 
   async function marketingStudio() {
@@ -179,7 +251,9 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
   async function researchLab() {
     if (!env.RESEARCH) return { rows: [], skipped: SKIP.env('NOTION_DS_RESEARCH') }
     const r = await researchBriefs()
-    return { rows: r.rows.sort((a, b) => (a.refreshDue || '9999').localeCompare(b.refreshDue || '9999')), error: r.error, skipped: '' }
+    const today = new Date(now()).toISOString().slice(0, 10)
+    const rows = r.rows.map((b) => ({ ...b, due: needsRefresh(b, today) })).sort((a, b) => Number(b.due) - Number(a.due) || (a.refreshDue || '9999').localeCompare(b.refreshDue || '9999'))
+    return { rows, due: rows.filter((b) => b.due).length, error: r.error, skipped: '' }
   }
 
   async function financeOffice() {
@@ -195,10 +269,10 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
   async function integrationYard() {
     if (!env.INTEGRATIONS) return { rows: [], skipped: SKIP.env('NOTION_DS_INTEGRATIONS') }
     return surfaces.stale('room:integrations', PANEL_MS, async () => {
-      const rows = await surfaces.client.query(env.INTEGRATIONS, { page_size: 100 }).catch((err) => { throw new Error(unreadableNote('INTEGRATIONS', err)) })
-      const items = rows.map((p) => { const pr = p.properties || {}; return { id: p.id, title: titleOf(p), status: selectName(pr.Status), drift: selectName(pr['Drift Status'] || pr.Drift) || (Number(pr['Open Findings']?.number) || 0), url: p.url || '' } })
-      return { rows: items, open: items.filter((i) => /open|drift/i.test(String(i.drift)) || Number(i.drift) > 0), error: '', skipped: '' }
-    }, { rows: [], open: [], error: 'reading…', skipped: '' })
+      const rows = await surfaces.client.query(env.INTEGRATIONS, { page_size: 100 }, { maxPages: 3 }).catch((err) => { throw new Error(unreadableNote('INTEGRATIONS', err)) })
+      const items = rows.map(integrationRow).sort((a, b) => Number(isDriftOpen(b)) - Number(isDriftOpen(a)) || a.title.localeCompare(b.title))
+      return { rows: items, open: items.filter(isDriftOpen), unchecked: items.filter(isUnchecked).length, error: '', skipped: '' }
+    }, { rows: [], open: [], unchecked: 0, error: 'reading…', skipped: '' })
   }
 
   async function workshop() {
@@ -213,13 +287,12 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
     const sub = await substrate.read()
     const runs = [...(s.runs?.values?.() || [])].sort((a, b) => b.lastAt - a.lastAt).slice(0, 20).map((r) => ({ id: r.id, skill: r.skill, client: r.client || '', state: r.terminal === 'run_failed' ? 'failed' : r.gates.some((g) => !g.passed) ? 'waiting' : r.terminal === 'run_completed' ? 'completed' : s.live.has(r.skill) ? 'running' : 'idle', at: r.lastAt, gates: r.gates.length, artifacts: r.artifacts.length }))
     const skills = await skillsWithStates()
-    const v2 = Number(sub.version) >= 2
     // the ! requests from 🩺 System Health stand here (ES-6.3); an unreadable source says so by name instead of an empty list
     const health = { rows: (s.threads || []).filter((t) => t.kind === 'request' && t.request === 'health').map((t) => ({ id: t.id, title: t.gitBranch === 'open finding' ? (t.preview || '').split(' — ')[0] : t.title, url: t.ref?.url || '', at: t.createdAt })), skipped: env.SYSTEM_HEALTH ? '' : SKIP.env('NOTION_DS_SYSTEM_HEALTH'), error: surfaces.readErrors?.()['system-health'] || '' }
     return {
       health,
-      automations: v2 ? { rows: sub.automations || [], skipped: '' } : { rows: [], skipped: SKIP.worker('automations (next fire, last fire, missed)') },
-      connectors: v2 ? { rows: sub.connectors || [], skipped: '' } : { rows: [], skipped: SKIP.worker('connectors') },
+      automations: automationRows(sub),
+      connectors: connectorRows(sub),
       silent: { rows: (s.silent || []).map((name) => ({ name, dusty: skills.get('records-office')?.some((r) => r.name === name && r.state === 'dusty') || [...skills.values()].some((list) => list.some((r) => r.name === name && r.state === 'dusty')) })), of: (sub.skills || []).filter((k) => /^active$/i.test(str(k.status))).length },
       runs, rows: skills.get('records-office') || [], error: '',
     }
@@ -244,8 +317,7 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
         return { ...big3Of(items, { today: today.name, big3: big.name }), names: { today: today.name, big3: big.name }, skipped: '', error: '' }
       }, { rows: [], skipped: '', error: 'reading…' })
     }
-    const v2 = Number(sub.version) >= 2
-    const numbers = v2 ? { unattendedShare: sub.rollups?.LAST_RUN_GOVERNANCE?.unattended_share ?? null, failureRate: sub.rollups?.LAST_RUN_GOVERNANCE?.failure_rate ?? null, medianTimeToTap: sub.rollups?.LAST_RUN_GOVERNANCE?.median_time_to_tap ?? null, openGates: sub.rollups?.LAST_RUN_GOVERNANCE?.open_gates ?? null, lastReconciliation: sub.rollups?.LAST_GATE_RECONCILIATION?.at ?? null, skipped: '' } : { skipped: SKIP.worker('the four numbers (LAST_RUN_GOVERNANCE) and LAST_GATE_RECONCILIATION') }
+    const numbers = fourNumbers(sub)
     const heat = await steering.milestoneBoard()
     return { tray, big3, numbers, heat: { rows: heat.rows || [], error: heat.error || '' }, error: '' }
   }
@@ -258,7 +330,7 @@ export function createRooms(cfg, { surfaces, substrate, steering, pack, lastScan
     try {
       const skills = id === 'workshop' || id === 'records-office' ? null : await skillsWithStates().catch(() => new Map())
       const data = await fn()
-      return { id, at: new Date(now()).toISOString(), ...data, skills: skills ? skills.get(id) || [] : data.rows || data.benches || [] }
+      return { id, at: new Date(now()).toISOString(), substrateVersion: (await substrate.read()).version || 1, ...data, skills: skills ? skills.get(id) || [] : data.rows || data.benches || [] }
     } catch (err) {
       return { id, at: new Date(now()).toISOString(), error: err.message || String(err), skills: [] }
     }

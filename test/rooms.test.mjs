@@ -186,3 +186,53 @@ test('U31 (2026-09-07): the week wall is Sun–Thu of the local week by local ca
   assert.match(rec[4].note, /NOTION_DS_SYSTEM_HEALTH is set but unreadable/)
   assert.equal(roomSections('records-office', read('test/fixtures/m2b-rooms.json')['records-office'], NOW)[4].note, 'no open finding')
 })
+
+test('U31 (2026-09-07, substrate v2 — retry): the records office automations and connectors and the corner office numbers from the captured live substrate', async () => {
+  const { normalise } = await import(path.join(root, 'server/harnesses/compass/substrate.mjs'))
+  const { automationRows, connectorRows, fourNumbers, NOT_YET, triggerClause } = await import(path.join(root, 'server/harnesses/compass/rooms.mjs'))
+  const { roomSections, hasEditAffordance } = await import(path.join(root, 'overlay/rooms.mjs'))
+  const live = normalise(read('test/fixtures/m2b-substrate.live.json'))
+  assert.equal(live.version, 2, 'the captured response is v2')
+  // the branch is the version field, never key presence
+  const v1WithKeys = normalise({ ...read('test/fixtures/m2b-substrate.live.json'), version: undefined })
+  assert.equal(v1WithKeys.version, 1); assert.deepEqual(v1WithKeys.automations, []); assert.deepEqual(v1WithKeys.connectors, []); assert.equal(v1WithKeys.rollups, null)
+  assert.match(automationRows(v1WithKeys).skipped, /SKIPPED:WORKER-NEEDED/); assert.match(connectorRows(v1WithKeys).skipped, /SKIPPED:WORKER-NEEDED/); assert.match(fourNumbers(v1WithKeys).skipped, /SKIPPED:WORKER-NEEDED/)
+  // automations: every live row, no status read or shown, last fire only where a rollup names it, next fire / missed skipped by field
+  const auto = automationRows(live)
+  assert.equal(auto.rows.length, live.automations.length); assert.equal(auto.skipped, '')
+  assert.ok(auto.rows.every((r) => !('status' in r) && r.name && typeof r.trigger === 'string'), 'no status on an automation row')
+  const recon = auto.rows.find((r) => /gate reconciliation/i.test(r.name)); assert.ok(recon, 'the Gate Reconciliation Sweep is a row')
+  assert.equal(recon.lastFire, live.rollups.LAST_GATE_RECONCILIATION.finished_at, 'its last fire is the rollup\'s finished_at')
+  const gov = auto.rows.find((r) => /run governance/i.test(r.name)); assert.equal(gov.lastFire, '', 'no LAST_RUN_GOVERNANCE yet → no last fire')
+  assert.match(auto.missing, /next fire and missed/); assert.match(auto.missing, /next_run_at/)
+  assert.equal(triggerClause('New record in Pending Approval'), 'New record in Pending Approval')
+  assert.ok(triggerClause('ONE task. Then a paragraph. And more.').length <= 96)
+  // connectors keyed by service, never by name (there is none); no status
+  const conn = connectorRows(live)
+  assert.equal(conn.rows.length, new Set(live.connectors.map((c) => c.service)).size, 'one row per service')
+  assert.deepEqual(conn.rows.map((r) => r.key), conn.rows.map((r) => r.service))
+  assert.ok(conn.rows.every((r) => !('status' in r) && !('name' in r)))
+  const dup = connectorRows({ version: 2, connectors: [{ id: 'a', service: 'S', via: 'x', updated_at: '2026-01-01' }, { id: 'b', service: 'S', via: 'y', updated_at: '2026-02-01' }], rollups: null })
+  assert.equal(dup.rows.length, 1); assert.deepEqual(dup.rows[0].ids, ['a', 'b']); assert.equal(dup.rows[0].via, 'y', 'the newest row names the via')
+  // the four numbers: null LAST_RUN_GOVERNANCE → "not yet", never zeros; LAST_GATE_RECONCILIATION reads now
+  const n = fourNumbers(live)
+  assert.equal(n.ready, false); assert.equal(n.notYet, NOT_YET); assert.equal(n.unattendedShare, null); assert.equal(n.openGates, null)
+  assert.equal(n.reconciliation.at, live.rollups.LAST_GATE_RECONCILIATION.finished_at); assert.equal(n.reconciliation.gatesChecked, live.rollups.LAST_GATE_RECONCILIATION.gates_checked)
+  const filled = fourNumbers({ version: 2, rollups: { LAST_RUN_GOVERNANCE: { unattended_share: 0.4, failure_rate: 0.05, median_time_to_tap: 12, open_gates: 3, finished_at: '2026-09-12T01:30:00Z' }, LAST_GATE_RECONCILIATION: null } })
+  assert.equal(filled.ready, true); assert.deepEqual([filled.unattendedShare, filled.failureRate, filled.medianTimeToTap, filled.openGates], [0.4, 0.05, 12, 3]); assert.deepEqual(filled.unnamed, []); assert.equal(filled.reconciliation, null)
+  const odd = fourNumbers({ version: 2, rollups: { LAST_RUN_GOVERNANCE: { something_else: 1 }, LAST_GATE_RECONCILIATION: null } })
+  assert.equal(odd.ready, true); assert.deepEqual(odd.unnamed, ['unattended_share', 'failure_rate', 'median_time_to_tap', 'open_gates'], 'keys the rollup did not carry are named, not zeroed')
+  // the sections: the records office lists them, the corner office says "not yet" on each of the four and shows the reconciliation; no edit affordance
+  const recPanel = { ...read('test/fixtures/m2b-rooms.json')['records-office'], automations: auto, connectors: conn }
+  const rec = roomSections('records-office', recPanel, NOW)
+  assert.equal(rec[0].rows.length, live.automations.length); assert.match(rec[0].note, /SKIPPED:WORKER-NEEDED — next fire and missed/); assert.ok(rec[0].rows.every((r, i) => r.small === [auto.rows[i].platform, auto.rows[i].trigger].filter(Boolean).join(' · ')), 'small = platform · trigger clause, from no status column (one trigger text mentions a calendar "status" — that is prose)')
+  assert.equal(rec[1].rows.length, conn.rows.length); assert.equal(rec[1].note, ''); assert.equal(rec[1].rows[0].text, conn.rows[0].service)
+  assert.ok(rec[0].rows.find((r) => /gate reconciliation/i.test(r.text)).value.startsWith('last 2026-09-07'))
+  const coPanel = { ...read('test/fixtures/m2b-rooms.json')['corner-office'], numbers: n }
+  const co = roomSections('corner-office', coPanel, NOW)
+  assert.equal(co[2].rows.length, 5); assert.deepEqual(co[2].rows.slice(0, 4).map((r) => r.value), ['not yet', 'not yet', 'not yet', 'not yet'], 'never zeros'); assert.equal(co[2].note, NOT_YET)
+  assert.equal(co[2].rows[4].value, '2026-09-07 09:31 Z'); assert.match(co[2].rows[4].small, /1 gate checked · 0 resolved · 0 still open/)
+  const coFilled = roomSections('corner-office', { ...coPanel, numbers: filled }, NOW)
+  assert.deepEqual(coFilled[2].rows.slice(0, 4).map((r) => r.value), ['0.4', '0.05', '12', '3']); assert.match(coFilled[2].note, /sweep finished 2026-09-12 01:30 Z/)
+  assert.equal(hasEditAffordance(rec), false); assert.equal(hasEditAffordance(co), false)
+})

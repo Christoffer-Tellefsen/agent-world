@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tellefsen.om/agent-world/spec/world-substrate.v1.json",
   "title": "GET /world/substrate — v1",
-  "description": "What the Compass Worker hands the adapter for the zone map and the trust rule (U12W). Read only, bearer-authenticated, Cache-Control max-age=60. v2 (Prompt B-2) adds automations, connectors, rollups and version: 2 — the keys below stay.",
+  "description": "What the Compass Worker hands the adapter for the zone map and the trust rule (U12W). Read only, bearer-authenticated, Cache-Control max-age=60. v2 (Prompt B-2, live 2026-09-07, Worker 8b4f2876) adds version: 2, automations (ops_automations — no status column), connectors (ops_mcp_connectors — keyed by service, no status column) and rollups { LAST_RUN_GOVERNANCE (null until the first Saturday 05:30 sweep), LAST_GATE_RECONCILIATION } — the v1 keys stay. The adapter branches on the version field, never on key presence.",
   "type": "object",
   "required": ["at", "world_companies", "auto_run_policy", "deal_pipeline_stages", "clients", "skills"],
   "properties": {
     "at": { "type": "string", "description": "ISO 8601 — when the Worker read the substrate" },
-    "version": { "type": "integer", "description": "absent in v1; 2 once automations, connectors and rollups ride along" },
+    "version": { "type": "integer", "enum": [1, 2], "description": "absent in v1; 2 once automations, connectors and rollups ride along — the adapter branches on this field, not on key presence" },
     "world_companies": {
       "type": ["object", "null"],
       "description": "Compass WORLD_COMPANIES: the planets",
@@ -72,8 +72,56 @@
         }
       }
     },
-    "automations": { "type": "array", "description": "v2 — ops_automations" },
-    "connectors": { "type": "array", "description": "v2 — ops_mcp_connectors" },
-    "rollups": { "type": "object", "description": "v2 — { LAST_RUN_GOVERNANCE, LAST_GATE_RECONCILIATION }" }
+    "automations": {
+      "type": "array",
+      "description": "v2 — ops_automations rows. No status column exists: none is read or rendered. No schedule or fire fields: next fire and missed stay SKIPPED:WORKER-NEEDED",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "platform": { "type": ["string", "null"] },
+          "trigger_desc": { "type": ["string", "null"] },
+          "updated_at": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "connectors": {
+      "type": "array",
+      "description": "v2 — ops_mcp_connectors rows, keyed by service (there is no name column); no status column exists",
+      "items": {
+        "type": "object",
+        "required": ["id", "service"],
+        "properties": {
+          "id": { "type": "string" },
+          "service": { "type": "string" },
+          "via": { "type": ["string", "null"] },
+          "updated_at": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "rollups": {
+      "type": ["object", "null"],
+      "description": "v2 — { LAST_RUN_GOVERNANCE, LAST_GATE_RECONCILIATION } from ops_config; each null until its sweep has written it",
+      "required": ["LAST_RUN_GOVERNANCE", "LAST_GATE_RECONCILIATION"],
+      "properties": {
+        "LAST_RUN_GOVERNANCE": { "type": ["object", "null"], "description": "null until the first Run Governance sweep (Saturday 05:30 Muscat) — the corner office reads \"not yet\", never zeros" },
+        "LAST_GATE_RECONCILIATION": {
+          "type": ["object", "null"],
+          "required": ["finished_at"],
+          "properties": {
+            "run_id": { "type": ["string", "null"] },
+            "finished_at": { "type": "string" },
+            "gates_checked": { "type": "integer", "minimum": 0 },
+            "still_open": { "type": "integer", "minimum": 0 },
+            "resolved": { "type": "array" },
+            "could_not_read": { "type": "array" },
+            "missing_ledger_row": { "type": "array" },
+            "truncated": { "type": "boolean" }
+          }
+        }
+      }
+    }
   }
 }

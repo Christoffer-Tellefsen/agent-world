@@ -1,5 +1,6 @@
 {
- "at": "2026-09-07T10:45:36.326Z",
+ "at": "2026-09-07T15:25:05.107Z",
+ "version": 2,
  "world_companies": {
   "home": "tellefsen",
   "name": "World companies — the planets of Agent World",
@@ -633,5 +634,204 @@
    "version": "fixture"
   }
  ],
+ "automations": [
+  {
+   "id": "f6dc03db-a61d-47b3-be30-97f0e14e47e3",
+   "name": "Approval Send Workflow",
+   "platform": "n8n",
+   "trigger_desc": "New record in Pending Approval",
+   "updated_at": "2026-04-05T03:40:19.773727+00:00"
+  },
+  {
+   "id": "87a34409-d1f8-47e0-a4b5-2e8d71ff6359",
+   "name": "Calendar → Airtable Meetings",
+   "platform": "Zapier",
+   "trigger_desc": "New Google Calendar event",
+   "updated_at": "2026-04-05T03:40:19.773727+00:00"
+  },
+  {
+   "id": "83d59f31-ca47-4f93-92c8-fc937cd8eedd",
+   "name": "Client → Drive Folders",
+   "platform": "Zapier",
+   "trigger_desc": "New Client in Airtable",
+   "updated_at": "2026-04-19T11:18:56.795095+00:00"
+  },
+  {
+   "id": "838ae232-db2d-428e-bf81-3e9cf22cbaa2",
+   "name": "Client Update Agent (single daily scheduled task, day-of-week dispatcher)",
+   "platform": "Claude Code (scheduled tasks) + Compass + Zapier Airtable + Big 3 MCP + Gmail + Google Calendar",
+   "trigger_desc": "ONE Claude Code cloud scheduled task (Max plan cap = 3 daily slots, kept tight). Cron `0 3 * * 0,1,3,4` fires Sun/Mon/Wed/Thu at 03:00 UTC = 07:00 Muscat year-round. The runner `prompts/run-client-update.md` reads day-of-week and dispatches to one of four logical slots: Sun → Gulf Look-Ahead, Mon → Nordic Look-Ahead, Wed → Gulf Proof of Progress, Thu → Nordic Proof of Progress. Other days exit immediately. Decoupling fire time from send time is intentional: agent only drafts, Christoffer reviews in his morning, n8n delivers on approval at the desired client local time. Repo: github.com/[user]/tellefsen-ops.",
+   "updated_at": "2026-04-07T09:50:24.334418+00:00"
+  },
+  {
+   "id": "b4f25ad0-6bd1-435c-86a7-fabd321a0dd7",
+   "name": "Daily Context Sync",
+   "platform": "Cowork",
+   "trigger_desc": "RETIRED 2026-09-06 — the Cowork scheduled task no longer exists (Cowork showed zero scheduled tasks on 2026-09-06) and its consumer, the Cowork working-context document, is gone: tasks now read Airtable HQ, Compass and Notion live over MCP, and the Living Context callouts on Project pages and HQ are the human-readable context layer. Not rebuilt — a nightly job with no reader is idle token burn. Removed from RUN_GOVERNANCE_RULES RG-01 expectations; ops_skills daily-context-sync retired. Reverse in one line if a nightly consumer appears. Original schedule: every day at 23:01 Muscat time.",
+   "updated_at": "2026-09-06T05:15:31.912356+00:00"
+  },
+  {
+   "id": "4fd27266-c518-4194-8113-ea171495c703",
+   "name": "Gate Reconciliation Sweep",
+   "platform": "Cowork (Tellefsen Compass MCP + Airtable MCP + Notion MCP)",
+   "trigger_desc": "CREATED in Cowork 2026-09-06 (Christoffer) as ONE task: every day at 13:30 Muscat. As of 09:58 Muscat 2026-09-06 no gate-reconciliation ledger row has been seen yet — the first row (Run now, or the 13:30 fire) is the Cowork half of M0 acceptance; if a manual run wrote nothing, check the task's run log for step 0 (the Compass connector must be enabled on the task). Cowork's scheduler takes one time per task; three-a-day is not needed — gate_passed.at is read from the surface, so time-to-tap is independent of sweep frequency; only ? badge latency depends on it, up to a day, until the Worker write-gate at M1. Model: Haiku 4.5, Sonnet 5 if no Haiku in the picker (RUN_GOVERNANCE_RULES.models). Closes the Phase 0 gap where a tap landing after the session never reaches the Run Ledger. Mapping and thresholds live in ops_config RUN_GOVERNANCE_RULES.late_tap_mapping — the prompt carries none. Retires at M1 when the Compass Worker write-gate emits gate_passed on airtable_update_record(pending_approval) status changes; then it runs only for decision gates. Prompt: Notion 'Cowork jobs — Run Ledger (2026-09-05)' §1. Skill row: gate-reconciliation.",
+   "updated_at": "2026-09-06T05:58:01.485341+00:00"
+  },
+  {
+   "id": "651e57d1-2e42-4765-aed0-fb62f20da270",
+   "name": "Meeting Ended → Transcription",
+   "platform": "Zapier",
+   "trigger_desc": "Calendar event status = completed",
+   "updated_at": "2026-04-05T03:40:19.773727+00:00"
+  },
+  {
+   "id": "4a4aa518-8e8e-40a3-85ed-3db169f5c6c7",
+   "name": "Meeting Intelligence Sweep",
+   "platform": "Claude (Plaud MCP + Notion MCP) — Cowork scheduled task + session hook",
+   "trigger_desc": "PLANNED — activates when the Plaud MCP is connected (device arriving). Three entry points, one processing contract (meeting-postprocess v2): (1) Session hook — any session opening delivery work on a client first checks Plaud for unswept recordings on that client and processes them before the work; (2) Scheduled sweep — Cowork task at 13:00 + 18:00 Muscat, Sun–Thu, processes ALL unswept recordings; (3) Manual — 'process now / process the [client] meeting'. Idempotency via ops_config MEETING_SWEEP_STATE (last processed recording timestamp + IDs). Supersedes the Zapier 'Meeting Ended → Transcription' Zap at cutover. Design: Notion 'Meeting Intelligence OS — Design & Build Plan'.",
+   "updated_at": "2026-09-01T16:02:07.081879+00:00"
+  },
+  {
+   "id": "ab55633b-c967-48ea-b6c7-e882ff8ac704",
+   "name": "New Client Onboarding (Claude-orchestrated)",
+   "platform": "Claude (multi-MCP)",
+   "trigger_desc": "Christoffer says 'new client: [name]', 'onboard [name]', 'scaffold [name]', or 'backfill folders for [name]' in any Claude session. Runs the client-onboarding skill v3 (updated from v1 — this row refreshed 2026-09-01, Compass refresh).",
+   "updated_at": "2026-09-01T10:45:37.99931+00:00"
+  },
+  {
+   "id": "6fbbdc31-e70d-4cba-b924-611c63ae7393",
+   "name": "Nightly Drift Sweep",
+   "platform": "Cloudflare Worker (cron) + Compass + Notion",
+   "trigger_desc": "Cloudflare Cron `0 23 * * *` fires coordinator on tellefsen-compass-mcp.christoffer-7e3.workers.dev. Coordinator runs three checks in sequence: (1) Schema Synthesis (Harness Step 4) — Compass schemas vs Airtable Meta API, findings tagged Source='Schema Synthesis'. (2) Outcome Validation (Harness Step 5) — engagement-level continuity rules OV-01..OV-06, findings tagged Source='Outcome Validation'. (3) Row-level Sweep (Harness Step 3) — fans out one HTTP POST per active Airtable table to /admin/sweep-table (authenticated with SWEEP_ADMIN_TOKEN), validates all rows. All three write findings into the Notion 🩺 System Health database with dedup + auto-resolve semantics.",
+   "updated_at": "2026-04-28T08:40:58.211368+00:00"
+  },
+  {
+   "id": "51df65bb-4535-4318-8c7d-b14149cca2bc",
+   "name": "Registry Reconciliation (Harness Step 6)",
+   "platform": "Cowork + Compass + Notion (🩺 System Health)",
+   "trigger_desc": "Weekly, as a sibling run inside the Sunday 06:00 Muscat 'Weekly Data Hygiene' Cowork task (rebuilt 2026-09-06 — the hygiene task invokes the `registry-reconciliation` skill, which writes its own ledger row under its own run_id), and on demand via the skill. Note 2026-09-06: Cowork showed zero scheduled tasks, so no weekly run has fired recently — LAST_REGISTRY_RECON tells the truth. Runs session-side because the Cloudflare Worker cannot see which skills are installed in a session.",
+   "updated_at": "2026-09-06T05:15:57.111774+00:00"
+  },
+  {
+   "id": "5622f092-7734-4446-ac07-a209537977ce",
+   "name": "Run Governance Sweep",
+   "platform": "Cowork (Tellefsen Compass MCP + Notion MCP)",
+   "trigger_desc": "CREATED in Cowork 2026-09-06 (Christoffer). Schedule: Saturday 05:30 Muscat, before firm-pulse's Saturday-morning run, which prints the ledger line from LAST_RUN_GOVERNANCE. First fire: Saturday 2026-09-12 — expect RG-01 findings for anything scheduled but not yet writing; that is the roll-out being measured. Model: Sonnet 5. Harness Step 7's weekly reader: ledger write discipline, the trust rule's ledger half, orphan/stale checks, the weekly rollup. Rules and thresholds live in ops_config RUN_GOVERNANCE_RULES (RG-01..RG-07) and AUTO_RUN_POLICY.trust_rule — the prompt carries none. Recommend-only: findings + rollup; a human commits every run_mode change (target AUTO_RUN_POLICY.skill_overrides, to be added at M0 acceptance). Prompt: Notion 'Cowork jobs — Run Ledger (2026-09-05)' §2. Skill row: run-governance. Decision: Auto-run policy build-list item 5.",
+   "updated_at": "2026-09-06T05:58:08.651993+00:00"
+  },
+  {
+   "id": "86a786e0-8d17-48de-8829-dac8a6314623",
+   "name": "Tellefsen Invoice Engine (tellefsen-finance Worker + D1 registry)",
+   "platform": "Cloudflare Worker + D1 + Node engine CLI + Airtable + Google Drive (OAuth)",
+   "trigger_desc": "Invoked per invoice from any surface (finance-invoice skill in chat, or Claude Code, or cron). The surface authors a ~6-field payload and runs `node invoice.mjs payload.json`. No model is in the loop for numbering, render, FX, upload, or writes. Worker: https://tellefsen-finance.christoffer-7e3.workers.dev (CF account 7e34…efb). Repo: ~/dev/tellefsen-invoice-engine (local; CLAUDE.md is the operating manual).",
+   "updated_at": "2026-06-14T17:40:44.241405+00:00"
+  },
+  {
+   "id": "262ac838-e1e1-4249-acaf-2a7a15bbd403",
+   "name": "Weekly Data Hygiene",
+   "platform": "Cowork (Tellefsen Compass MCP + Airtable MCP + Notion MCP)",
+   "trigger_desc": "CREATED in Cowork 2026-09-06 (Christoffer), rebuilt the same day — the April Cowork task no longer existed and its output target (Airtable Weekly Reviews) is superseded by Notion. Schedule: every Sunday 06:00 Muscat; first fire 2026-09-13 (or Sunday 2026-09-07 if created before then). Model: Sonnet 5. Runs registry-reconciliation and link-integrity-audit as sibling runs. Rules: validation:* schemas + DATA_HYGIENE_RULES (to be added at M0 acceptance; until then the prompt's defaults apply). Prompt: Notion 'Cowork jobs — Run Ledger (2026-09-05)' §3 (also weekly-data-hygiene.md). Skill row: weekly-data-hygiene. Ledger: SKILL_RUN_LEDGER.write_protocol.",
+   "updated_at": "2026-09-06T05:58:15.126573+00:00"
+  }
+ ],
+ "connectors": [
+  {
+   "id": "8a30dbbc-29b3-482b-88cf-f45db260e02e",
+   "service": "Airtable",
+   "via": "Native Airtable MCP (first-party)",
+   "updated_at": "2026-09-01T10:44:28.433701+00:00"
+  },
+  {
+   "id": "479324a1-2229-4c19-924f-94aa3f622f6c",
+   "service": "Big 3",
+   "via": "Custom MCP (Cloudflare Worker)",
+   "updated_at": "2026-09-01T16:10:09.959316+00:00"
+  },
+  {
+   "id": "fde67017-c573-45c5-ace0-3f797af6014d",
+   "service": "Figma",
+   "via": "Figma MCP",
+   "updated_at": "2026-06-04T02:10:19.451694+00:00"
+  },
+  {
+   "id": "8cf0bdef-b55d-4651-b71b-68fb0735ee4a",
+   "service": "Gmail",
+   "via": "Gmail MCP",
+   "updated_at": "2026-04-06T16:15:07.064756+00:00"
+  },
+  {
+   "id": "957dc3bc-eaac-4109-929d-d976c8cf03fa",
+   "service": "Google Calendar",
+   "via": "GCal MCP",
+   "updated_at": "2026-04-06T16:15:07.064756+00:00"
+  },
+  {
+   "id": "ab239d2d-653e-49a6-a619-07b61a381a56",
+   "service": "Google Docs",
+   "via": "Zapier MCP",
+   "updated_at": "2026-04-06T16:15:07.064756+00:00"
+  },
+  {
+   "id": "1999c9f7-9806-47c0-a586-59527b5cb4a2",
+   "service": "Google Drive",
+   "via": "Native Google Drive MCP (first-party)",
+   "updated_at": "2026-09-01T10:44:33.880715+00:00"
+  },
+  {
+   "id": "1c7189de-ab00-46cf-900e-bcd0608bae46",
+   "service": "HubSpot",
+   "via": "HubSpot MCP",
+   "updated_at": "2026-06-04T02:10:23.883015+00:00"
+  },
+  {
+   "id": "f8d128f5-3382-45a6-9573-f195202abb17",
+   "service": "Make.com",
+   "via": "Make MCP (first-party)",
+   "updated_at": "2026-06-04T02:06:10.101939+00:00"
+  },
+  {
+   "id": "48131faa-4382-479b-bbed-7c71dc57095c",
+   "service": "Notion",
+   "via": "Notion MCP",
+   "updated_at": "2026-06-04T02:10:14.511599+00:00"
+  },
+  {
+   "id": "b7904d52-1a5f-4f68-add1-705cd26672fe",
+   "service": "PandaDoc",
+   "via": "PandaDoc MCP (first-party)",
+   "updated_at": "2026-09-01T10:44:16.620027+00:00"
+  },
+  {
+   "id": "6bb16a70-015f-4764-bc0d-9da10c9bd168",
+   "service": "Plaud",
+   "via": "Plaud MCP (first-party, remote)",
+   "updated_at": "2026-09-01T16:01:44.342139+00:00"
+  },
+  {
+   "id": "3eeb86cd-d85f-4e4c-b7e0-c1b1e45dc2c6",
+   "service": "Tellefsen Compass",
+   "via": "Custom MCP (Cloudflare Worker)",
+   "updated_at": "2026-09-06T05:02:13.368934+00:00"
+  },
+  {
+   "id": "80ea3e9f-1d6c-493a-9c7b-8c590e584bdc",
+   "service": "Zapier",
+   "via": "Zapier MCP",
+   "updated_at": "2026-09-01T10:44:21.485422+00:00"
+  }
+ ],
+ "rollups": {
+  "LAST_RUN_GOVERNANCE": null,
+  "LAST_GATE_RECONCILIATION": {
+   "run_id": "eac94138-951f-448d-b7d1-823d5ffcd43a",
+   "resolved": [],
+   "truncated": false,
+   "still_open": 0,
+   "finished_at": "2026-09-07T09:31:53Z",
+   "gates_checked": 1,
+   "could_not_read": [],
+   "missing_ledger_row": []
+  }
+ },
  "note": "GET /world/substrate captured 2026-09-07 for the contract test (U34). Re-capture with scripts/capture-contract.sh."
 }
