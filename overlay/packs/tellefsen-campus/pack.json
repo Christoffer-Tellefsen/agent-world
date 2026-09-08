@@ -9,7 +9,8 @@
   "spend": {
     "show": true,
     "window_days": 30,
-    "currency": "USD"
+    "currency": "USD",
+    "estimates": true
   },
   "layout": {
     "home": "data/colony.json",

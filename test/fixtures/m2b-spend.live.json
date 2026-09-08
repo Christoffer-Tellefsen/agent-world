@@ -1,34 +1,69 @@
 {
- "note": "GET /world/spend?window=30 captured 2026-09-08 for the contract test (U35, ES-4.13) — the Step 0 probe of Prompt D; every run unmetered at capture (the first metered rows arrive with the hooks and fixture Iota). Re-capture with scripts/capture-contract.sh.",
- "at": "2026-09-08T05:43:11.178Z",
+ "note": "GET /world/spend?window=30 captured 2026-09-08 for the contract test (U35, ES-4.13). Re-capture with scripts/capture-contract.sh.",
+ "at": "2026-09-08T07:28:50.558Z",
  "window_days": 30,
  "pricing_version": "0.2 · 2026-09-08 (ES-4.13; Decision reference)",
  "pricing_verified": "2026-09-07 by chat against the platform pricing page (Sonnet 5's 2/10 confirmed as the standard rate — the 1 Sept increase to 3/15 did not happen)",
- "excluded_test_runs": 0,
+ "estimates_version": "0.2 · 2026-09-08 (first entries; method text expanded)",
+ "excluded_test_runs": 2,
  "display": {
   "note": "The rial is pegged (1 USD = 0.3845 OMR); a World Pack may render OMR by multiplying at display time — a presentation conversion, not a stored fact. cost_usd stays the fact.",
   "omr_per_usd": 0.3845
  },
  "totals": {
-  "runs_total": 50,
-  "runs_metered": 0,
-  "runs_unmetered": 50,
+  "runs_total": 55,
+  "runs_metered": 1,
+  "runs_unmetered": 54,
   "runs_unpriced": 0,
-  "tokens_in": 0,
-  "tokens_out": 0,
+  "tokens_in": 8021019,
+  "tokens_out": 102870,
   "tokens_unpriced": 0,
-  "cost_usd": 0,
+  "cost_usd": 11.5193,
   "methods": {
-   "breakdown": 0,
+   "breakdown": 1,
    "flat": 0
+  },
+  "est": {
+   "tokens_in_est": 1487587191,
+   "tokens_out_est": 4874341,
+   "cost_usd_est": 1388.62,
+   "clients": 9
   }
  },
  "by_client": [
   {
    "client": "internal",
-   "runs_total": 50,
+   "runs_total": 55,
+   "runs_metered": 1,
+   "runs_unmetered": 54,
+   "runs_unpriced": 0,
+   "tokens_in": 8021019,
+   "tokens_out": 102870,
+   "tokens_unpriced": 0,
+   "cost_usd": 11.5193,
+   "methods": {
+    "breakdown": 1,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 438811878,
+    "tokens_out_est": 1972521,
+    "cost_usd_est": 383.99,
+    "conversations": 69,
+    "turns": 385,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "AV Group",
+   "runs_total": 0,
    "runs_metered": 0,
-   "runs_unmetered": 50,
+   "runs_unmetered": 0,
    "runs_unpriced": 0,
    "tokens_in": 0,
    "tokens_out": 0,
@@ -37,32 +72,241 @@
    "methods": {
     "breakdown": 0,
     "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 17971947,
+    "tokens_out_est": 48194,
+    "cost_usd_est": 23.75,
+    "conversations": 4,
+    "turns": 14,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Analyselaget",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 9298738,
+    "tokens_out_est": 17109,
+    "cost_usd_est": 11.75,
+    "conversations": 3,
+    "turns": 6,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Avidly",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 583114,
+    "tokens_out_est": 2834,
+    "cost_usd_est": 1.16,
+    "conversations": 1,
+    "turns": 1,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Finkhjem",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 126661128,
+    "tokens_out_est": 359342,
+    "cost_usd_est": 158.06,
+    "conversations": 14,
+    "turns": 101,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Peopleinsport",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 246972478,
+    "tokens_out_est": 698741,
+    "cost_usd_est": 245.35,
+    "conversations": 28,
+    "turns": 155,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Snevagten A/S",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 75659695,
+    "tokens_out_est": 260694,
+    "cost_usd_est": 64.23,
+    "conversations": 6,
+    "turns": 33,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Titan Containers",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 543946980,
+    "tokens_out_est": 1438386,
+    "cost_usd_est": 465.87,
+    "conversations": 43,
+    "turns": 224,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
+   }
+  },
+  {
+   "client": "Urhandleren",
+   "runs_total": 0,
+   "runs_metered": 0,
+   "runs_unmetered": 0,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   },
+   "est": {
+    "tokens_in_est": 27681233,
+    "tokens_out_est": 76520,
+    "cost_usd_est": 34.46,
+    "conversations": 7,
+    "turns": 21,
+    "period_start": "2026-08-09",
+    "period_end": "2026-09-08",
+    "model_assumed": "claude-fable-5 to 31 Aug, claude-fable-5-1 from 1 Sep (cache read 1.0 → 0.25 USD/MTok)",
+    "method": "export-context-sum v1 (200k effective-context ceiling; ceiling figure = no cap)",
+    "confidence": "medium",
+    "source": "claude.ai data export 2026-09-08 (manifest 653565a8)"
    }
   }
  ],
  "by_skill": [
   {
-   "skill": "project-log",
-   "type": "Operations",
-   "runs_total": 17,
-   "runs_metered": 0,
+   "skill": "agent-world-build",
+   "type": "Delivery",
+   "runs_total": 18,
+   "runs_metered": 1,
    "runs_unmetered": 17,
    "runs_unpriced": 0,
-   "tokens_in": 0,
-   "tokens_out": 0,
+   "tokens_in": 8021019,
+   "tokens_out": 102870,
    "tokens_unpriced": 0,
-   "cost_usd": 0,
+   "cost_usd": 11.5193,
    "methods": {
-    "breakdown": 0,
+    "breakdown": 1,
     "flat": 0
    }
   },
   {
-   "skill": "agent-world-build",
-   "type": "Delivery",
-   "runs_total": 16,
+   "skill": "project-log",
+   "type": "Operations",
+   "runs_total": 20,
    "runs_metered": 0,
-   "runs_unmetered": 16,
+   "runs_unmetered": 20,
    "runs_unpriced": 0,
    "tokens_in": 0,
    "tokens_out": 0,
@@ -221,28 +465,28 @@
  "by_client_skill": [
   {
    "client": "internal",
-   "skill": "project-log",
-   "type": "Operations",
-   "runs_total": 17,
-   "runs_metered": 0,
+   "skill": "agent-world-build",
+   "type": "Delivery",
+   "runs_total": 18,
+   "runs_metered": 1,
    "runs_unmetered": 17,
    "runs_unpriced": 0,
-   "tokens_in": 0,
-   "tokens_out": 0,
+   "tokens_in": 8021019,
+   "tokens_out": 102870,
    "tokens_unpriced": 0,
-   "cost_usd": 0,
+   "cost_usd": 11.5193,
    "methods": {
-    "breakdown": 0,
+    "breakdown": 1,
     "flat": 0
    }
   },
   {
    "client": "internal",
-   "skill": "agent-world-build",
-   "type": "Delivery",
-   "runs_total": 16,
+   "skill": "project-log",
+   "type": "Operations",
+   "runs_total": 20,
    "runs_metered": 0,
-   "runs_unmetered": 16,
+   "runs_unmetered": 20,
    "runs_unpriced": 0,
    "tokens_in": 0,
    "tokens_out": 0,
@@ -410,16 +654,16 @@
  "by_model": [
   {
    "model": "claude-fable-5-1",
-   "runs_total": 43,
-   "runs_metered": 0,
-   "runs_unmetered": 43,
+   "runs_total": 48,
+   "runs_metered": 1,
+   "runs_unmetered": 47,
    "runs_unpriced": 0,
-   "tokens_in": 0,
-   "tokens_out": 0,
+   "tokens_in": 8021019,
+   "tokens_out": 102870,
    "tokens_unpriced": 0,
-   "cost_usd": 0,
+   "cost_usd": 11.5193,
    "methods": {
-    "breakdown": 0,
+    "breakdown": 1,
     "flat": 0
    }
   },

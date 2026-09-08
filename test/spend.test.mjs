@@ -103,7 +103,7 @@ test('U35: Owner-only — any other preset gets nothing, not a blank line; the n
   const { spendLineFor, showSpend, foldSpend } = await import(path.join(root, 'overlay/spend.mjs'))
   const { loadPack } = await import(path.join(root, 'server/harnesses/compass/pack.mjs'))
   const campus = loadPack('tellefsen-campus'); const neutral = loadPack('neutral')
-  assert.deepEqual(campus.spend, { show: true, window_days: 30, currency: 'USD' }); assert.deepEqual(neutral.spend, { show: false })
+  assert.deepEqual(campus.spend, { show: true, window_days: 30, currency: 'USD', estimates: true }); assert.deepEqual(neutral.spend, { show: false }) // estimates: U36
   const fold = foldSpend(live, { pack: campus, towns: [], planet: 'tellefsen', home: 'tellefsen' })
   const bucket = b({ runs_total: 1, runs_metered: 1, tokens_in: 1000, tokens_out: 100, cost_usd: 0.05 })
   assert.equal(spendLineFor(bucket, { viewer: { preset: 'owner' }, pack: campus, fold }), 'Tokens 1.1k · $0.05 · 30d')
@@ -215,4 +215,131 @@ test('U35: the reader — one Worker read per window per minute, the contract ke
   assert.deepEqual(none.by_client, []); assert.match(none.error, /spend read 502: ops_skill_runs/)
   assert.deepEqual([windowParam(7), windowParam('all'), windowParam('x'), windowParam(0), windowParam(400)], [7, 'all', 30, 30, 30])
   assert.equal(normalise(null).by_skill.length, 0)
+})
+
+// ── U36: the empty town and the estimate line ─────────────────────────────────────────────────
+
+/** The test fixture only — SPEND_ESTIMATES holds no ZZTEST entry: a by_client row for the ZZTEST town with an est. */
+const ZZ_EST = Object.freeze({ tokens_in_est: 1_000_000, tokens_out_est: 100_000, cost_usd_est: 12.0, conversations: 7, turns: 120, period_start: '2026-08-09', period_end: '2026-09-08', confidence: 'high' })
+const zzRow = (over = {}) => b({ client: 'ZZTEST Client', runs_total: 2, runs_metered: 2, tokens_in: 315_000, tokens_out: 12_000, cost_usd: 0.6125, methods: { breakdown: 1, flat: 1 }, est: { ...ZZ_EST }, ...over })
+const body = (rows, totals = {}) => ({ at: 'x', window_days: 30, estimates_version: 'test', display: null, totals: b({ ...totals }), by_client: rows, by_skill: [], by_client_skill: [], by_model: [] })
+const owner = { preset: 'owner' }
+
+test('U36: the empty town — a town with no by_client row, or one with runs_total 0 and no est, reads one quiet line `no runs · 30d`: never blank, never $0', async () => {
+  const { foldSpend, townLines, reconcile } = await import(path.join(root, 'overlay/spend.mjs'))
+  const { loadPack } = await import(path.join(root, 'server/harnesses/compass/pack.mjs'))
+  const pack = loadPack('tellefsen-campus')
+  const towns = [{ name: 'ZZTEST Client', planet: 'home' }, { name: 'Nothing Yet AS', planet: 'home' }, { name: 'Elsewhere Ltd', planet: 'other' }]
+  const fold = foldSpend(body([zzRow({ est: undefined }), b({ client: 'Zero Runs AS', runs_total: 0 })], { runs_total: 2, runs_metered: 2, tokens_in: 315_000, tokens_out: 12_000, cost_usd: 0.6125 }), { pack, towns: [...towns, { name: 'Zero Runs AS', planet: 'home' }], planet: 'home', home: 'home' })
+  assert.deepEqual([...fold.towns.keys()].sort(), ['Nothing Yet AS', 'ZZTEST Client', 'Zero Runs AS'], 'every town of this planet has a bucket, rows or not; the other planet\'s does not')
+  assert.equal(fold.towns.get('Nothing Yet AS').runs_total, 0); assert.ok(!('est' in fold.towns.get('Nothing Yet AS')), 'no row → no est key')
+  assert.deepEqual(reconcile(fold), { roomsPlusElsewhereIsCampus: true, townsPlusCampusIsPlanet: true }, 'an empty bucket is no term')
+  const opts = { viewer: owner, pack, fold }
+  assert.deepEqual(townLines(fold.towns.get('Nothing Yet AS'), opts), ['no runs · 30d'], 'no row')
+  assert.deepEqual(townLines(fold.towns.get('Zero Runs AS'), opts), ['no runs · 30d'], 'a row with runs_total 0 and no est')
+  assert.deepEqual(townLines(undefined, opts), ['no runs · 30d'], 'no bucket at all')
+  for (const lines of [townLines(fold.towns.get('Nothing Yet AS'), opts), townLines(undefined, opts)]) {
+    assert.ok(lines.length === 1 && lines[0].length > 0, 'one line, never blank')
+    assert.ok(!/\$0|\$ 0|Tokens 0/.test(lines.join(' ')), 'never $0')
+  }
+  assert.deepEqual(townLines(fold.towns.get('ZZTEST Client'), opts), ['Tokens 327k · $0.61 · 30d'], 'a town with runs and no est: the metered line alone, as U35 left it')
+  assert.deepEqual(townLines(fold.towns.get('ZZTEST Client'), { viewer: { preset: 'operator' }, pack, fold }), [], 'not the Owner: nothing, not a quiet line')
+  assert.deepEqual(townLines(undefined, { viewer: owner, pack: loadPack('neutral'), fold }), [], 'neutral: nothing')
+})
+
+test('U36: the estimate line — `est. chat {in+out} · ~{cost} · {start}–{end} · {n} conversations`, compact numbers, the tilde and the word est. mandatory; confidence medium adds `· attributed by name`; totals.est (no period, no conversations) reads its two segments', async () => {
+  const { estLine } = await import(path.join(root, 'overlay/spend.mjs'))
+  const high = estLine(ZZ_EST)
+  assert.equal(high, 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 7 conversations')
+  assert.ok(high.startsWith('est. ') && high.includes(' ~$'), 'est. and the tilde')
+  assert.equal(estLine({ ...ZZ_EST, confidence: 'medium' }), 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 7 conversations · attributed by name')
+  assert.equal(estLine({ ...ZZ_EST, confidence: 'low' }), high, 'only medium carries the suffix')
+  assert.equal(estLine({ ...ZZ_EST, conversations: 1 }), 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 1 conversation')
+  assert.equal(estLine({ tokens_in_est: 246_972_478, tokens_out_est: 698_741, cost_usd_est: 245.35, conversations: 28, period_start: '2026-08-09', period_end: '2026-09-08', confidence: 'medium' }), 'est. chat 248M · ~$245.35 · 2026-08-09–2026-09-08 · 28 conversations · attributed by name', 'Peopleinsport, live 2026-09-08')
+  assert.equal(estLine({ tokens_in_est: 1_487_587_191, tokens_out_est: 4_874_341, cost_usd_est: 1388.62, clients: 9 }), 'est. chat 1.5B · ~$1388.62', 'totals.est: two segments, the compact tier for billions')
+  assert.equal(estLine(ZZ_EST, { currency: 'OMR', omrPerUsd: 0.3845 }), 'est. chat 1.1M · ~4.614 OMR · 2026-08-09–2026-09-08 · 7 conversations', 'OMR through the response peg, the tilde kept')
+  assert.equal(estLine(null), ''); assert.equal(estLine('x'), '')
+})
+
+test('U36: no summing — the metered line is byte-identical with and without est; the fold\'s counters, the campus, the planet and both identities are unchanged by an est; the campus and the planet carry totals.est on their own line', async () => {
+  const { foldSpend, spendLine, townLines, estLineFor, reconcile, COUNTERS, add, bucket } = await import(path.join(root, 'overlay/spend.mjs'))
+  const { loadPack } = await import(path.join(root, 'server/harnesses/compass/pack.mjs'))
+  const pack = loadPack('tellefsen-campus')
+  const towns = [{ name: 'ZZTEST Client', planet: 'home' }]
+  const totals = { runs_total: 2, runs_metered: 2, tokens_in: 315_000, tokens_out: 12_000, cost_usd: 0.6125 }
+  const withEst = foldSpend(body([zzRow()], { ...totals, est: { tokens_in_est: 1_000_000, tokens_out_est: 100_000, cost_usd_est: 12.0, clients: 1 } }), { pack, towns, planet: 'home', home: 'home' })
+  const without = foldSpend(body([zzRow({ est: undefined })], totals), { pack, towns, planet: 'home', home: 'home' })
+  assert.ok(!COUNTERS.some((k) => /est/.test(k)), 'no est counter')
+  const t1 = withEst.towns.get('ZZTEST Client'); const t0 = without.towns.get('ZZTEST Client')
+  assert.deepEqual(Object.fromEntries(COUNTERS.map((k) => [k, t1[k]])), Object.fromEntries(COUNTERS.map((k) => [k, t0[k]])), 'the town\'s counters')
+  assert.equal(spendLine(t1, { window: 30 }), spendLine(t0, { window: 30 }), 'the metered line, byte for byte')
+  assert.equal(spendLine(t1, { window: 30 }), 'Tokens 327k · $0.61 · 30d', 'Iota\'s line, not a dollar more')
+  for (const k of ['campus', 'planet', 'elsewhere']) assert.deepEqual(Object.fromEntries(COUNTERS.map((c) => [c, withEst[k][c]])), Object.fromEntries(COUNTERS.map((c) => [c, without[k][c]])), k)
+  assert.deepEqual(reconcile(withEst), { roomsPlusElsewhereIsCampus: true, townsPlusCampusIsPlanet: true })
+  assert.equal(add(bucket(), t1).cost_usd, 0.6125, 'add() never reads est'); assert.ok(!('est' in add(bucket(), t1)))
+  const opts = { viewer: owner, pack, fold: withEst }
+  assert.deepEqual(townLines(t1, opts), ['Tokens 327k · $0.61 · 30d', 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 7 conversations'], 'the town card: the metered line, then the estimate')
+  assert.deepEqual(townLines(zzRow({ runs_total: 0, runs_metered: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 }), opts), ['no metered runs · 30d', 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 7 conversations'], 'runs_total 0 with an est: `no metered runs`, then the estimate')
+  assert.equal(estLineFor(withEst.campus, opts), 'est. chat 1.1M · ~$12.00', 'the campus: totals.est')
+  assert.equal(estLineFor(withEst.planet, opts), 'est. chat 1.1M · ~$12.00', 'the planet: totals.est')
+  assert.equal(estLineFor(without.campus, opts), '', 'no totals.est → no line'); assert.ok(!('est' in without.planet))
+  const zero = foldSpend(body([zzRow({ est: undefined })], { ...totals, est: { tokens_in_est: 0, tokens_out_est: 0, cost_usd_est: 0, clients: 0 } }), { pack, towns, planet: 'home', home: 'home' })
+  assert.ok(!('est' in zero.campus) && !('est' in zero.planet), 'a zero totals.est is no line')
+  assert.equal(estLineFor(withEst.rooms.get('workshop'), opts), '', 'room panels unchanged: a room bucket carries no est')
+})
+
+test('U36: the pack flag — spend.estimates true on tellefsen-campus shows the estimate line; a pack without it (or neutral, or any other preset) hides the line and the town reads `no runs`, not `no metered runs`', async () => {
+  const { foldSpend, townLines, estLineFor, showEstimates } = await import(path.join(root, 'overlay/spend.mjs'))
+  const { loadPack } = await import(path.join(root, 'server/harnesses/compass/pack.mjs'))
+  const campus = loadPack('tellefsen-campus'); const neutral = loadPack('neutral')
+  const noFlag = { ...campus, spend: { show: true, window_days: 30, currency: 'USD' } }
+  const off = { ...campus, spend: { ...campus.spend, estimates: false } }
+  const towns = [{ name: 'ZZTEST Client', planet: 'home' }]
+  const fold = foldSpend(body([zzRow()]), { pack: campus, towns, planet: 'home', home: 'home' })
+  const t = fold.towns.get('ZZTEST Client')
+  assert.equal(showEstimates(owner, campus), true)
+  assert.equal(estLineFor(t, { viewer: owner, pack: campus, fold }), 'est. chat 1.1M · ~$12.00 · 2026-08-09–2026-09-08 · 7 conversations')
+  for (const [name, pack] of [['no flag', noFlag], ['estimates false', off], ['neutral', neutral]]) {
+    assert.equal(showEstimates(owner, pack), false, name)
+    assert.equal(estLineFor(t, { viewer: owner, pack, fold }), '', name)
+  }
+  assert.deepEqual(townLines(t, { viewer: owner, pack: noFlag, fold }), ['Tokens 327k · $0.61 · 30d'], 'the metered line stays')
+  assert.deepEqual(townLines(zzRow({ runs_total: 0, runs_metered: 0, tokens_in: 0, tokens_out: 0, cost_usd: 0 }), { viewer: owner, pack: noFlag, fold }), ['no runs · 30d'], 'an est the pack hides is an est the town does not have')
+  for (const preset of ['operator', 'viewer', 'client', 'prime', '']) {
+    assert.equal(estLineFor(t, { viewer: { preset }, pack: campus, fold }), '', preset)
+    assert.equal(showEstimates({ preset }, campus), false)
+  }
+  assert.equal(estLineFor(t, { viewer: null, pack: campus, fold }), '')
+})
+
+test('U36: the live capture — estimates_version rides through the reader; Peopleinsport and Titan Containers read `no metered runs` and their estimate; no "actor" and no person-shaped key on any est', async () => {
+  const { foldSpend, townLines, estLineFor, summary } = await import(path.join(root, 'overlay/spend.mjs'))
+  const { normalise } = await import(path.join(root, 'server/harnesses/compass/spend.mjs'))
+  const { loadPack } = await import(path.join(root, 'server/harnesses/compass/pack.mjs'))
+  const pack = loadPack('tellefsen-campus')
+  const n = normalise(live)
+  assert.equal(n.estimates_version, live.estimates_version); assert.ok(n.estimates_version.length > 0)
+  assert.equal(normalise({ ...live, estimates_version: undefined }).estimates_version, '', 'absent → no estimates')
+  assert.deepEqual(n.by_client.find((r) => r.client === 'Titan Containers')?.est, live.by_client.find((r) => r.client === 'Titan Containers').est, 'est rides through untouched')
+  const schemaKeys = Object.keys(read('spec/world-spend.v1.json').properties.by_client.items.properties.est.properties)
+  for (const r of live.by_client.filter((r) => r.est)) {
+    for (const k of Object.keys(r.est)) assert.ok(schemaKeys.includes(k), `${r.client}.est.${k} is in the contract`)
+    assert.ok(!/actor|person|user|owner|name\b/i.test(Object.keys(r.est).join(' ')), 'no person-shaped key')
+  }
+  const towns = live.by_client.filter((r) => r.client !== 'internal').map((r) => ({ name: r.client, planet: 'tellefsen' }))
+  const fold = foldSpend(n, { pack, towns, planet: 'tellefsen', home: 'tellefsen' })
+  const opts = { viewer: owner, pack, fold }
+  assert.equal(fold.estimatesVersion, live.estimates_version); assert.equal(summary(fold).estimatesVersion, live.estimates_version)
+  for (const name of ['Peopleinsport', 'Titan Containers']) {
+    const row = live.by_client.find((r) => r.client === name)
+    const lines = townLines(fold.towns.get(name), opts)
+    assert.equal(lines.length, 2, name)
+    assert.equal(lines[0], `no metered runs · ${live.window_days}d`, `${name}: runs_total ${row.runs_total} at capture`)
+    assert.match(lines[1], /^est\. chat \S+ · ~\$[\d.]+ · \d{4}-\d{2}-\d{2}–\d{4}-\d{2}-\d{2} · \d+ conversations?( · attributed by name)?$/, name)
+    assert.ok(lines[1].includes(`· ${row.est.conversations} conversation`), name)
+    assert.equal(lines[1].endsWith('attributed by name'), row.est.confidence === 'medium', name)
+  }
+  assert.match(estLineFor(fold.planet, opts), /^est\. chat \S+ · ~\$[\d.]+$/, 'the planet: totals.est, two segments')
+  assert.equal(estLineFor(fold.campus, opts), estLineFor(fold.planet, opts), 'the campus: the same totals.est')
+  assert.ok(!/actor/i.test(fs.readFileSync(path.join(root, 'overlay/spend.mjs'), 'utf8')))
 })

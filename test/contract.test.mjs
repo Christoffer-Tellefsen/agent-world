@@ -14,13 +14,24 @@ test('U34: spec/world-substrate.v1.json validates the captured GET /world/substr
   assert.deepEqual(errs, [])
 })
 
-test('U35: spec/world-spend.v1.json validates the captured GET /world/spend, and refuses a bucket short of a counter', () => {
+test('U35/U36: spec/world-spend.v1.json validates the captured GET /world/spend, refuses a bucket short of a counter and a malformed est', () => {
   const schema = read('spec/world-spend.v1.json')
   const live = read('test/fixtures/m2b-spend.live.json')
   assert.deepEqual(validate(schema, live), [])
   assert.ok(validate(schema, { ...live, totals: { runs_total: 1 } }).some((e) => /totals.*runs_metered/.test(e)))
   assert.ok(validate(schema, { ...live, by_client: [{ runs_total: 0 }] }).some((e) => /by_client\[0\].*client/.test(e)))
   assert.ok(!JSON.stringify(live).includes('"actor"'), 'the captured response carries no per-person field')
+  // U36: estimates_version and the est objects — optional in the schema, present in the capture; a malformed est is refused
+  assert.equal(typeof live.estimates_version, 'string')
+  assert.ok(live.by_client.some((r) => r.est) && live.totals.est, 'the capture carries estimates')
+  const est = live.by_client.find((r) => r.est)
+  assert.ok(validate(schema, { ...live, by_client: [{ ...est, est: { tokens_in_est: 1 } }] }).some((e) => /by_client\[0\]\.est.*cost_usd_est/.test(e)))
+  assert.ok(validate(schema, { ...live, by_client: [{ ...est, est: { ...est.est, confidence: 'sure' } }] }).some((e) => /est\.confidence/.test(e)))
+  assert.ok(validate(schema, { ...live, by_client: [{ ...est, est: { ...est.est, cost_usd_est: -1 } }] }).some((e) => /est\.cost_usd_est/.test(e)))
+  const { est: _drop, ...bare } = est
+  const { estimates_version: _v, ...without } = live
+  const { est: _t, ...totals } = live.totals
+  assert.deepEqual(validate(schema, { ...without, by_client: [bare], totals }).filter((e) => /est/.test(e)), [], 'est and estimates_version are optional')
 })
 
 test('U34: spec/ledger-scan.v1.json validates the captured GET /ledger/scan, and refuses a shape that is not the ledger', () => {

@@ -46,7 +46,7 @@ import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { createLabel, Plot, PLOT_PALETTE, hashString, worldToHex } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt, bubbleEligible } from './artifacts.mjs'
 import { shelfSections, projectTab } from './archive.mjs'
-import { foldSpend, spendLineFor, showSpend, summary as spendSummary } from './spend.mjs'
+import { foldSpend, spendLineFor, estLineFor, townLines, showSpend, summary as spendSummary } from './spend.mjs'
 import { intrayRows, nextRow, withHands } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
 
@@ -179,6 +179,8 @@ html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
 #aw-panel .shelf{max-height:38vh;overflow:auto}#aw-panel .shelf .r{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--aw-line)}#aw-panel .shelf .r small{display:block;opacity:.6}#aw-panel .shelf a{color:var(--aw-wait);font-size:11px;text-decoration:none;margin-left:6px}
 #aw-room .foot{opacity:.45;font-size:11px;margin-top:10px}
 #aw-room .spend{margin:-4px 0 10px;font-variant-numeric:tabular-nums;opacity:.85}#aw-room .spend b{font-weight:650;margin-right:6px}
+#aw-room .spend+.spend{margin-top:-6px}#aw-room .spend.est{opacity:.6}#aw-room .spend.quiet{opacity:.55;font-style:italic}
+#aw-planets .est{opacity:.55;font-size:11px;font-variant-numeric:tabular-nums;margin-left:6px;padding-left:8px;border-left:1px solid var(--aw-line)}
 #aw-room .town .r{border-top:0;padding:3px 0}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
@@ -477,6 +479,7 @@ function renderRoom() {
   room.innerHTML =
     `<div class="h"><b>${esc(roomNameOf(roomOpen))}</b><span class="hint">${esc(meta?.mirrors || '')} · read-only · 5-min cache · Esc closes</span></div>` +
     spendLineHtml(spendFold?.rooms.get(roomOpen)) +
+    (roomOpen === 'corner-office' ? estLineHtml(spendFold?.campus, noun('centre')) : '') + // U36: the centre carries the campus's estimate
     (!d && roomLoading ? '<div class="note">reading the substrate…</div>' : !d ? '<div class="note">the sidecar did not answer — is ./dev.sh running?</div>' : '') +
     `<div class="cols">` +
     sections.map((sec) => col(sec.title, sec.sub || '', sec.rows.map((r) => `<div class="r"><span class="n">${link(r.url, r.text)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</span><span class="v${r.cls ? ' ' + esc(r.cls) : ''}">${esc(r.value || '')}</span></div>`), sec.note)).join('') +
@@ -541,11 +544,41 @@ async function refreshSpend(force = false) {
       spendAt = Date.now()
       const world = getWorld()
       spendFold = foldSpend(d, { pack: pack(), towns: world?.towns || [], planet: currentKey(), home: world?.home || '' })
+      syncPlanetEst() // U36: the planet's estimate line in the switcher
     }
     spendLoading = null
     return spendFold
   })()
   return spendLoading
+}
+// U36 — the estimate line and the empty town. A by_client row may carry est (the client's chat-usage estimate from
+// SPEND_ESTIMATES); it rides on the town's bucket and is shown on its own line under the metered one — est. chat …
+// with a tilde — never summed into it. A town with no row or no runs reads `no runs · 30d`, never a blank, never $0.
+// The corner office (ring 0, the centre) carries the campus's line and the planet switcher the planet's, both from
+// totals.est. Room panels are unchanged. Pack-gated a second time by spend.estimates (tellefsen-campus true).
+const SPEND_TITLE = () => `list-price equivalent at MODEL_PRICING · by place, never by person · ${spendFold?.at || ''}`
+const EST_TITLE = () => `an estimate from the chat export (SPEND_ESTIMATES ${spendFold?.estimatesVersion || ''}) · attributed to the client by name, never metered, never added to the line above · by place, never by person`
+const lineHtml = (line, cls, title) => (line ? `<div class="spend${cls ? ' ' + cls : ''}" title="${esc(title)}"><b>${esc(line.split(' · ')[0])}</b>· ${esc(line.split(' · ').slice(1).join(' · '))}</div>` : '')
+/** U36: re-cut the fold for the planet on screen from the last read (no fetch); with nothing read yet, read once. */
+function refoldSpend() {
+  if (!spendAllowed()) return
+  if (!spendData) return void refreshSpend()
+  const world = getWorld()
+  spendFold = foldSpend(spendData, { pack: pack(), towns: world?.towns || [], planet: currentKey(), home: world?.home || '' })
+  syncPlanetEst()
+}
+/** U36: the estimate line for a place's bucket (a town, the campus, the planet), or '' — estLineFor is the gate. */
+function estLineHtml(bucket, place = '') {
+  if (!spendAllowed() || !spendFold || spendFold.error) return ''
+  const line = estLineFor(bucket, { viewer: getWorld()?.viewer, pack: pack(), fold: spendFold })
+  return lineHtml(line, 'est', `${place ? place + ' · ' : ''}${EST_TITLE()}`)
+}
+/** U36: the town card's lines — the metered one (or the quiet `no runs`), then the estimate when there is one. */
+function townLinesHtml(name) {
+  if (!spendAllowed() || !spendFold) return ''
+  if (spendFold.error) return spendLineHtml(null)
+  const lines = townLines(spendFold.towns.get(name), { viewer: getWorld()?.viewer, pack: pack(), fold: spendFold })
+  return lines.map((line) => (line.startsWith('est. ') ? lineHtml(line, 'est', EST_TITLE()) : line.startsWith('no ') ? lineHtml(line, 'quiet', SPEND_TITLE()) : lineHtml(line, '', SPEND_TITLE()))).join('')
 }
 /** The line for a place, or '' — spendLineFor is the Owner-only / pack gate; a failed read says so instead of zeros. */
 function spendLineHtml(bucket) {
@@ -553,7 +586,7 @@ function spendLineHtml(bucket) {
   if (!spendFold) return ''
   if (spendFold.error) return `<div class="spend"><b>Tokens</b>the Worker's spend read failed — ${esc(spendFold.error)}</div>`
   const line = spendLineFor(bucket, { viewer: getWorld()?.viewer, pack: pack(), fold: spendFold })
-  return line ? `<div class="spend" title="list-price equivalent at MODEL_PRICING · by place, never by person · ${esc(spendFold.at)}"><b>${esc(line.split(' · ')[0])}</b>· ${esc(line.split(' · ').slice(1).join(' · '))}</div>` : ''
+  return lineHtml(line, '', SPEND_TITLE())
 }
 // the town card: a click on a town plot opens it — the town's name, what stands there, and the spend line
 let townOpen = ''
@@ -564,7 +597,7 @@ function renderTown() {
   const rows = here.map((t) => `<div class="r"><span class="n">${esc(t.title)}${t.kind === 'request' ? `<small>${esc(t.skill || '')}${t.gitBranch ? ' · ' + esc(t.gitBranch) : ''}</small>` : `<small>${esc(t.preview || '')}</small>`}</span><span class="v${t.hasError ? ' late' : ''}">${esc(t.kind === 'request' ? t.badge : noun('fixture'))}</span></div>`)
   room.innerHTML =
     `<div class="h"><b>${esc(noun('town'))} · ${esc(name)}</b><span class="hint">a client's ${esc(noun('town'))} · read-only · Esc closes</span></div>` +
-    spendLineHtml(spendFold?.towns.get(name)) +
+    townLinesHtml(name) +
     `<div class="cols"><div class="col town"><h3>Standing here · ${here.length}</h3>${rows.join('') || '<div class="note">nothing stands here — no request, no fixture</div>'}</div></div>` +
     `<div class="foot">${spendFold?.at ? 'spend as of ' + esc(new Date(spendFold.at).toLocaleTimeString()) + ' · ' : ''}the ${esc(noun('town'))} mirrors its client — change things on the surfaces, never here</div>`
   room.classList.add('on')
@@ -1248,10 +1281,21 @@ function renderSwitcher() {
       .map((p) => `<button data-key="${esc(p.key)}" aria-pressed="${p.key === currentKey()}" class="${p.hasSubstrate ? '' : 'empty'}" title="${esc(p.hasSubstrate ? `${p.role} · ${p.pack}` : 'no substrate yet')}">${esc(p.name)}</button>`)
       .join('') +
     `<span class="pack" title="World Pack this planet wears (from Compass)">${esc(here?.pack || '')}</span>` +
+    `<span class="est" id="aw-planet-est" hidden></span>` +
     `<button id="aw-room-btn" title="the board room · R (every room opens on a click on its plot)">${esc(roomNameOf('board-room'))}</button>`
   switcher.querySelectorAll('button[data-key]').forEach((b) => b.addEventListener('click', () => switchTo(b.dataset.key)))
   switcher.querySelector('#aw-room-btn')?.addEventListener('click', () => openRoom('board-room'))
   switcher.classList.add('on')
+  syncPlanetEst()
+}
+/** U36: the planet's own estimate line (totals.est) beside the pack name — Owner-only, pack-gated, hidden when there is none. */
+function syncPlanetEst() {
+  const el = switcher.querySelector('#aw-planet-est')
+  if (!el) return
+  const line = spendAllowed() && spendFold && !spendFold.error ? estLineFor(spendFold.planet, { viewer: getWorld()?.viewer, pack: pack(), fold: spendFold }) : ''
+  el.textContent = line
+  el.title = line ? `${noun('planet')} · ${EST_TITLE()}` : ''
+  el.hidden = !line
 }
 
 /** An empty planet: its name and "no substrate yet". No runs, no towns, no reads happened for it. */
@@ -1365,6 +1409,7 @@ function dressWorld() {
   wear(here?.pack || getWorld()?.viewer?.pack || '')
   document.title = here ? `${here.name} · ${pack().title}` : document.title
   renderSwitcher()
+  refoldSpend() // U36: the planet's estimate line on arrival, and the fold re-cut for the planet on screen after a switch
   renderEmpty()
 }
 onWorldLate(dressWorld)

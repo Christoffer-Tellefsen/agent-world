@@ -3,7 +3,8 @@
  * ops_skill_runs row in a window against ops_config MODEL_PRICING and aggregates by client, skill, client×skill
  * and model. The world holds no token count, no price and no peg: this module fetches, whitelists the keys the
  * contract names (spec/world-spend.v1.json) and hands the object to the sidecar's GET /spend for the overlay to
- * fold through the pack's own room rule (overlay/spend.mjs).
+ * fold through the pack's own room rule (overlay/spend.mjs). U36: estimates_version and the est objects on by_client
+ * rows and totals ride through untouched — an estimate is read and shown on its own line, never summed here.
  *
  * Read only, cached 60 s per (window, include_test), and the last good answer survives a failed read (warned once
  * a minute) — the same discipline as the substrate read. With nothing ever read, `read()` returns EMPTY with the
@@ -12,8 +13,8 @@
  * Annex III: costs aggregate by client, skill and model only; the response carries no per-person field and this
  * module names none (npm test greps it).
  */
-export const KEYS = Object.freeze(['at', 'window_days', 'pricing_version', 'pricing_verified', 'excluded_test_runs', 'display', 'totals', 'by_client', 'by_skill', 'by_client_skill', 'by_model'])
-export const EMPTY = Object.freeze({ at: '', window_days: null, pricing_version: '', pricing_verified: '', excluded_test_runs: 0, display: null, totals: null, by_client: [], by_skill: [], by_client_skill: [], by_model: [], error: '' })
+export const KEYS = Object.freeze(['at', 'window_days', 'pricing_version', 'pricing_verified', 'estimates_version', 'excluded_test_runs', 'display', 'totals', 'by_client', 'by_skill', 'by_client_skill', 'by_model'])
+export const EMPTY = Object.freeze({ at: '', window_days: null, pricing_version: '', pricing_verified: '', estimates_version: '', excluded_test_runs: 0, display: null, totals: null, by_client: [], by_skill: [], by_client_skill: [], by_model: [], error: '' })
 
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : null)
 const arr = (v) => (Array.isArray(v) ? v.filter(obj) : [])
@@ -26,6 +27,7 @@ export function normalise(body) {
     window_days: Number.isInteger(b.window_days) || b.window_days === 'all' ? b.window_days : null,
     pricing_version: typeof b.pricing_version === 'string' ? b.pricing_version : '',
     pricing_verified: typeof b.pricing_verified === 'string' ? b.pricing_verified : '',
+    estimates_version: typeof b.estimates_version === 'string' ? b.estimates_version : '', // U36: absent → no estimates
     excluded_test_runs: Number.isInteger(b.excluded_test_runs) ? b.excluded_test_runs : 0,
     display: obj(b.display),
     totals: obj(b.totals),

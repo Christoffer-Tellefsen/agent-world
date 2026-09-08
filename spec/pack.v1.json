@@ -54,9 +54,9 @@
     },
     "spend": {
       "type": "object",
-      "description": "U35 (ES-4.13): whether the pack renders the spend line, over how many days, in which currency. OMR multiplies by display.omr_per_usd from the response at display time — the pack holds no peg. Absent → not shown.",
+      "description": "U35 (ES-4.13): whether the pack renders the spend line, over how many days, in which currency. OMR multiplies by display.omr_per_usd from the response at display time — the pack holds no peg. Absent → not shown. estimates (U36): whether the town card, the campus and the planet also show the est. chat line from the Worker's est objects — absent → not shown.",
       "required": ["show"],
-      "properties": { "show": { "type": "boolean" }, "window_days": { "type": "integer", "minimum": 1, "maximum": 365 }, "currency": { "type": "string", "enum": ["USD", "OMR"] } }
+      "properties": { "show": { "type": "boolean" }, "window_days": { "type": "integer", "minimum": 1, "maximum": 365 }, "currency": { "type": "string", "enum": ["USD", "OMR"] }, "estimates": { "type": "boolean" } }
     },
     "layout": {
       "type": "object",
