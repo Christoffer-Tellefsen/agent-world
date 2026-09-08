@@ -1,0 +1,5 @@
+{"type":"user","uuid":"u1","message":{"role":"user","content":"a prompt — never read by the hook"},"sessionId":"zztest-hook","cwd":"/tmp/zz"}
+{"type":"assistant","uuid":"a1","message":{"model":"claude-fable-5-1","id":"msg_A","role":"assistant","content":[{"type":"text","text":"partial"}],"usage":{"input_tokens":2,"cache_creation_input_tokens":42239,"cache_read_input_tokens":39090,"output_tokens":10}},"sessionId":"zztest-hook"}
+{"type":"assistant","uuid":"a2","message":{"model":"claude-fable-5-1","id":"msg_A","role":"assistant","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"echo never read"}}],"usage":{"input_tokens":2,"cache_creation_input_tokens":42239,"cache_read_input_tokens":39090,"output_tokens":247}},"sessionId":"zztest-hook"}
+{"type":"progress","uuid":"p1","data":{"step":1}}
+{"type":"assistant","uuid":"a3","message":{"model":"claude-sonnet-5","id":"msg_B","role":"assistant","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":100,"cache_creation_input_tokens":50,"cache_read_input_tokens":2000,"output_tokens":30}},"sessionId":"zztest-hook"}

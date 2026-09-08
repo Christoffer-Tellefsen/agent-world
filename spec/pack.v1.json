@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tellefsen.om/agent-world/spec/pack.v1.json",
   "title": "World Pack — v1",
-  "description": "overlay/packs/<id>/pack.json: presentation config — skin, rooms (name, mirror, ring), nouns, lod, layout, figure. A pack names rooms, never clients or companies. figure ∈ {character, marker}; rendering a marker is M3 (the schema carries it now).",
+  "description": "overlay/packs/<id>/pack.json: presentation config — skin, rooms (name, mirror, ring), nouns, lod, layout, figure, spend (U35). A pack names rooms, never clients or companies. figure ∈ {character, marker}; rendering a marker is M3 (the schema carries it now).",
   "type": "object",
   "required": ["id", "version", "title", "skin", "names", "rooms", "lod", "layout", "figure", "skills"],
   "properties": {
@@ -51,6 +51,12 @@
       "type": "object",
       "required": ["orbit", "desk"],
       "properties": { "orbit": { "type": "number", "description": "camera distance above which only plates show" }, "desk": { "type": "number", "description": "camera distance below which the panel opens" } }
+    },
+    "spend": {
+      "type": "object",
+      "description": "U35 (ES-4.13): whether the pack renders the spend line, over how many days, in which currency. OMR multiplies by display.omr_per_usd from the response at display time — the pack holds no peg. Absent → not shown.",
+      "required": ["show"],
+      "properties": { "show": { "type": "boolean" }, "window_days": { "type": "integer", "minimum": 1, "maximum": 365 }, "currency": { "type": "string", "enum": ["USD", "OMR"] } }
     },
     "layout": {
       "type": "object",

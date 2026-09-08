@@ -4,7 +4,13 @@
 #                                     Epsilon (U13/U32: completed with one open in-session gate, one Notion-page artifact + one Compass reference),
 #                                     Zeta (U18: zztest-lead + two zztest-child runs carrying parent_run_id, one child waiting),
 #                                     Eta (U17: zztest-stale-expert, last run 40 d ago — its ops_skills row, status active, is
-#                                     created by chat through the Compass MCP; the world never writes to Compass)
+#                                     created by chat through the Compass MCP; the world never writes to Compass),
+#                                     Iota (U35: two zztest-spend runs under FIXED run ids — uuid v5 of agent-world:zztest-spend:flat
+#                                     and :breakdown — the breakdown run's run_completed carries usage; the two ops_skill_runs rows
+#                                     (flat: model claude-sonnet-5, tokens_in 100000, tokens_out 10000) are created by chat through
+#                                     the Compass MCP with those ids — this script can only POST /events — and the ops_skills row
+#                                     zztest-spend (type Research) stands like Eta's. Expected on the ZZTEST town with
+#                                     include_test=1: tokens 327,000, cost $0.6125, 0 unmetered.)
 # ZZTEST_PROJECT_ID (optional, .env): a ZZTEST project page id in Notion — every ZZTEST run then carries it as `project`,
 # so V-U17's ✓ (a ZZTEST milestone flipped Done) has a town to land on.
 #   scripts/zztest-seed.sh --clean  → DELETE $W/ledger/zztest first (skill LIKE 'zztest-%' rows only — the ledger's
@@ -28,9 +34,14 @@ WORKER="${EVENTS_URL%/events}"
 # Builds one batch: run_started at START, then each extra event one second later (or its own `at`).
 # The run's id is left in $LAST_RUN_ID (U18: a child run passes its parent's id as the 7th argument).
 LAST_RUN_ID=""
+# uuid5 NAME → RFC 4122 v5 in the URL namespace (the same derivation as .claude/hooks/ledger.sh) — Iota's fixed run ids
+uuid5() { node -e 'const h=require("crypto").createHash("sha1").update(Buffer.from("6ba7b8119dad11d180b400c04fd430c8","hex")).update(process.argv[1]).digest("hex");process.stdout.write(`${h.slice(0,8)}-${h.slice(8,12)}-5${h.slice(13,16)}-${((parseInt(h[16],16)&3)|8).toString(16)}${h.slice(17,20)}-${h.slice(20,32)}`)' "$1"; }
 run() {
   local body
-  LAST_RUN_ID=$(node -e 'process.stdout.write(require("crypto").randomUUID())')
+  # RUN_ID_FIXED (U35): a fixture whose id must not change between seeds (its ops_skill_runs row is created by hand once)
+  LAST_RUN_ID="${RUN_ID_FIXED:-$(node -e 'process.stdout.write(require("crypto").randomUUID())')}"
+  RUN_ID_FIXED=""
+
   body=$(RUN_ID="$LAST_RUN_ID" PARENT="${7:-}" node -e '
     const [name, skill, client, trigger, hoursAgo, extra] = process.argv.slice(1)
     const id = process.env.RUN_ID
@@ -123,4 +134,21 @@ run "Zeta child 1 (waiting)" zztest-child "ZZTEST Client" cowork_manual 0.06 \
   '[{"event_type":"gate_waiting","payload":{"gate":"child needs a yes","surface":"class_b_gate"}}]' "$ZETA_LEAD"
 run "Zeta child 2 (done)"    zztest-child "ZZTEST Client" cowork_manual 0.05 \
   '[{"event_type":"run_completed","payload":{"outcome":"success"}}]' "$ZETA_LEAD"
+# Iota (U35, ES-4.13): fixed ids, so the rows chat creates stay paired with these events across seeds (until --clean removes both).
+IOTA_FLAT="$(uuid5 agent-world:zztest-spend:flat)"
+IOTA_BREAKDOWN="$(uuid5 agent-world:zztest-spend:breakdown)"
+RUN_ID_FIXED="$IOTA_FLAT" run "Iota flat (spend)" zztest-spend "ZZTEST Client" claude_code 0.04 \
+  '[{"event_type":"run_completed","payload":{"outcome":"success"}}]'
+RUN_ID_FIXED="$IOTA_BREAKDOWN" run "Iota breakdown (spend)" zztest-spend "ZZTEST Client" claude_code 0.03 \
+  '[{"event_type":"run_completed","payload":{"outcome":"success","usage":{"input_tokens":10000,"cache_creation_input_tokens":5000,"cache_read_input_tokens":200000,"output_tokens":2000,"model":"claude-fable-5-1","source":"fixture"}}}]'
+cat <<ROWS
+Iota rows — the seed posts events only; a ledger row is written through the Compass MCP (create_record, table ops_skill_runs), by chat:
+  { "id": "$IOTA_FLAT", "skill": "zztest-spend", "client": "ZZTEST Client", "trigger": "claude_code", "run_class": "A_gather_sync_check_propose",
+    "outcome": "success", "model": "claude-sonnet-5", "tokens_in": 100000, "tokens_out": 10000, "skill_version": "zztest", "human_edit_level": "n/a" }
+  { "id": "$IOTA_BREAKDOWN", "skill": "zztest-spend", "client": "ZZTEST Client", "trigger": "claude_code", "run_class": "A_gather_sync_check_propose",
+    "outcome": "success", "model": "claude-fable-5-1", "skill_version": "zztest", "human_edit_level": "n/a" }   (tokens from its run_completed usage)
+  plus, once, ops_skills { "name": "zztest-spend", "type": "Research", "status": "active", "version": "fixture" } so the fixture folds into the research lab.
+  --clean removes the two rows with the events (DELETE /ledger/zztest); the ops_skills row stands, like Eta's.
+  Expected on the ZZTEST town with include_test=1: tokens 327,000 · cost \$0.6125 · 0 unmetered.
+ROWS
 echo "seeded — look at the world after the next poll (≤ 15 s)"

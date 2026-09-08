@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Agent World — re-capture the two Worker responses the contract test validates (U34, docs/CONTRACT.md).
+# Agent World — re-capture the three Worker responses the contract test validates (U34 + U35, docs/CONTRACT.md).
 # GET only. Bearer from .env, never printed. Actors scrubbed, notes trimmed; the ZZTEST runs plus ten others.
 # --substrate-only re-captures GET /world/substrate alone (a Worker deploy that changed only the substrate — v2, 2026-09-07).
+# --spend-only re-captures GET /world/spend?window=30 alone (U35W).
 set -euo pipefail
 ONLY="${1:-}"
 cd "$(dirname "$0")/.."
@@ -9,9 +10,13 @@ if [ -f .env ]; then set -a; . ./.env; set +a; fi
 : "${EVENTS_URL:?set EVENTS_URL in .env}"; : "${EVENTS_BEARER_TOKEN:?set EVENTS_BEARER_TOKEN in .env}"
 W="${EVENTS_URL%/events}"
 STAMP=$(date -u +%Y-%m-%d)
-curl -sf -H "Authorization: Bearer $EVENTS_BEARER_TOKEN" "$W/world/substrate" | node -e '
+[ "$ONLY" = "--spend-only" ] || curl -sf -H "Authorization: Bearer $EVENTS_BEARER_TOKEN" "$W/world/substrate" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);j.note=`GET /world/substrate captured ${process.argv[1]} for the contract test (U34). Re-capture with scripts/capture-contract.sh.`;require("fs").writeFileSync("test/fixtures/m2b-substrate.live.json",JSON.stringify(j,null,1)+"\n");console.log("substrate captured:",Object.keys(j).join(","))})' "$STAMP"
 [ "$ONLY" = "--substrate-only" ] && exit 0
+[ "$ONLY" = "--spend-only" ] || true
+curl -sf -H "Authorization: Bearer $EVENTS_BEARER_TOKEN" "$W/world/spend?window=30" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const out={note:`GET /world/spend?window=30 captured ${process.argv[1]} for the contract test (U35, ES-4.13). Re-capture with scripts/capture-contract.sh.`,...j};require("fs").writeFileSync("test/fixtures/m2b-spend.live.json",JSON.stringify(out,null,1)+"\n");console.log("spend captured:",j.totals?.runs_total,"runs,",j.totals?.runs_metered,"metered")})' "$STAMP"
+[ "$ONLY" = "--spend-only" ] && exit 0
 SINCE=$(node -e 'process.stdout.write(new Date(Date.now()-14*864e5).toISOString())')
 curl -sf -H "Authorization: Bearer $EVENTS_BEARER_TOKEN" "$W/ledger/scan?since=$SINCE" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{

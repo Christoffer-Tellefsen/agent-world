@@ -12,6 +12,7 @@
  *   GET  /rooms                    { at, rooms: { <room id>: panel }, missingEnv } — the room panels (U31), 5-min caches
  *   GET  /rooms/<id>               one room's panel
  *   GET  /archive                  { at, shelves, byProject, missing } — the archive shelves (U32), 5-min caches
+ *   GET  /spend[?window=n&include_test=1]  the Worker's GET /world/spend object (U35), 60-s cache per window; the overlay folds it
  *   GET  /planets/<key>/state      that planet's data/colony.<key>.json — created empty on first read
  *   PUT  /planets/<key>/state      write it (same field whitelist as api.mjs; the browser is the one writer)
  *
@@ -83,7 +84,7 @@ function readJsonBody(req, limit = 4 * 1024 * 1024) {
  * @param descriptor () => the JSON for GET /world (may be async)
  * @param dataDir   where colony.<key>.json files live
  */
-export function createOverlayApi({ getWorld, descriptor, steering = null, rooms = null, archive = null, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
+export function createOverlayApi({ getWorld, descriptor, steering = null, rooms = null, archive = null, spend = null, dataDir = DEFAULT_DATA_DIR, log = () => {} }) {
   const fileFor = (key) => path.join(dataDir, `colony.${key}.json`)
 
   async function readState(key) {
@@ -146,6 +147,11 @@ export function createOverlayApi({ getWorld, descriptor, steering = null, rooms 
         return panel ? send(200, panel) : send(404, { error: 'No such room' })
       }
       if (url.pathname === '/archive' && req.method === 'GET') return archive ? send(200, await archive.shelf()) : send(404, { error: 'No archive on this adapter' })
+      if (url.pathname === '/spend' && req.method === 'GET') {
+        // U35: the Worker's spend object as read (60-s cache per window); include_test=1 keeps the zztest-% rows in, as the Worker does
+        if (!spend) return send(404, { error: 'No spend on this adapter' })
+        return send(200, await spend.read({ window: url.searchParams.get('window') ?? undefined, includeTest: url.searchParams.get('include_test') === '1' }))
+      }
 
       const m = url.pathname.match(/^\/planets\/([^/]+)\/state$/)
       if (m) {

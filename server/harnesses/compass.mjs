@@ -20,6 +20,7 @@ import { trustOf, staleSkills, ranSkillsOf, campusAlert, projectsByClient, STALE
 import { makeViewer } from './compass/viewer.mjs'
 import { createSurfaces } from './compass/surfaces.mjs'
 import { createSubstrate } from './compass/substrate.mjs'
+import { createSpend } from './compass/spend.mjs'
 import { deriveWorld, worldDescriptor } from './compass/zones.mjs'
 import { createOverlayApi, startOverlayApi } from './compass/overlay-api.mjs'
 import { createSteering } from './compass/steering.mjs'
@@ -33,6 +34,7 @@ const log = cfg.debug ? (...a) => console.error('[world]', ...a) : () => {}
 const viewer = makeViewer({ tenant: cfg.tenant, preset: cfg.viewerPreset })
 const surfaces = createSurfaces(cfg, { log })
 const substrate = createSubstrate(cfg, { log })
+const spend = createSpend(cfg, { log }) // U35: GET /world/spend, 60-s cache per window, served raw by the sidecar's /spend
 const steering = createSteering(cfg, { surfaces, substrate, log }) // U19: three panels, 5-min caches, served by the sidecar
 /** What the last scan saw — the room panels (U31) and the archive (U32) read it, never the ledger again. */
 let lastScan = null
@@ -107,6 +109,7 @@ function ensureOverlayApi() {
     steering: () => steering.all(),
     rooms, // U31: GET /rooms, GET /rooms/<id>
     archive, // U32: GET /archive
+    spend, // U35: GET /spend — the Worker's spend object; the overlay folds it through the pack (overlay/spend.mjs)
     // U20: the prospect rows ride with the world (one Airtable GET a minute); the overlay decides who stands and how faded.
     descriptor: async () => {
       const w = world || (await currentWorld().catch(() => deriveWorld(null, { campus: CAMPUS, tenant: cfg.tenant })))

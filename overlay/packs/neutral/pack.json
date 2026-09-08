@@ -1,10 +1,13 @@
 {
   "id": "neutral",
-  "version": "0.2",
+  "version": "0.3",
   "figure": "character",
   "lod": {
     "orbit": 95,
     "desk": 30
+  },
+  "spend": {
+    "show": false
   },
   "layout": {
     "home": "data/colony.json",

@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tellefsen.om/agent-world/spec/world-spend.v1.json",
+  "title": "GET /world/spend — v1",
+  "description": "What the Compass Worker hands the adapter for the spend line (U35W, ES-4.13): every ops_skill_runs row in ?window=<1–365|all> (default 30) priced against ops_config MODEL_PRICING by method — breakdown (run_completed payload.usage), flat (row tokens_in / tokens_out), unmetered — an unresolved model id unpriced (tokens counted, cost 0). Aggregated as totals, by_client (null → \"internal\"), by_skill, by_client_skill, by_model; zztest-% rows excluded unless include_test=1 and counted in excluded_test_runs. Read only, bearer-authenticated, Cache-Control max-age=60. Every bucket carries the same counters (spelled out per list — the test validator has no $ref). No per-person field exists in the response (Annex III).",
+  "type": "object",
+  "required": [
+    "at",
+    "window_days",
+    "totals",
+    "by_client",
+    "by_skill",
+    "by_client_skill",
+    "by_model"
+  ],
+  "properties": {
+    "at": {
+      "type": "string",
+      "description": "ISO 8601 — when the Worker read the ledger"
+    },
+    "window_days": {
+      "type": [
+        "integer",
+        "string"
+      ],
+      "description": "the window in days, or \"all\""
+    },
+    "pricing_version": {
+      "type": "string",
+      "description": "MODEL_PRICING.version"
+    },
+    "pricing_verified": {
+      "type": "string",
+      "description": "MODEL_PRICING.verified"
+    },
+    "excluded_test_runs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "zztest-% rows left out (0 with include_test=1)"
+    },
+    "display": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "MODEL_PRICING.display — a presentation peg a pack may multiply by at display time; cost_usd stays the fact",
+      "properties": {
+        "note": {
+          "type": "string"
+        },
+        "omr_per_usd": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "runs_total",
+        "runs_metered",
+        "runs_unmetered",
+        "runs_unpriced",
+        "tokens_in",
+        "tokens_out",
+        "tokens_unpriced",
+        "cost_usd"
+      ],
+      "properties": {
+        "runs_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runs_metered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runs_unmetered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runs_unpriced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_in": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_out": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_unpriced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "methods": {
+          "type": "object",
+          "properties": {
+            "breakdown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "flat": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "by_client": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "client",
+          "runs_total",
+          "runs_metered",
+          "runs_unmetered",
+          "runs_unpriced",
+          "tokens_in",
+          "tokens_out",
+          "tokens_unpriced",
+          "cost_usd"
+        ],
+        "properties": {
+          "client": {
+            "type": "string"
+          },
+          "runs_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_metered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unmetered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_in": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "methods": {
+            "type": "object",
+            "properties": {
+              "breakdown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "flat": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "by_skill": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "skill",
+          "runs_total",
+          "runs_metered",
+          "runs_unmetered",
+          "runs_unpriced",
+          "tokens_in",
+          "tokens_out",
+          "tokens_unpriced",
+          "cost_usd"
+        ],
+        "properties": {
+          "skill": {
+            "type": "string"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runs_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_metered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unmetered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_in": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "methods": {
+            "type": "object",
+            "properties": {
+              "breakdown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "flat": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "by_client_skill": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "client",
+          "skill",
+          "runs_total",
+          "runs_metered",
+          "runs_unmetered",
+          "runs_unpriced",
+          "tokens_in",
+          "tokens_out",
+          "tokens_unpriced",
+          "cost_usd"
+        ],
+        "properties": {
+          "client": {
+            "type": "string"
+          },
+          "skill": {
+            "type": "string"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runs_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_metered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unmetered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_in": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "methods": {
+            "type": "object",
+            "properties": {
+              "breakdown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "flat": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "by_model": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "model",
+          "runs_total",
+          "runs_metered",
+          "runs_unmetered",
+          "runs_unpriced",
+          "tokens_in",
+          "tokens_out",
+          "tokens_unpriced",
+          "cost_usd"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "the resolved MODEL_PRICING id, or \"unpriced\""
+          },
+          "runs_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_metered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unmetered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "runs_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_in": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens_unpriced": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "methods": {
+            "type": "object",
+            "properties": {
+              "breakdown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "flat": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

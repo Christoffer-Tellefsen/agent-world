@@ -713,7 +713,7 @@
         "npm test green; vite build bundles the overlay; git diff upstream/main -- src/ empty"
       ],
       "check": "V-U35",
-      "passes": false,
+      "passes": true,
       "verified": null
     },
     {

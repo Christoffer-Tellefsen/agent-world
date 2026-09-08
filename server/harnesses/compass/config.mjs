@@ -21,6 +21,10 @@ export function loadConfig(env = process.env) {
     /** Sibling of EVENTS_URL: .../events → .../world/substrate (U12W). Same bearer; 60 s cache. */
     substrateUrl: eventsUrl.replace(/\/events$/, '/world/substrate'),
     substrateCacheMs: 60_000,
+    /** Sibling of EVENTS_URL: .../events → .../world/spend (U35W, ES-4.13). Same bearer; 60 s cache per window. */
+    spendUrl: eventsUrl.replace(/\/events$/, '/world/spend'),
+    spendCacheMs: 60_000,
+    spendWindowDays: 30,
     /** The overlay sidecar's loopback port (overlay-api.mjs); 0 disables it (home planet only). */
     overlayPort: env.WORLD_OVERLAY_PORT === undefined ? 5275 : Math.max(0, Number(env.WORLD_OVERLAY_PORT) || 0),
     notionToken: env.NOTION_TOKEN || '',

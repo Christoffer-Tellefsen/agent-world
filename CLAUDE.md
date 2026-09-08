@@ -46,7 +46,7 @@ Here that means: `actor` draws an avatar and nothing else; `human_edit_level`, t
 3. `feature_list.json`: change `passes` only. Never remove or weaken a feature or its steps.
 4. `npm test` green plus the feature's own steps let you mark a unit **Built**. Only Christoffer marks **Verified**, from `VERIFICATION.md`, in the Notion unit table. Never self-declare.
 5. Commit naming the unit (`U3: fold events into runs`), update `claude-progress.txt`, leave `main` clean and runnable.
-6. This session is a governed run: the hooks post its events; `run_id` is in `.claude/run_id`. At the end, write the `ops_skill_runs` row through the Compass MCP per `SKILL_RUN_LEDGER.write_protocol` — skill `agent-world-build`, run_class `B_judge`, trigger `claude_code`, `human_edit_level` from Christoffer's one tap — and end with `📒 agent-world-build · <outcome> · gates <n> · edit <level> · run <run_id>`.
+6. This session is a governed run: the hooks post its events; `run_id` is in `.claude/run_id`. At the end, write the `ops_skill_runs` row through the Compass MCP per `SKILL_RUN_LEDGER.write_protocol` — skill `agent-world-build`, run_class `B_judge`, trigger `claude_code`, `human_edit_level` from Christoffer's one tap — and end with `📒 agent-world-build · <outcome> · gates <n> · edit <level> · run <run_id>`. Usage (U35, ES-4.13): the SessionEnd hook posts `run_completed` with `usage {input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens, model, source: "transcript"}` summed from the session transcript (`.claude/hooks/ledger.sh usage <transcript>` prints the same object); on the row, `tokens_in` = input + cache_creation + cache_read, `tokens_out` = output_tokens, `model` = usage.model — when the hook posted usage, else null.
 
 ## Change control
 Design detail → decide in-session, note it in `claude-progress.txt`, propose a 🧠 Decision if material. Scope (anything not in `SPEC.md`) → stop; it routes through a build-kickoff refresh, never into this file. This file changes only with Christoffer; changes are dated below.
@@ -55,4 +55,4 @@ Design detail → decide in-session, note it in `claude-progress.txt`, propose a
 Unit Built → its check passes in the verifier's hands → Verified. All M1 units Verified → M1 regression pass → M1 Done (`milestone-close`). All milestones Done → acceptance. The builder never self-declares.
 
 ---
-Changes: 2026-09-06 · v1 · written by build-kickoff v1.3.
+Changes: 2026-09-06 · v1 · written by build-kickoff v1.3. · 2026-09-08 · session rule 6 gains the usage block (U35, Prompt D from Christoffer).

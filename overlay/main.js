@@ -29,11 +29,14 @@
 // A render rule over the sidecar's rows: nothing stored, nothing written; Won or Lost and the plot is gone.
 // U18 → U33 — sub-agents: children are a count on the parent's fixture running list or on the parent's request
 // ("n sub-runs"); a child gets its own request only when it waits, on its root ancestor's plot, and N lands on it.
+// U35 — spend (ES-4.13): a town card (a click on a town plot) and every room panel carry one line — tokens, list-price
+// cost and the window — folded in overlay/spend.mjs from the sidecar's /spend through the pack's own room rule;
+// Owner-only, nothing (not a blank line) for any other preset or under a pack that does not show it.
 // U12 — the skin: the planet switcher (one planet per company from Compass), the pack the planet
 // wears (skin, nouns, rooms), quiet towns (an Active client with no runs still gets its deck and
 // name plate), and the empty planet ("no substrate yet"). Every name on screen arrives from the
 // substrate through the adapter; none lives here or in a pack (npm test greps for them).
-import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, onWorldLate, loadRoom, loadArchive, rooms as roomsOf } from './zones.mjs'
+import { ready, getWorld, currentKey, currentPlanet, townsHere, isHome, switchTo, signals, onWorldLate, loadRoom, loadArchive, loadSpend, rooms as roomsOf } from './zones.mjs'
 import { nextTownSlot } from '../server/harnesses/compass/layout.mjs'
 import { altitudeOf, labelRule, plateText, placeCounts } from './lod.mjs'
 import { homeTarget, homeDistance } from './home.mjs'
@@ -43,6 +46,7 @@ import { wear, pack, packOf, noun, roomFor } from './pack.mjs'
 import { createLabel, Plot, PLOT_PALETTE, hashString, worldToHex } from '../src/world/plots.js'
 import { artifactRows, BubbleTracker, newestArtifactAt, bubbleEligible } from './artifacts.mjs'
 import { shelfSections, projectTab } from './archive.mjs'
+import { foldSpend, spendLineFor, showSpend, summary as spendSummary } from './spend.mjs'
 import { intrayRows, nextRow, withHands } from './intray.mjs'
 import { ApproveTracker, approveIntent } from './approve.mjs'
 
@@ -174,6 +178,8 @@ html[data-aw-altitude="orbit"] #aw-panel{display:none!important}
 #aw-panel .tabs{display:flex;gap:6px;margin:4px 0 8px}#aw-panel .tabs button{background:rgba(255,255,255,.08);color:var(--aw-ink);padding:4px 10px;font-size:12px}#aw-panel .tabs button[aria-pressed="true"]{background:var(--aw-accent);color:#fff}
 #aw-panel .shelf{max-height:38vh;overflow:auto}#aw-panel .shelf .r{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--aw-line)}#aw-panel .shelf .r small{display:block;opacity:.6}#aw-panel .shelf a{color:var(--aw-wait);font-size:11px;text-decoration:none;margin-left:6px}
 #aw-room .foot{opacity:.45;font-size:11px;margin-top:10px}
+#aw-room .spend{margin:-4px 0 10px;font-variant-numeric:tabular-nums;opacity:.85}#aw-room .spend b{font-weight:650;margin-right:6px}
+#aw-room .town .r{border-top:0;padding:3px 0}
 #aw-planets{position:fixed;top:14px;right:14px;z-index:40;display:none;align-items:center;gap:6px;padding:6px 8px;
   font:12px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--aw-ink);background:var(--aw-panel);border:1px solid var(--aw-line);
   border-radius:999px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
@@ -458,7 +464,7 @@ const STATE_CLS = { lit: 'work', dark: '', dusty: 'stale', red: 'late' }
 
 function renderRoom() {
   if (!roomOpen) {
-    room.classList.remove('on')
+    if (!townOpen) room.classList.remove('on')
     return
   }
   const d = roomData?.id === roomOpen ? roomData : null
@@ -470,6 +476,7 @@ function renderRoom() {
   const meta = roomsOf().find((r) => r.id === roomOpen)
   room.innerHTML =
     `<div class="h"><b>${esc(roomNameOf(roomOpen))}</b><span class="hint">${esc(meta?.mirrors || '')} · read-only · 5-min cache · Esc closes</span></div>` +
+    spendLineHtml(spendFold?.rooms.get(roomOpen)) +
     (!d && roomLoading ? '<div class="note">reading the substrate…</div>' : !d ? '<div class="note">the sidecar did not answer — is ./dev.sh running?</div>' : '') +
     `<div class="cols">` +
     sections.map((sec) => col(sec.title, sec.sub || '', sec.rows.map((r) => `<div class="r"><span class="n">${link(r.url, r.text)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</span><span class="v${r.cls ? ' ' + esc(r.cls) : ''}">${esc(r.value || '')}</span></div>`), sec.note)).join('') +
@@ -500,9 +507,74 @@ async function refreshRoom(force = false) {
 }
 function openRoom(id) {
   roomOpen = roomOpen === id ? '' : id
+  townOpen = ''
   if (roomOpen === 'archive') return openArchive()
   renderRoom()
-  if (roomOpen) refreshRoom(roomData?.id !== roomOpen)
+  if (roomOpen) {
+    refreshRoom(roomData?.id !== roomOpen)
+    refreshSpend().then(() => roomOpen && roomOpen !== 'archive' && renderRoom())
+  }
+}
+
+// ── U35: spend per town and room (ES-4.13) ───────────────────────────────────────────────────
+//
+// The sidecar's /spend is the Worker's GET /world/spend object (60-s cache there); overlay/spend.mjs folds its rows
+// into the places of the planet on screen through the pack's own roomForSkill. One line per place: tokens · cost ·
+// window, with the unmetered and unpriced counts on the same line so a total is never silently short. Owner-only:
+// for any other preset — or under a pack whose spend.show is false — spendLineHtml yields nothing, not a blank line.
+// ?include_test=1 on the page keeps the test rows in (the fixture check, V-U35); nothing here counts or stores.
+let spendData = null
+let spendFold = null
+let spendAt = 0
+let spendLoading = null
+const INCLUDE_TEST = new URLSearchParams(location.search).get('include_test') === '1'
+const spendWindow = () => Number(pack().spend?.window_days) || 30
+const spendAllowed = () => showSpend(getWorld()?.viewer, pack())
+async function refreshSpend(force = false) {
+  if (!spendAllowed()) { spendData = null; spendFold = null; return null }
+  if (!force && spendData && Date.now() - spendAt < 60_000) return spendFold
+  if (spendLoading) return spendLoading
+  spendLoading = (async () => {
+    const d = await loadSpend(spendWindow(), INCLUDE_TEST)
+    if (d) {
+      spendData = d
+      spendAt = Date.now()
+      const world = getWorld()
+      spendFold = foldSpend(d, { pack: pack(), towns: world?.towns || [], planet: currentKey(), home: world?.home || '' })
+    }
+    spendLoading = null
+    return spendFold
+  })()
+  return spendLoading
+}
+/** The line for a place, or '' — spendLineFor is the Owner-only / pack gate; a failed read says so instead of zeros. */
+function spendLineHtml(bucket) {
+  if (!spendAllowed()) return ''
+  if (!spendFold) return ''
+  if (spendFold.error) return `<div class="spend"><b>Tokens</b>the Worker's spend read failed — ${esc(spendFold.error)}</div>`
+  const line = spendLineFor(bucket, { viewer: getWorld()?.viewer, pack: pack(), fold: spendFold })
+  return line ? `<div class="spend" title="list-price equivalent at MODEL_PRICING · by place, never by person · ${esc(spendFold.at)}"><b>${esc(line.split(' · ')[0])}</b>· ${esc(line.split(' · ').slice(1).join(' · '))}</div>` : ''
+}
+// the town card: a click on a town plot opens it — the town's name, what stands there, and the spend line
+let townOpen = ''
+function renderTown() {
+  if (!townOpen) return
+  const name = townOpen
+  const here = (window.botCrossing?.threads || []).filter((t) => t.project === name)
+  const rows = here.map((t) => `<div class="r"><span class="n">${esc(t.title)}${t.kind === 'request' ? `<small>${esc(t.skill || '')}${t.gitBranch ? ' · ' + esc(t.gitBranch) : ''}</small>` : `<small>${esc(t.preview || '')}</small>`}</span><span class="v${t.hasError ? ' late' : ''}">${esc(t.kind === 'request' ? t.badge : noun('fixture'))}</span></div>`)
+  room.innerHTML =
+    `<div class="h"><b>${esc(noun('town'))} · ${esc(name)}</b><span class="hint">a client's ${esc(noun('town'))} · read-only · Esc closes</span></div>` +
+    spendLineHtml(spendFold?.towns.get(name)) +
+    `<div class="cols"><div class="col town"><h3>Standing here · ${here.length}</h3>${rows.join('') || '<div class="note">nothing stands here — no request, no fixture</div>'}</div></div>` +
+    `<div class="foot">${spendFold?.at ? 'spend as of ' + esc(new Date(spendFold.at).toLocaleTimeString()) + ' · ' : ''}the ${esc(noun('town'))} mirrors its client — change things on the surfaces, never here</div>`
+  room.classList.add('on')
+}
+function openTown(name) {
+  townOpen = townOpen === name ? '' : name
+  roomOpen = ''
+  if (!townOpen) return room.classList.remove('on')
+  renderTown()
+  refreshSpend().then(() => townOpen === name && renderTown())
 }
 
 // ── U32: the archive ────────────────────────────────────────────────────────────────────────
@@ -557,13 +629,17 @@ window.addEventListener(
     else if (e.key === 'Escape' && roomOpen) {
       e.stopPropagation()
       openRoom(roomOpen)
+    } else if (e.key === 'Escape' && townOpen) {
+      e.stopPropagation()
+      openTown(townOpen)
     }
   },
   true
 )
 setInterval(() => roomOpen && refreshRoom(true), 60_000) // the sidecar's caches decide the cost; the panel never holds a stale copy of its own
+setInterval(() => (roomOpen || townOpen) && refreshSpend(true).then(() => (townOpen ? renderTown() : roomOpen && roomOpen !== 'archive' && renderRoom())), 60_000)
 // a console handle for the verifier and the checks: open a room by id, read what is open. No state, no write.
-window.agentWorld = Object.assign(window.agentWorld || {}, { openRoom, roomOpen: () => roomOpen, rooms: () => roomsOf().map((r) => r.id), refresh: () => refreshRoom(true) })
+window.agentWorld = Object.assign(window.agentWorld || {}, { openRoom, roomOpen: () => roomOpen, rooms: () => roomsOf().map((r) => r.id), refresh: () => refreshRoom(true), openTown, townOpen: () => townOpen, spend: () => spendSummary(spendFold), refreshSpend: () => refreshSpend(true).then(() => spendSummary(spendFold)) })
 // a click on a room plot (no figure under the pointer) opens its panel — the hex under the pointer against the rooms' cells
 let downAt = null
 window.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY } }, true)
@@ -580,9 +656,13 @@ window.addEventListener(
     const p = new (bc.rig.target.constructor)()
     if (!bc.rig.groundPoint(e.clientX, e.clientY, p)) return
     const cell = worldToHex(p.x, p.z)
-    const hit = [...bc.colony.plots.values()].find((plot) => plot.cellKeys?.has(`${cell.q},${cell.r}`))
-    const roomHit = hit && roomsOf().find((r) => r.name === hit.name)
-    if (roomHit) openRoom(roomHit.id)
+    const cellKey = `${cell.q},${cell.r}`
+    const hit = [...bc.colony.plots.values()].find((plot) => plot.cellKeys?.has(cellKey)) || [...quiet.values()].find((q) => q.plot.cellKeys?.has(cellKey))?.plot
+    if (!hit) return
+    const roomHit = roomsOf().find((r) => r.name === hit.name)
+    if (roomHit) return openRoom(roomHit.id)
+    // U35: a town plot opens the town card (the quiet towns are the overlay's own plots — same cells, same click)
+    if (townsHere().some((t) => t.name === hit.name)) openTown(hit.name)
   },
   true
 )

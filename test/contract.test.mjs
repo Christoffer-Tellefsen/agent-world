@@ -1,5 +1,5 @@
-// Agent World — U34: contract v1. The three schemas validate the captured Worker responses and the packs;
-// the adapter reads exactly two Worker routes.
+// Agent World — U34: contract v1. The schemas validate the captured Worker responses and the packs;
+// the adapter reads exactly three Worker routes (U35 added /world/spend, ES-4.13).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -12,6 +12,15 @@ const read = (p) => JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'))
 test('U34: spec/world-substrate.v1.json validates the captured GET /world/substrate', () => {
   const errs = validate(read('spec/world-substrate.v1.json'), read('test/fixtures/m2b-substrate.live.json'))
   assert.deepEqual(errs, [])
+})
+
+test('U35: spec/world-spend.v1.json validates the captured GET /world/spend, and refuses a bucket short of a counter', () => {
+  const schema = read('spec/world-spend.v1.json')
+  const live = read('test/fixtures/m2b-spend.live.json')
+  assert.deepEqual(validate(schema, live), [])
+  assert.ok(validate(schema, { ...live, totals: { runs_total: 1 } }).some((e) => /totals.*runs_metered/.test(e)))
+  assert.ok(validate(schema, { ...live, by_client: [{ runs_total: 0 }] }).some((e) => /by_client\[0\].*client/.test(e)))
+  assert.ok(!JSON.stringify(live).includes('"actor"'), 'the captured response carries no per-person field')
 })
 
 test('U34: spec/ledger-scan.v1.json validates the captured GET /ledger/scan, and refuses a shape that is not the ledger', () => {
@@ -40,9 +49,9 @@ const walk = (dir, out = []) => {
   }
   return out
 }
-test('U34: the adapter reads only /ledger/scan and /world/substrate — any other Worker route in server/harnesses/compass* fails', () => {
+test('U34/U35: the adapter reads only /ledger/scan, /world/substrate and /world/spend — any other Worker route in server/harnesses/compass* fails', () => {
   const files = [path.join(root, 'server/harnesses/compass.mjs'), ...walk(path.join(root, 'server/harnesses/compass'))]
-  const allowed = new Set(['/ledger/scan', '/world/substrate'])
+  const allowed = new Set(['/ledger/scan', '/world/substrate', '/world/spend'])
   const hits = []
   for (const f of files) {
     const text = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -54,12 +63,12 @@ test('U34: the adapter reads only /ledger/scan and /world/substrate — any othe
     // a Worker URL is built in config.mjs and nowhere else: no other file may touch eventsUrl or assemble one from a Worker field
     if (path.basename(f) !== 'config.mjs') {
       assert.ok(!/eventsUrl/.test(text), `${path.relative(root, f)} references eventsUrl — Worker URLs are config.mjs's to derive`)
-      assert.ok(!/(ledgerUrl|substrateUrl)\s*\.\s*(replace|slice|split|concat)\(/.test(text), `${path.relative(root, f)} rebuilds a Worker URL from a derived field`)
+      assert.ok(!/(ledgerUrl|substrateUrl|spendUrl)\s*\.\s*(replace|slice|split|concat)\(/.test(text), `${path.relative(root, f)} rebuilds a Worker URL from a derived field`)
       // every fetch of a Worker field is one of the two reads, verbatim
       for (const m of text.matchAll(/fetch(?:Impl)?\s*\(\s*([^,)]+)/g)) {
         const arg = m[1].trim()
-        if (!/ledgerUrl|substrateUrl|eventsUrl/.test(arg)) continue
-        assert.ok(arg === 'cfg.substrateUrl' || arg.startsWith('`${cfg.ledgerUrl}?since='), `${path.relative(root, f)} fetches a Worker URL that is not one of the two reads: ${arg}`)
+        if (!/ledgerUrl|substrateUrl|spendUrl|eventsUrl/.test(arg)) continue
+        assert.ok(arg === 'cfg.substrateUrl' || arg.startsWith('`${cfg.ledgerUrl}?since=') || arg.startsWith('`${cfg.spendUrl}?window='), `${path.relative(root, f)} fetches a Worker URL that is not one of the three reads: ${arg}`)
       }
     }
     for (const m of text.matchAll(/\/(?:ledger|world|ask|actions|events)(?:\/[a-z0-9_-]+)?\b/g)) {

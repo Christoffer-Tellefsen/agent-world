@@ -127,6 +127,18 @@ export async function loadArchive() {
     return null
   }
 }
+/**
+ * The Worker's spend object (U35) as the sidecar last read it — 60-s cache there; null when the sidecar is not there.
+ * includeTest keeps the test rows in (the page's ?include_test=1 — for the fixture check, never the default).
+ */
+export async function loadSpend(window = 30, includeTest = false) {
+  try {
+    const res = await fetch(`${SIDECAR}/spend?window=${encodeURIComponent(window)}${includeTest ? '&include_test=1' : ''}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(30_000) })
+    return res.ok ? await res.json() : null
+  } catch {
+    return null
+  }
+}
 /** The rooms the sidecar declares (the pack's, with ring and spoke) — the plots the room panels hang off. */
 export const rooms = () => world?.rooms || []
 

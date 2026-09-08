@@ -12,6 +12,12 @@
 #   ledger.sh gate_passed     PostToolUse + PostToolUseFailure — closes the matching gate (tool_failed on failure)
 #   ledger.sh run_completed   SessionEnd          — with the marker: rejects gates still open, posts run_completed, removes
 #                                                   the files. Without it (a helper session): removes the files, posts nothing.
+#                                                   U35 (ES-4.13): the payload carries usage summed from the session transcript
+#                                                   (hook input transcript_path; on the reconcile path ~/.claude/projects/<slug>/
+#                                                   <session_id>.jsonl) — assistant entries' message.usage, deduplicated on
+#                                                   message.id (the last entry per id wins: streaming writes several), the last
+#                                                   message.model seen, source "transcript". No transcript → no usage key.
+#   ledger.sh usage <path>    (tests, the ledger row) — prints that usage object for a transcript, or nothing.
 # Reads the hook's JSON input on stdin. Never blocks the session: every failure exits 0 quietly.
 # HOOK_DRY_RUN=1 prints each would-be POST body on stdout instead of sending it (never prints the token).
 # Privacy: references only — no tool input, no command text, no file contents, no prompt text (Compass rule 6; the
@@ -27,6 +33,26 @@
 set -u
 EVENT="${1:-}"
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
+# usage_json <transcript path> → the usage object for run_completed (U35), or nothing when the file is missing or unreadable.
+# Sums assistant entries' message.usage {input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens},
+# deduplicated on message.id (the last entry per id wins), plus the last message.model seen in file order. Never a prompt,
+# never a tool input, never a transcript line — four counters and a model id, well under 8 KB and no refused key.
+usage_json() {
+  [ -n "${1:-}" ] && [ -r "$1" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  jq -cn '
+    [inputs | select(type == "object" and .type == "assistant" and (.message.usage | type) == "object")] as $a
+    | ($a | group_by(.message.id // .uuid) | map(last)) as $d
+    | { input_tokens: ([$d[].message.usage.input_tokens // 0] | add // 0),
+        output_tokens: ([$d[].message.usage.output_tokens // 0] | add // 0),
+        cache_creation_input_tokens: ([$d[].message.usage.cache_creation_input_tokens // 0] | add // 0),
+        cache_read_input_tokens: ([$d[].message.usage.cache_read_input_tokens // 0] | add // 0),
+        model: ([$a[].message.model // empty] | last // null),
+        source: "transcript" }
+    | select((.input_tokens + .output_tokens + .cache_creation_input_tokens + .cache_read_input_tokens) > 0)
+  ' "$1" 2>/dev/null || true
+}
+if [ "$EVENT" = "usage" ]; then usage_json "${2:-}"; exit 0; fi
 [ -f "$HERE/.env" ] && set -a && . "$HERE/.env" && set +a
 : "${EVENTS_URL:=https://tellefsen-compass-mcp.christoffer-7e3.workers.dev/events}"
 DRY_RUN="${HOOK_DRY_RUN:-${LEDGER_DRY_RUN:-}}"
@@ -44,10 +70,11 @@ INPUT_HASH="$(printf '%s' "$INPUT" | jq -cS '.tool_input // {}' | shasum | cut -
 CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty')"
 PROJECT="${AGENT_WORLD_PROJECT_ID:-3d1c0af9-c974-81ce-8a25-f4bdeadd54ab}"
 REPO_URL="${REPO_URL:-https://github.com/Christoffer-Tellefsen/agent-world}"
-STATE_DIR="$HERE/.claude/state"
+STATE_DIR="${LEDGER_STATE_DIR:-$HERE/.claude/state}"          # tests point this at a scratch dir
 GATES="$STATE_DIR/$SESSION.gates"
 STATE="$STATE_DIR/$SESSION.session"
-RUN_ID_FILE="$HERE/.claude/run_id"
+RUN_ID_FILE="${LEDGER_RUN_ID_FILE:-$HERE/.claude/run_id}"
+PROJECTS_DIR="${LEDGER_PROJECTS_DIR:-$HOME/.claude/projects}"  # where Claude Code keeps <slug>/<session_id>.jsonl
 STALE_MINUTES="${LEDGER_STALE_MINUTES:-30}"
 mkdir -p "$STATE_DIR"
 
@@ -106,9 +133,24 @@ close_run() {  # $1 = run_id, $2 = gates file, $3 = note for the rejected closes
   post "$(base "$1" run_completed "$4" "$(eid "$1" "" run_completed)")"
   rm -f "$2"
 }
-end_session() {  # $1 = session id, $2 = note for rejected closes, $3 = run_completed payload. Posts only if run_started was.
+# with_usage <payload json> <transcript path> → the payload plus {usage} when the transcript sums to something (U35).
+with_usage() {
+  local u
+  u="$(usage_json "${2:-}")"
+  if [ -n "$u" ]; then jq -cn --argjson p "$1" --argjson u "$u" '$p + {usage: $u}'; else printf '%s' "$1"; fi
+}
+# transcript_for <session id> → the path Claude Code writes the session's transcript to: <projects>/<slug of cwd>/<id>.jsonl,
+# the slug being the cwd with every character outside [A-Za-z0-9] as "-" (the state file carries the cwd; else this repo).
+transcript_for() {
+  local cwd slug
+  cwd="$( [ -f "$STATE_DIR/$1.session" ] && jq -r '.cwd // empty' "$STATE_DIR/$1.session" 2>/dev/null )"
+  [ -n "$cwd" ] || cwd="$HERE"
+  slug="$(printf '%s' "$cwd" | sed 's/[^A-Za-z0-9]/-/g')"
+  printf '%s/%s/%s.jsonl' "$PROJECTS_DIR" "$slug" "$1"
+}
+end_session() {  # $1 = session id, $2 = note for rejected closes, $3 = run_completed payload, $4 = transcript path. Posts only if run_started was.
   case "$(started "$1")" in
-    yes|legacy) close_run "$1" "$STATE_DIR/$1.gates" "$2" "$3" ;;
+    yes|legacy) close_run "$1" "$STATE_DIR/$1.gates" "$2" "$(with_usage "$3" "${4:-}")" ;;
     *) rm -f "$STATE_DIR/$1.gates" ;;
   esac
   rm -f "$STATE_DIR/$1.session"
@@ -126,7 +168,8 @@ case "$EVENT" in
       sid="$(basename "$f")"; sid="${sid%.*}"
       [ "$sid" != "$SESSION" ] || continue
       [ -f "$STATE_DIR/$sid.session" ] && [ "${f##*.}" = "gates" ] && continue   # judged by its .session file instead
-      end_session "$sid" "unresolved_at_session_end" '{"outcome":"success","note":"reconciled_at_next_session_start"}'
+      # U35: the closed session's transcript is still on disk — its usage rides on the reconciled run_completed
+      end_session "$sid" "unresolved_at_session_end" '{"outcome":"success","note":"reconciled_at_next_session_start"}' "$(transcript_for "$sid")"
     done < <(find "$STATE_DIR" -maxdepth 1 \( -name '*.session' -o -name '*.gates' \) -mmin "+$STALE_MINUTES" 2>/dev/null)
     ;;
   run_started)
@@ -164,8 +207,12 @@ case "$EVENT" in
     # SessionEnd (per-hook timeout 10 s in settings.json). A prompt still open at exit was never answered: close it
     # as rejected so no ? outlives the session, then the terminal event — but only for a session that posted
     # run_started. A helper session with no prompt just loses its state file. Not on Stop — Stop is per turn.
-    end_session "$SESSION" "unresolved_at_session_end" '{"outcome":"success"}'
-    # The ops_skill_runs row is written by the session itself at end-of-run (CLAUDE.md, session rule 6).
+    # U35: usage from the transcript the hook input names (falls back to the projects dir path); missing → no usage key, still exit 0.
+    TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty')"
+    [ -n "$TRANSCRIPT" ] && [ -r "$TRANSCRIPT" ] || TRANSCRIPT="$(transcript_for "$SESSION")"
+    end_session "$SESSION" "unresolved_at_session_end" '{"outcome":"success"}' "$TRANSCRIPT"
+    # The ops_skill_runs row is written by the session itself at end-of-run (CLAUDE.md, session rule 6) — tokens_in =
+    # usage.input + cache_creation + cache_read, tokens_out = usage.output_tokens, model = usage.model when usage was posted.
     ;;
   *) exit 0 ;;
 esac

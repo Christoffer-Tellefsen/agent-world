@@ -1,0 +1,472 @@
+{
+ "note": "GET /world/spend?window=30 captured 2026-09-08 for the contract test (U35, ES-4.13) — the Step 0 probe of Prompt D; every run unmetered at capture (the first metered rows arrive with the hooks and fixture Iota). Re-capture with scripts/capture-contract.sh.",
+ "at": "2026-09-08T05:43:11.178Z",
+ "window_days": 30,
+ "pricing_version": "0.2 · 2026-09-08 (ES-4.13; Decision reference)",
+ "pricing_verified": "2026-09-07 by chat against the platform pricing page (Sonnet 5's 2/10 confirmed as the standard rate — the 1 Sept increase to 3/15 did not happen)",
+ "excluded_test_runs": 0,
+ "display": {
+  "note": "The rial is pegged (1 USD = 0.3845 OMR); a World Pack may render OMR by multiplying at display time — a presentation conversion, not a stored fact. cost_usd stays the fact.",
+  "omr_per_usd": 0.3845
+ },
+ "totals": {
+  "runs_total": 50,
+  "runs_metered": 0,
+  "runs_unmetered": 50,
+  "runs_unpriced": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "tokens_unpriced": 0,
+  "cost_usd": 0,
+  "methods": {
+   "breakdown": 0,
+   "flat": 0
+  }
+ },
+ "by_client": [
+  {
+   "client": "internal",
+   "runs_total": 50,
+   "runs_metered": 0,
+   "runs_unmetered": 50,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  }
+ ],
+ "by_skill": [
+  {
+   "skill": "project-log",
+   "type": "Operations",
+   "runs_total": 17,
+   "runs_metered": 0,
+   "runs_unmetered": 17,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "agent-world-build",
+   "type": "Delivery",
+   "runs_total": 16,
+   "runs_metered": 0,
+   "runs_unmetered": 16,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "compass",
+   "type": "Operations",
+   "runs_total": 4,
+   "runs_metered": 0,
+   "runs_unmetered": 4,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "content-agent",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "content-strategy",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "gate-reconciliation",
+   "type": "Operations",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "media-engine",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "milestone-close",
+   "type": "Delivery",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "build-kickoff",
+   "type": "Delivery",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "linkedin-engine",
+   "type": "Content",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "skill": "notion",
+   "type": "Operations",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  }
+ ],
+ "by_client_skill": [
+  {
+   "client": "internal",
+   "skill": "project-log",
+   "type": "Operations",
+   "runs_total": 17,
+   "runs_metered": 0,
+   "runs_unmetered": 17,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "agent-world-build",
+   "type": "Delivery",
+   "runs_total": 16,
+   "runs_metered": 0,
+   "runs_unmetered": 16,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "compass",
+   "type": "Operations",
+   "runs_total": 4,
+   "runs_metered": 0,
+   "runs_unmetered": 4,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "content-agent",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "content-strategy",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "gate-reconciliation",
+   "type": "Operations",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "media-engine",
+   "type": "Content",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "milestone-close",
+   "type": "Delivery",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "build-kickoff",
+   "type": "Delivery",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "linkedin-engine",
+   "type": "Content",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "client": "internal",
+   "skill": "notion",
+   "type": "Operations",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  }
+ ],
+ "by_model": [
+  {
+   "model": "claude-fable-5-1",
+   "runs_total": 43,
+   "runs_metered": 0,
+   "runs_unmetered": 43,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "model": "unpriced",
+   "runs_total": 4,
+   "runs_metered": 0,
+   "runs_unmetered": 4,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "model": "claude-haiku-4-5",
+   "runs_total": 2,
+   "runs_metered": 0,
+   "runs_unmetered": 2,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  },
+  {
+   "model": "claude-sonnet-5",
+   "runs_total": 1,
+   "runs_metered": 0,
+   "runs_unmetered": 1,
+   "runs_unpriced": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "tokens_unpriced": 0,
+   "cost_usd": 0,
+   "methods": {
+    "breakdown": 0,
+    "flat": 0
+   }
+  }
+ ]
+}
