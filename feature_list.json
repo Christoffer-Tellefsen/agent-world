@@ -1,7 +1,7 @@
 {
   "_rules": "Edit ONLY the `passes` flags, and only after the steps have been run end-to-end. Never remove or weaken a feature or its steps. Order is the build order. `passes: true` means Built (automated + steps green); Verified is set by Christoffer in the Notion unit table, never here. M2 units carry depends_on / prereq / repo / check / verified: the loop skips a unit whose prereq is missing and says which; repo=worker units are built in tellefsen-compass-mcp, repo=human units are Christoffer's; verified is null until his cold check and is written only on his reply.",
   "project": "Agent World — Bot Crossing fork with Compass adapter (M1 Mirror closed 2026-09-07; M2 Ontology skin in build)",
-  "milestone": "M1 — Mirror (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176, closed 2026-09-07) + M2 — The world speaks Tellefsen's ontology (units U12–U21, cut 2026-09-06, re-issued 2026-09-07 with the post-cut decisions folded in; build order U12 → U13 → U14 → U15 → U17 → U19 → U20 → U16 → U18 → U21; U16W is built in tellefsen-compass-mcp, U21 is Christoffer's) + M2b — The still map (units U28–U34, Decision 2026-09-07; build order U28 → U29 → U30 → U31 → U32 → U33 → U34 → U16; U19 absorbed by U31, U20 by U29; U13, U17, U18 amended by U32 / U33 / U33)",
+  "milestone": "M1 — Mirror (Notion milestone 3d1c0af9-c974-810c-aca6-fcdce5ca4176, closed 2026-09-07) + M2 — The world speaks Tellefsen's ontology (units U12–U21, cut 2026-09-06, re-issued 2026-09-07 with the post-cut decisions folded in; build order U12 → U13 → U14 → U15 → U17 → U19 → U20 → U16 → U18 → U21; U16W is built in tellefsen-compass-mcp, U21 is Christoffer's) + M2b — The still map (units U28–U34, Decision 2026-09-07; build order U28 → U29 → U30 → U31 → U32 → U33 → U34 → U16; U19 absorbed by U31, U20 by U29; U13, U17, U18 amended by U32 / U33 / U33) + ES-4.13 Spend (U35, merged 2026-09-08; U35W is built in tellefsen-compass-mcp)",
   "features": [
     {
       "id": "U1",
@@ -665,6 +665,55 @@
       ],
       "check": "V-U34",
       "passes": true,
+      "verified": null
+    },
+    {
+      "id": "U35",
+      "category": "spend",
+      "milestone": "M2b — The still map (Decision 2026-09-07; SPEC.md §3 O6) · ES-4.13 Spend (merged 2026-09-08)",
+      "description": "Spend per town and room — every town and every campus room shows the tokens spent and their list-price cost over a window, read from GET /world/spend on the Compass Worker (U35W, external), which prices ops_skill_runs against MODEL_PRICING; the world holds no token count, no price and no peg — it folds the Worker's per-client and per-skill rows through the pack's own room fold (roomForSkill); unmetered and unpriced runs are counted on the same line so a total is never silently short; Owner-only (Component 9); never per actor (Annex III); the neutral pack does not show it; the hooks post usage (transcript token sums, deduplicated on message id) on run_completed so a Claude Code session is metered",
+      "delivers": [
+        "ES-4.13"
+      ],
+      "depends_on": [
+        "U12",
+        "U28",
+        "U31"
+      ],
+      "external": [
+        "U35W — GET /world/spend in tellefsen-compass-mcp (live 2026-09-08)"
+      ],
+      "prereq": [
+        "U12 Built",
+        "U28 Built",
+        "U31 Built",
+        "U35W live: GET $W/world/spend?window=30 answers 200 (Step 0 probe)"
+      ],
+      "repo": "agent-world",
+      "files": [
+        ".claude/hooks/ledger.sh",
+        "compass/config.mjs",
+        "compass/spend.mjs",
+        "compass/overlay-api.mjs (GET /spend)",
+        "overlay/spend.mjs",
+        "overlay/main.js (town card, room panel line)",
+        "overlay/packs/*/pack.json (spend)",
+        "spec/world-spend.v1.json",
+        "scripts/zztest-seed.sh (fixture Iota)"
+      ],
+      "steps": [
+        "automated: fold reconciliation — rooms + elsewhere = campus and towns + campus = planet, on cost_usd and runs_total, against a captured /world/spend response and a synthetic one with towns, unknown clients and an undeclared room",
+        "automated: number formatting — 84k, 1.2M, $18.40; OMR multiplies by display.omr_per_usd from the response",
+        "automated: unmetered rendering — runs_metered 0 reads \"unmetered\", never $0; the unmetered and unpriced counts ride on the same line",
+        "automated: Owner-only — any other preset yields no line, not a blank one; pack show/hide — tellefsen-campus shows, neutral does not",
+        "automated: a grep test — overlay/spend.mjs and the sidecar's /spend route contain no \"actor\"",
+        "automated: the hook's usage sum from a transcript fixture — deduplicated on message.id (last entry wins), the last model seen, source transcript; a missing transcript posts run_completed without usage",
+        "automated: the sidecar serves GET /spend and GET /spend?window=n from the reader; the contract test validates the captured /world/spend against spec/world-spend.v1.json and allows exactly three Worker reads",
+        "live: hooks post usage on run_completed (the session's own ledger row carries tokens); the sidecar answers /spend; a town card and a room panel each carry the line under the Owner preset; fixture Iota on the ZZTEST town with include_test=1 reads tokens 327,000, cost $0.6125, 0 unmetered",
+        "npm test green; vite build bundles the overlay; git diff upstream/main -- src/ empty"
+      ],
+      "check": "V-U35",
+      "passes": false,
       "verified": null
     },
     {
